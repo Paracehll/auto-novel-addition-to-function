@@ -38,6 +38,8 @@ const { whoami } = storeToRefs(whoamiStore);
 const settingStore = useSettingStore();
 const { setting } = storeToRefs(settingStore);
 
+const osTheme = useOsTheme();
+
 const menuCollapsed = computed(() => {
   if (menuShowTrigger.value) {
     return setting.value.menuCollapsed;
@@ -54,7 +56,6 @@ const renderIcon = (icon: Component) => () =>
 const menuOptions = computed<MenuOption[]>(() => {
   const resolveTheme = () => {
     if (setting.value.theme === 'system') {
-      const osTheme = useOsTheme();
       return osTheme.value ?? 'light';
     } else {
       return setting.value.theme;
