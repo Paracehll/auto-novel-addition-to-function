@@ -1,10 +1,18 @@
+<script lang="ts" set>
+import { useLocalStorage } from '@/util/useStorage';
+
+const collapsedStore = useLocalStorage<Record<string, boolean>>(
+  'collapsed-comments',
+  {},
+);
+</script>
+
 <script lang="ts" setup>
 import { ChevronRightOutlined } from '@vicons/material';
 
 import { CommentRepo } from '@/repos';
 import type { Comment1 } from '@/model/Comment';
 import { useDraftStore, useSettingStore } from '@/stores';
-import { useLocalStorage } from '@/util/useStorage';
 
 const props = defineProps<{
   site: string;
@@ -42,10 +50,6 @@ function onReplied() {
 }
 const showInput = ref(false);
 
-const collapsedStore = useLocalStorage<Record<string, boolean>>(
-  'collapsed-comments',
-  {},
-);
 const collapsed = computed({
   get: () => collapsedStore.value[props.comment.id] ?? false,
   set: (v) => {
@@ -108,7 +112,10 @@ const collapsed = computed({
         @cancel="showInput = false"
       />
 
-      <div v-if="comment.numReplies > 0" style="margin-left: 32px; margin-top: 20px">
+      <div
+        v-if="comment.numReplies > 0"
+        style="margin-left: 32px; margin-top: 20px"
+      >
         <CPage
           v-model:page="page"
           :page-number="commentPage?.pageNumber"
