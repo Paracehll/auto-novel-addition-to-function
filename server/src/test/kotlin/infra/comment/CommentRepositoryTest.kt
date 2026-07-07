@@ -48,6 +48,25 @@ class CommentRepositoryTest : DescribeSpec(), KoinTest {
                 commentRepo.countComment(site, null, true) shouldBe 2
                 commentRepo.countComment(site, null, false) shouldBe 1
             }
+
+            it("should count unique users when unique is true") {
+                collection.drop()
+                commentRepo.createComment(site, null, "user1", "content1")
+                commentRepo.createComment(site, null, "user1", "content2")
+                commentRepo.createComment(site, null, "user2", "content3")
+
+                commentRepo.countComment(site, null, true, unique = true) shouldBe 2
+                commentRepo.countComment(site, null, true, unique = false) shouldBe 3
+            }
+
+            it("should exclude replies when reply is false") {
+                collection.drop()
+                val parentId = commentRepo.createComment(site, null, "user1", "content1")
+                commentRepo.createComment(site, parentId.toHexString(), "user2", "reply1")
+
+                commentRepo.countComment(site, null, true, reply = true) shouldBe 2
+                commentRepo.countComment(site, null, true, reply = false) shouldBe 1
+            }
         }
     }
 }

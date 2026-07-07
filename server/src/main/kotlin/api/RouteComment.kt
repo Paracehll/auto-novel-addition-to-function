@@ -32,6 +32,8 @@ private class CommentRes {
         val parent: CommentRes,
         val site: String,
         val parentId: String? = null,
+        val unique: Int = 0,
+        val reply: Int = 1,
     )
 
     @Resource("/{id}")
@@ -67,6 +69,8 @@ fun Route.routeComment() {
                     user = user,
                     site = loc.site,
                     parentId = loc.parentId,
+                    unique = loc.unique != 0,
+                    reply = loc.reply != 0,
                 )
             }
         }
@@ -153,6 +157,8 @@ class CommentApi(
         user: User?,
         site: String,
         parentId: String?,
+        unique: Boolean = false,
+        reply: Boolean = true,
     ): CommentCountDto {
         if (site.isBlank()) throwBadRequest("site 不能为空")
 
@@ -161,6 +167,8 @@ class CommentApi(
             site = site,
             parent = parentId?.takeIf { it.isNotBlank() },
             includeHidden = ignoreHidden,
+            unique = unique,
+            reply = reply,
         )
         return CommentCountDto(total = total)
     }
