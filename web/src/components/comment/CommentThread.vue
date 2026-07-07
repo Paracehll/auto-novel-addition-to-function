@@ -50,7 +50,7 @@ const collapsed = ref(false);
   />
 
   <n-collapse-transition :show="!collapsed">
-    <div>
+    <div style="display: flow-root">
       <CommentEditor
         v-if="showInput"
         :site="site"

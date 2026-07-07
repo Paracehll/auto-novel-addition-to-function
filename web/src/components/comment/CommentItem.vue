@@ -127,7 +127,7 @@ const isBlocked = computed(() => {
 <template>
   <n-flex align="center" :size="0">
     <n-button
-      v-if="parentId === undefined"
+      v-if="parentId === undefined && comment.numReplies > 0"
       quaternary
       circle
       size="tiny"
@@ -185,7 +185,8 @@ const isBlocked = computed(() => {
   </n-flex>
 
   <n-collapse-transition :show="!collapsed">
-    <n-card embedded :bordered="false" size="small" style="margin-top: 2px">
+    <div style="display: flow-root">
+      <n-card embedded :bordered="false" size="small" style="margin-top: 2px">
       <n-text v-if="comment.hidden" depth="3">[隐藏]</n-text>
       <n-text v-else-if="isBlocked" depth="3">[屏蔽]</n-text>
       <MarkdownView
@@ -195,5 +196,6 @@ const isBlocked = computed(() => {
         style="margin-top: -1em; margin-bottom: -1em"
       />
     </n-card>
+  </div>
   </n-collapse-transition>
 </template>
