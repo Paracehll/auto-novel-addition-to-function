@@ -4,6 +4,7 @@ import { ChevronRightOutlined } from '@vicons/material';
 import { CommentRepo } from '@/repos';
 import type { Comment1 } from '@/model/Comment';
 import { useDraftStore } from '@/stores';
+import { useLocalStorage } from '@/util/useStorage';
 
 const props = defineProps<{
   site: string;
@@ -37,7 +38,21 @@ function onReplied() {
   draftStore.removeDraft(draftId);
 }
 const showInput = ref(false);
-const collapsed = ref(false);
+
+const collapsedStore = useLocalStorage<Record<string, boolean>>(
+  'collapsed-comments',
+  {},
+);
+const collapsed = computed({
+  get: () => collapsedStore.value[props.comment.id] ?? false,
+  set: (v) => {
+    if (v) {
+      collapsedStore.value[props.comment.id] = true;
+    } else {
+      delete collapsedStore.value[props.comment.id];
+    }
+  },
+});
 </script>
 
 <template>
@@ -49,7 +64,10 @@ const collapsed = ref(false);
     @reply="showInput = !showInput"
   />
 
-  <div v-if="comment.numReplies > 0" style="margin-top: 4px">
+  <div
+    v-if="comment.numReplies > 0"
+    style="height: 0; overflow: visible; position: relative; z-index: 1"
+  >
     <n-button quaternary size="tiny" @click="collapsed = !collapsed">
       <template #icon>
         <n-icon
