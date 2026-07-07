@@ -12,6 +12,7 @@ export interface Setting {
   tocExpandAll: boolean;
   hideCommmentWebNovel: boolean;
   hideCommmentWenkuNovel: boolean;
+  enableCommentCollapse: boolean;
   showTagInWebFavored: boolean;
   favoriteCreateTimeFirst: boolean;
   //
@@ -69,6 +70,7 @@ export namespace Setting {
     tocExpandAll: true,
     hideCommmentWebNovel: false,
     hideCommmentWenkuNovel: false,
+    enableCommentCollapse: true,
     showTagInWebFavored: false,
     favoriteCreateTimeFirst: false,
     //

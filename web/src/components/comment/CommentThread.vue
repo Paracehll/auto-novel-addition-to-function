@@ -3,7 +3,7 @@ import { ChevronRightOutlined } from '@vicons/material';
 
 import { CommentRepo } from '@/repos';
 import type { Comment1 } from '@/model/Comment';
-import { useDraftStore } from '@/stores';
+import { useDraftStore, useSettingStore } from '@/stores';
 import { useLocalStorage } from '@/util/useStorage';
 
 const props = defineProps<{
@@ -11,6 +11,9 @@ const props = defineProps<{
   comment: Comment1;
   canReply: boolean;
 }>();
+
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
 
 const draftStore = useDraftStore();
 const draftId = `comment-${props.site}`;
@@ -64,7 +67,10 @@ const collapsed = computed({
     @reply="showInput = !showInput"
   />
 
-  <div v-if="comment.numReplies > 0" style="margin-top: 8px">
+  <div
+    v-if="setting.enableCommentCollapse && comment.numReplies > 0"
+    style="margin-top: 8px"
+  >
     <n-button
       quaternary
       size="small"
@@ -86,7 +92,10 @@ const collapsed = computed({
     </n-button>
   </div>
 
-  <n-collapse-transition v-if="showInput || comment.numReplies > 0" :show="!collapsed">
+  <n-collapse-transition
+    v-if="showInput || comment.numReplies > 0"
+    :show="!setting.enableCommentCollapse || !collapsed"
+  >
     <div style="display: flow-root">
       <CommentEditor
         v-if="showInput"
