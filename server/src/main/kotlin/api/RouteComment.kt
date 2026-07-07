@@ -27,13 +27,6 @@ private class CommentRes {
         val pageSize: Int,
     )
 
-    @Resource("/count")
-    class Count(
-        val parent: CommentRes,
-        val site: String,
-        val parentId: String? = null,
-    )
-
     @Resource("/{id}")
     class Id(val parent: CommentRes, val id: String) {
         @Resource("/hidden")
@@ -43,6 +36,12 @@ private class CommentRes {
 
 fun Route.routeComment() {
     val service by inject<CommentApi>()
+
+    @Resource("/comment/count")
+    class CommentCountRes(
+        val site: String,
+        val parentId: String? = null,
+    )
 
     authenticateDb(optional = true) {
         get<CommentRes.List> { loc ->
@@ -60,7 +59,7 @@ fun Route.routeComment() {
             }
         }
 
-        get<CommentRes.Count> { loc ->
+        get<CommentCountRes> { loc ->
             call.tryRespond {
                 val user = call.userOrNull()
                 service.countComment(
