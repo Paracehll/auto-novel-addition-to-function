@@ -84,6 +84,17 @@ const playSound = (source: string) => {
           <n-checkbox v-model:checked="setting.hideCommmentWenkuNovel">
             隐藏文库小说评论
           </n-checkbox>
+          <n-checkbox v-model:checked="setting.showCommentCount">
+            显示评论数
+          </n-checkbox>
+          <n-flex v-if="setting.showCommentCount" style="margin-left: 24px">
+            <n-checkbox v-model:checked="setting.commentCountUnique">
+              仅计数独一用户
+            </n-checkbox>
+            <n-checkbox v-model:checked="setting.commentCountReply">
+              计数回覆评论
+            </n-checkbox>
+          </n-flex>
           <b>收藏夹</b>
           <n-checkbox v-model:checked="setting.showTagInWebFavored">
             显示收藏夹里网络小说的标签

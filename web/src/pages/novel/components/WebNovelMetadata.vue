@@ -1,7 +1,4 @@
 <script lang="ts" setup>
-import { useMessage } from 'naive-ui';
-
-import { CommentApi } from '@/api/novel/CommentApi';
 import type { WebNovelDto } from '@/model/WebNovel';
 
 const props = defineProps<{
@@ -28,16 +25,6 @@ const latestChapterCreateAt = computed(() => {
   else return Math.max(...createAtList);
 });
 
-const message = useMessage();
-const testCommentCount = async () => {
-  try {
-    const site = `web-${props.providerId}-${props.novelId}`;
-    const { total } = await CommentApi.countComment({ site });
-    message.success(`评论数量：${total}`);
-  } catch (e) {
-    message.error(`测试失败：${e}`);
-  }
-};
 </script>
 
 <template>
@@ -76,10 +63,6 @@ const testCommentCount = async () => {
     :visited="novel.visited"
     :latest-chapter-create-at="latestChapterCreateAt"
   />
-
-  <n-button @click="testCommentCount" size="small" style="margin-top: 12px">
-    测试评论数量 API
-  </n-button>
 
   <WebNovelIntroduction
     :introduction-jp="novel.introductionJp"

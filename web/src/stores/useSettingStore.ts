@@ -12,6 +12,9 @@ export interface Setting {
   tocExpandAll: boolean;
   hideCommmentWebNovel: boolean;
   hideCommmentWenkuNovel: boolean;
+  showCommentCount: boolean;
+  commentCountUnique: boolean;
+  commentCountReply: boolean;
   showTagInWebFavored: boolean;
   favoriteCreateTimeFirst: boolean;
   //
@@ -69,6 +72,9 @@ export namespace Setting {
     tocExpandAll: true,
     hideCommmentWebNovel: false,
     hideCommmentWenkuNovel: false,
+    showCommentCount: true,
+    commentCountUnique: false,
+    commentCountReply: true,
     showTagInWebFavored: false,
     favoriteCreateTimeFirst: false,
     //

@@ -2,7 +2,6 @@
 import { EditNoteOutlined, LanguageOutlined } from '@vicons/material';
 import { createReusableTemplate } from '@vueuse/core';
 
-import { CommentApi } from '@/api/novel/CommentApi';
 import { WenkuNovelRepo } from '@/repos';
 import coverPlaceholder from '@/image/cover_placeholder.png';
 import { GenericNovelId } from '@/model/Common';
@@ -20,16 +19,6 @@ const [DefineTagGroup, ReuseTagGroup] = createReusableTemplate<{
 const isWideScreen = useIsWideScreen(600);
 const message = useMessage();
 const vars = useThemeVars();
-
-const testCommentCount = async () => {
-  try {
-    const site = `wenku-${novelId}`;
-    const { total } = await CommentApi.countComment({ site });
-    message.success(`评论数量：${total}`);
-  } catch (e) {
-    message.error(`测试失败：${e}`);
-  }
-};
 
 const settingStore = useSettingStore();
 const { setting } = storeToRefs(settingStore);
@@ -188,9 +177,6 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
         最新出版于
         <n-time :time="novel.latestPublishAt * 1000" type="date" />
       </n-p>
-      <n-button @click="testCommentCount" size="small" style="margin-bottom: 12px">
-        测试评论数量 API
-      </n-button>
 
       <!-- eslint-disable-next-line vue/no-v-html -->
       <n-p v-html="novel.introduction.replace(/\n/g, '<br />')" />

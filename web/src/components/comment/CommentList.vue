@@ -1,13 +1,45 @@
 <script lang="ts" setup>
 import { CommentOutlined } from '@vicons/material';
 
+import { CommentApi } from '@/api/novel/CommentApi';
 import { CommentRepo } from '@/repos';
-import { useDraftStore, useWhoamiStore } from '@/stores';
+import { useDraftStore, useSettingStore, useWhoamiStore } from '@/stores';
 
 const props = defineProps<{
   site: string;
   locked: boolean;
 }>();
+
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
+
+const commentCount = ref<number | null>(null);
+
+watch(
+  () => [
+    props.site,
+    setting.value.showCommentCount,
+    setting.value.commentCountUnique,
+    setting.value.commentCountReply,
+  ],
+  async () => {
+    if (!setting.value.showCommentCount) {
+      commentCount.value = null;
+      return;
+    }
+    try {
+      const { total } = await CommentApi.countComment({
+        site: props.site,
+        unique: setting.value.commentCountUnique ? 1 : 0,
+        reply: setting.value.commentCountReply ? 1 : 0,
+      });
+      commentCount.value = total;
+    } catch (e) {
+      console.error('Failed to fetch comment count:', e);
+    }
+  },
+  { immediate: true },
+);
 
 const page = ref(1);
 const { data: commentPage, error } = CommentRepo.useCommentList(
@@ -50,6 +82,9 @@ const canReply = computed(() => {
     ref="commentSectionRef"
     style="margin-bottom: 32px"
   >
+    <template #title-extra v-if="commentCount !== null">
+      <n-text depth="3">💬 {{ commentCount }}</n-text>
+    </template>
     <c-button
       v-if="canReply"
       label="发表评论"
