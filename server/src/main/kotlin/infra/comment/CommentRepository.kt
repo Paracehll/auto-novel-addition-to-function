@@ -105,6 +105,23 @@ class CommentRepository(
         }
     }
 
+    suspend fun countComment(
+        site: String,
+        parent: String?,
+        includeHidden: Boolean,
+    ): Long {
+        val filters = mutableListOf(
+            eq(CommentDbModel::site.field(), site)
+        )
+        if (parent != null) {
+            filters.add(eq(CommentDbModel::parent.field(), ObjectId(parent)))
+        }
+        if (!includeHidden) {
+            filters.add(eq(CommentDbModel::hidden.field(), false))
+        }
+        return commentCollection.countDocuments(and(filters))
+    }
+
     suspend fun isCommentCanRevoke(
         id: String,
         userId: String,
