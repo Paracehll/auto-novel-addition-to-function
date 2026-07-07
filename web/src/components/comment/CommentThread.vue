@@ -64,10 +64,7 @@ const collapsed = computed({
     @reply="showInput = !showInput"
   />
 
-  <div
-    v-if="comment.numReplies > 0"
-    style="height: 0; overflow: visible; position: relative; z-index: 1"
-  >
+  <div v-if="comment.numReplies > 0" style="margin-top: 4px">
     <n-button
       quaternary
       size="small"
