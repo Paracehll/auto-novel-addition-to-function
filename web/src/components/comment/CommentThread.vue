@@ -68,7 +68,13 @@ const collapsed = computed({
     v-if="comment.numReplies > 0"
     style="height: 0; overflow: visible; position: relative; z-index: 1"
   >
-    <n-button quaternary size="tiny" @click="collapsed = !collapsed">
+    <n-button
+      quaternary
+      size="small"
+      :focusable="false"
+      style="padding: 0"
+      @click="collapsed = !collapsed"
+    >
       <template #icon>
         <n-icon
           :component="ChevronRightOutlined"
@@ -82,7 +88,7 @@ const collapsed = computed({
     </n-button>
   </div>
 
-  <n-collapse-transition :show="!collapsed">
+  <n-collapse-transition v-if="showInput || comment.numReplies > 0" :show="!collapsed">
     <div style="display: flow-root">
       <CommentEditor
         v-if="showInput"
@@ -95,7 +101,7 @@ const collapsed = computed({
         @cancel="showInput = false"
       />
 
-      <div style="margin-left: 32px; margin-top: 20px">
+      <div v-if="comment.numReplies > 0" style="margin-left: 32px; margin-top: 20px">
         <CPage
           v-model:page="page"
           :page-number="commentPage?.pageNumber"
