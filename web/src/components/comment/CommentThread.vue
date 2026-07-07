@@ -35,6 +35,7 @@ function onReplied() {
   draftStore.removeDraft(draftId);
 }
 const showInput = ref(false);
+const collapsed = ref(false);
 </script>
 
 <template>
@@ -43,41 +44,47 @@ const showInput = ref(false);
     :site="site"
     :comment="comment"
     :can-reply="canReply"
+    :collapsed="collapsed"
     @reply="showInput = !showInput"
+    @toggle-collapse="collapsed = !collapsed"
   />
 
-  <CommentEditor
-    v-if="showInput"
-    :site="site"
-    :draft-id="draftId"
-    :parent="comment.id"
-    :placeholder="`回复${comment.user.username}`"
-    style="padding-top: 8px"
-    @replied="onReplied()"
-    @cancel="showInput = false"
-  />
+  <n-collapse-transition :show="!collapsed">
+    <div>
+      <CommentEditor
+        v-if="showInput"
+        :site="site"
+        :draft-id="draftId"
+        :parent="comment.id"
+        :placeholder="`回复${comment.user.username}`"
+        style="padding-top: 8px"
+        @replied="onReplied()"
+        @cancel="showInput = false"
+      />
 
-  <div style="margin-left: 32px; margin-top: 20px">
-    <CPage
-      v-model:page="page"
-      :page-number="commentPage?.pageNumber"
-      disable-top
-    >
-      <template v-if="commentPage">
-        <div
-          v-for="replyComment in commentPage?.items"
-          :key="replyComment.id"
-          style="margin-top: 20px; margin-bottom: 20px"
+      <div style="margin-left: 32px; margin-top: 20px">
+        <CPage
+          v-model:page="page"
+          :page-number="commentPage?.pageNumber"
+          disable-top
         >
-          <CommentItem
-            :site="site"
-            :parent-id="comment.id"
-            :comment="replyComment"
-            :can-reply="canReply"
-          />
-        </div>
-      </template>
-      <CResultX v-else :error="error" title="加载错误" />
-    </CPage>
-  </div>
+          <template v-if="commentPage">
+            <div
+              v-for="replyComment in commentPage?.items"
+              :key="replyComment.id"
+              style="margin-top: 20px; margin-bottom: 20px"
+            >
+              <CommentItem
+                :site="site"
+                :parent-id="comment.id"
+                :comment="replyComment"
+                :can-reply="canReply"
+              />
+            </div>
+          </template>
+          <CResultX v-else :error="error" title="加载错误" />
+        </CPage>
+      </div>
+    </div>
+  </n-collapse-transition>
 </template>

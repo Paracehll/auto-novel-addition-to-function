@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import {
+  ChevronRightOutlined,
   CommentOutlined,
   DeleteOutlined,
   MoreVertOutlined,
@@ -15,10 +16,12 @@ const props = defineProps<{
   parentId?: string;
   comment: Comment1;
   canReply: boolean;
+  collapsed?: boolean;
 }>();
 
 const emit = defineEmits<{
   reply: [Comment1];
+  toggleCollapse: [];
 }>();
 
 const message = useMessage();
@@ -123,6 +126,23 @@ const isBlocked = computed(() => {
 
 <template>
   <n-flex align="center" :size="0">
+    <n-button
+      v-if="parentId === undefined"
+      quaternary
+      circle
+      size="tiny"
+      style="margin-left: -8px; margin-right: 2px"
+      @click="emit('toggleCollapse')"
+    >
+      <n-icon
+        size="18"
+        :component="ChevronRightOutlined"
+        :style="{
+          transition: 'transform 0.3s ease',
+          transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+        }"
+      />
+    </n-button>
     <n-text>
       <b>{{ comment.user.username }}</b>
     </n-text>
@@ -164,14 +184,16 @@ const isBlocked = computed(() => {
     </n-dropdown>
   </n-flex>
 
-  <n-card embedded :bordered="false" size="small" style="margin-top: 2px">
-    <n-text v-if="comment.hidden" depth="3">[隐藏]</n-text>
-    <n-text v-else-if="isBlocked" depth="3">[屏蔽]</n-text>
-    <MarkdownView
-      v-else
-      mode="comment"
-      :source="comment.content"
-      style="margin-top: -1em; margin-bottom: -1em"
-    />
-  </n-card>
+  <n-collapse-transition :show="!collapsed">
+    <n-card embedded :bordered="false" size="small" style="margin-top: 2px">
+      <n-text v-if="comment.hidden" depth="3">[隐藏]</n-text>
+      <n-text v-else-if="isBlocked" depth="3">[屏蔽]</n-text>
+      <MarkdownView
+        v-else
+        mode="comment"
+        :source="comment.content"
+        style="margin-top: -1em; margin-bottom: -1em"
+      />
+    </n-card>
+  </n-collapse-transition>
 </template>
