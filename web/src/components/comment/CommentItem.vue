@@ -164,14 +164,16 @@ const isBlocked = computed(() => {
     </n-dropdown>
   </n-flex>
 
-  <n-card embedded :bordered="false" size="small" style="margin-top: 2px">
-    <n-text v-if="comment.hidden" depth="3">[隐藏]</n-text>
-    <n-text v-else-if="isBlocked" depth="3">[屏蔽]</n-text>
-    <MarkdownView
-      v-else
-      mode="comment"
-      :source="comment.content"
-      style="margin-top: -1em; margin-bottom: -1em"
-    />
-  </n-card>
+  <div style="display: flow-root">
+    <n-card embedded :bordered="false" size="small" style="margin-top: 2px">
+      <n-text v-if="comment.hidden" depth="3">[隐藏]</n-text>
+      <n-text v-else-if="isBlocked" depth="3">[屏蔽]</n-text>
+      <MarkdownView
+        v-else
+        mode="comment"
+        :source="comment.content"
+        style="margin-top: -1em; margin-bottom: -1em"
+      />
+    </n-card>
+  </div>
 </template>
