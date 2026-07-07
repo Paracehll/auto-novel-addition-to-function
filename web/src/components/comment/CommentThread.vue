@@ -51,9 +51,14 @@ const collapsed = ref(false);
 
   <div
     v-if="collapsed && comment.numReplies > 0"
-    style="margin-left: 32px; margin-top: 20px"
+    style="height: 0; overflow: visible"
   >
-    <n-button quaternary size="tiny" @click="collapsed = false">
+    <n-button
+      quaternary
+      size="tiny"
+      style="margin-left: 32px; margin-top: 4px"
+      @click="collapsed = false"
+    >
       <template #icon>
         <n-icon :component="ChevronRightOutlined" />
       </template>
@@ -61,53 +66,45 @@ const collapsed = ref(false);
     </n-button>
   </div>
 
-  <div
-    :style="{
-      display: 'grid',
-      gridTemplateRows: !collapsed ? '1fr' : '0fr',
-      transition: 'grid-template-rows 0.3s ease-in-out',
-    }"
-  >
-    <div style="overflow: hidden">
-      <div style="display: flow-root">
-        <CommentEditor
-          v-if="showInput"
-          :site="site"
-          :draft-id="draftId"
-          :parent="comment.id"
-          :placeholder="`回复${comment.user.username}`"
-          style="padding-top: 8px"
-          @replied="onReplied()"
-          @cancel="showInput = false"
-        />
+  <n-collapse-transition :show="!collapsed">
+    <div style="display: flow-root">
+      <CommentEditor
+        v-if="showInput"
+        :site="site"
+        :draft-id="draftId"
+        :parent="comment.id"
+        :placeholder="`回复${comment.user.username}`"
+        style="padding-top: 8px"
+        @replied="onReplied()"
+        @cancel="showInput = false"
+      />
 
-        <div style="margin-left: 32px; margin-top: 20px">
-          <CPage
-            v-model:page="page"
-            :page-number="commentPage?.pageNumber"
-            disable-top
-          >
-            <template v-if="commentPage">
-              <div
-                v-for="(replyComment, index) in commentPage?.items"
-                :key="replyComment.id"
-                style="margin-top: 20px; margin-bottom: 20px"
-              >
-                <CommentItem
-                  :site="site"
-                  :parent-id="comment.id"
-                  :comment="replyComment"
-                  :can-reply="canReply"
-                  :collapsed="collapsed"
-                  :is-first-child="index === 0"
-                  @toggle-collapse="collapsed = !collapsed"
-                />
-              </div>
-            </template>
-            <CResultX v-else :error="error" title="加载错误" />
-          </CPage>
-        </div>
+      <div style="margin-left: 32px; margin-top: 20px">
+        <CPage
+          v-model:page="page"
+          :page-number="commentPage?.pageNumber"
+          disable-top
+        >
+          <template v-if="commentPage">
+            <div
+              v-for="(replyComment, index) in commentPage?.items"
+              :key="replyComment.id"
+              style="margin-top: 20px; margin-bottom: 20px"
+            >
+              <CommentItem
+                :site="site"
+                :parent-id="comment.id"
+                :comment="replyComment"
+                :can-reply="canReply"
+                :collapsed="collapsed"
+                :is-first-child="index === 0"
+                @toggle-collapse="collapsed = !collapsed"
+              />
+            </div>
+          </template>
+          <CResultX v-else :error="error" title="加载错误" />
+        </CPage>
       </div>
     </div>
-  </div>
+  </n-collapse-transition>
 </template>
