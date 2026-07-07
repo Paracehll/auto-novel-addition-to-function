@@ -64,13 +64,14 @@ const collapsed = computed({
     @reply="showInput = !showInput"
   />
 
-  <div v-if="comment.numReplies > 0" style="margin-top: 4px">
+  <div v-if="comment.numReplies > 0" style="margin-top: 8px">
     <n-button
       quaternary
       size="small"
       :focusable="false"
-      style="padding: 0"
+      style="padding: 0 6px 0 0"
       @click="collapsed = !collapsed"
+      @mouseup="(e: any) => (e.target as HTMLElement).blur()"
     >
       <template #icon>
         <n-icon
@@ -81,7 +82,7 @@ const collapsed = computed({
           }"
         />
       </template>
-      {{ collapsed ? `展開回覆 (${comment.numReplies})` : '收起回覆' }}
+      {{ collapsed ? `展开回复 (${comment.numReplies})` : '收起回复' }}
     </n-button>
   </div>
 
