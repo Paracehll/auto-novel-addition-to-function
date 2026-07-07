@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import { ChevronRightOutlined } from '@vicons/material';
+
 import { CommentRepo } from '@/repos';
 import type { Comment1 } from '@/model/Comment';
 import { useDraftStore } from '@/stores';
@@ -44,10 +46,20 @@ const collapsed = ref(false);
     :site="site"
     :comment="comment"
     :can-reply="canReply"
-    :collapsed="collapsed"
     @reply="showInput = !showInput"
-    @toggle-collapse="collapsed = !collapsed"
   />
+
+  <div
+    v-if="collapsed && comment.numReplies > 0"
+    style="margin-left: 32px; margin-top: 20px"
+  >
+    <n-button quaternary size="tiny" @click="collapsed = false">
+      <template #icon>
+        <n-icon :component="ChevronRightOutlined" />
+      </template>
+      展開回覆 ({{ comment.numReplies }})
+    </n-button>
+  </div>
 
   <n-collapse-transition :show="!collapsed">
     <div style="display: flow-root">
@@ -70,7 +82,7 @@ const collapsed = ref(false);
         >
           <template v-if="commentPage">
             <div
-              v-for="replyComment in commentPage?.items"
+            v-for="(replyComment, index) in commentPage?.items"
               :key="replyComment.id"
               style="margin-top: 20px; margin-bottom: 20px"
             >
@@ -79,6 +91,9 @@ const collapsed = ref(false);
                 :parent-id="comment.id"
                 :comment="replyComment"
                 :can-reply="canReply"
+              :collapsed="collapsed"
+              :is-first-child="index === 0"
+              @toggle-collapse="collapsed = !collapsed"
               />
             </div>
           </template>

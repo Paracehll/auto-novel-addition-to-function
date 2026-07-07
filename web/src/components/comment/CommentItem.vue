@@ -17,6 +17,7 @@ const props = defineProps<{
   comment: Comment1;
   canReply: boolean;
   collapsed?: boolean;
+  isFirstChild?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -127,7 +128,7 @@ const isBlocked = computed(() => {
 <template>
   <n-flex align="center" :size="0">
     <n-button
-      v-if="parentId === undefined && comment.numReplies > 0"
+      v-if="isFirstChild"
       quaternary
       circle
       size="tiny"
@@ -184,9 +185,8 @@ const isBlocked = computed(() => {
     </n-dropdown>
   </n-flex>
 
-  <n-collapse-transition :show="!collapsed">
-    <div style="display: flow-root">
-      <n-card embedded :bordered="false" size="small" style="margin-top: 2px">
+  <div style="display: flow-root">
+    <n-card embedded :bordered="false" size="small" style="margin-top: 2px">
       <n-text v-if="comment.hidden" depth="3">[隐藏]</n-text>
       <n-text v-else-if="isBlocked" depth="3">[屏蔽]</n-text>
       <MarkdownView
@@ -197,5 +197,4 @@ const isBlocked = computed(() => {
       />
     </n-card>
   </div>
-  </n-collapse-transition>
 </template>
