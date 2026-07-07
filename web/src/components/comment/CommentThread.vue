@@ -49,20 +49,18 @@ const collapsed = ref(false);
     @reply="showInput = !showInput"
   />
 
-  <div
-    v-if="collapsed && comment.numReplies > 0"
-    style="height: 0; overflow: visible"
-  >
-    <n-button
-      quaternary
-      size="tiny"
-      style="margin-left: 32px; margin-top: 4px"
-      @click="collapsed = false"
-    >
+  <div v-if="comment.numReplies > 0" style="margin-top: 4px">
+    <n-button quaternary size="tiny" @click="collapsed = !collapsed">
       <template #icon>
-        <n-icon :component="ChevronRightOutlined" />
+        <n-icon
+          :component="ChevronRightOutlined"
+          :style="{
+            transition: 'transform 0.3s ease',
+            transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+          }"
+        />
       </template>
-      展開回覆 ({{ comment.numReplies }})
+      {{ collapsed ? `展開回覆 (${comment.numReplies})` : '收起回覆' }}
     </n-button>
   </div>
 
@@ -87,7 +85,7 @@ const collapsed = ref(false);
         >
           <template v-if="commentPage">
             <div
-              v-for="(replyComment, index) in commentPage?.items"
+              v-for="replyComment in commentPage?.items"
               :key="replyComment.id"
               style="margin-top: 20px; margin-bottom: 20px"
             >
@@ -96,9 +94,6 @@ const collapsed = ref(false);
                 :parent-id="comment.id"
                 :comment="replyComment"
                 :can-reply="canReply"
-                :collapsed="collapsed"
-                :is-first-child="index === 0"
-                @toggle-collapse="collapsed = !collapsed"
               />
             </div>
           </template>

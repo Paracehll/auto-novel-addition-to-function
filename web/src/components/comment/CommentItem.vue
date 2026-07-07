@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import {
-  ChevronRightOutlined,
   CommentOutlined,
   DeleteOutlined,
   MoreVertOutlined,
@@ -16,13 +15,10 @@ const props = defineProps<{
   parentId?: string;
   comment: Comment1;
   canReply: boolean;
-  collapsed?: boolean;
-  isFirstChild?: boolean;
 }>();
 
 const emit = defineEmits<{
   reply: [Comment1];
-  toggleCollapse: [];
 }>();
 
 const message = useMessage();
@@ -127,23 +123,6 @@ const isBlocked = computed(() => {
 
 <template>
   <n-flex align="center" :size="0">
-    <n-button
-      v-if="isFirstChild"
-      quaternary
-      circle
-      size="tiny"
-      style="margin-left: -8px; margin-right: 2px"
-      @click="emit('toggleCollapse')"
-    >
-      <n-icon
-        size="18"
-        :component="ChevronRightOutlined"
-        :style="{
-          transition: 'transform 0.3s ease',
-          transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)',
-        }"
-      />
-    </n-button>
     <n-text>
       <b>{{ comment.user.username }}</b>
     </n-text>
