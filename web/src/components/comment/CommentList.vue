@@ -1,35 +1,13 @@
 <script lang="ts" setup>
 import { CommentOutlined } from '@vicons/material';
 
-import { useQuery } from '@pinia/colada';
-
-import { CommentApi } from '@/api/novel/CommentApi';
 import { CommentRepo } from '@/repos';
-import { useDraftStore, useSettingStore, useWhoamiStore } from '@/stores';
+import { useDraftStore, useWhoamiStore } from '@/stores';
 
 const props = defineProps<{
   site: string;
   locked: boolean;
 }>();
-
-const settingStore = useSettingStore();
-const { setting } = storeToRefs(settingStore);
-
-const { data: commentCount } = useQuery({
-  key: () => [
-    'comment-count',
-    props.site,
-    setting.value.commentCountUnique,
-    setting.value.commentCountReply,
-  ],
-  query: () =>
-    CommentApi.countComment({
-      site: props.site,
-      unique: setting.value.commentCountUnique ? 1 : 0,
-      reply: setting.value.commentCountReply ? 1 : 0,
-    }).then((res) => res.total),
-  enabled: () => setting.value.showCommentCount,
-});
 
 const page = ref(1);
 const { data: commentPage, error } = CommentRepo.useCommentList(
@@ -72,8 +50,10 @@ const canReply = computed(() => {
     ref="commentSectionRef"
     style="margin-bottom: 32px"
   >
-    <template #title-extra v-if="commentCount !== undefined">
-      <n-text depth="3">💬 {{ commentCount }}</n-text>
+    <template #title-extra>
+      <n-text depth="3">
+        <CommentCountBadge :site="site" />
+      </n-text>
     </template>
     <c-button
       v-if="canReply"

@@ -22,7 +22,8 @@ defineProps<{
         </c-a>
         <div class="text-2line">{{ item.titleZh }}</div>
         <n-text depth="3">
-          {{ item.type }} / 总计 {{ item.total }} / 有道 {{ item.youdao }}
+          <CommentCountBadge :site="`web-${item.providerId}-${item.novelId}`" />
+          / {{ item.type }} / 总计 {{ item.total }} / 有道 {{ item.youdao }}
           <br />
           GPT {{ item.gpt }} / Sakura {{ item.sakura }}
         </n-text>
