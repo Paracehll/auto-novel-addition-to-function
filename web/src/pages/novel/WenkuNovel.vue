@@ -177,7 +177,6 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
         最新出版于
         <n-time :time="novel.latestPublishAt * 1000" type="date" />
       </n-p>
-
       <!-- eslint-disable-next-line vue/no-v-html -->
       <n-p v-html="novel.introduction.replace(/\n/g, '<br />')" />
 

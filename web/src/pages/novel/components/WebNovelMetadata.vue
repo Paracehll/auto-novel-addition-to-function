@@ -24,7 +24,6 @@ const latestChapterCreateAt = computed(() => {
   if (createAtList.length === 0) return undefined;
   else return Math.max(...createAtList);
 });
-
 </script>
 
 <template>
