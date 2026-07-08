@@ -24,7 +24,8 @@ defineProps<{
         <n-text depth="3">
           {{ item.type }} / 总计 {{ item.total }} / 有道 {{ item.youdao }}
           <br />
-          GPT {{ item.gpt }} / Sakura {{ item.sakura }}
+          <CommentCountBadge :site="`web-${item.providerId}-${item.novelId}`" />
+          &nbsp;/ GPT {{ item.gpt }} / Sakura {{ item.sakura }}
         </n-text>
       </n-grid-item>
     </n-grid>

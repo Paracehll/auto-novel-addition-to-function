@@ -50,6 +50,11 @@ const canReply = computed(() => {
     ref="commentSectionRef"
     style="margin-bottom: 32px"
   >
+    <template #title-extra>
+      <n-text depth="3">
+        <CommentCountBadge :site="site" />
+      </n-text>
+    </template>
     <c-button
       v-if="canReply"
       label="发表评论"

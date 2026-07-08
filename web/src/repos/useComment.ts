@@ -28,14 +28,18 @@ const useCommentList = (
 export const CommentRepo = {
   useCommentList,
 
-  createComment: withOnSuccess(CommentApi.createComment, (_, comment) =>
+  createComment: withOnSuccess(CommentApi.createComment, (_, comment) => {
     cache.invalidateQueries({
       key: [ListKey, comment.site, comment.parent ?? ''],
-    }),
-  ),
+    });
+    cache.invalidateQueries({
+      key: ['comment-count', comment.site],
+    });
+  }),
   deleteComment: (id: string, site: string, parentId?: string) =>
     CommentApi.deleteComment(id).then(() => {
       cache.invalidateQueries({ key: [ListKey, site, parentId ?? ''] });
+      cache.invalidateQueries({ key: ['comment-count', site] });
     }),
   hideComment: CommentApi.hideComment,
   unhideComment: CommentApi.unhideComment,

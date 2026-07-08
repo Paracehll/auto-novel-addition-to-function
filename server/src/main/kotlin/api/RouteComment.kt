@@ -27,6 +27,15 @@ private class CommentRes {
         val pageSize: Int,
     )
 
+    @Resource("/count")
+    class Count(
+        val parent: CommentRes,
+        val site: String,
+        val parentId: String? = null,
+        val unique: Int = 0,
+        val reply: Int = 1,
+    )
+
     @Resource("/{id}")
     class Id(val parent: CommentRes, val id: String) {
         @Resource("/hidden")
@@ -49,6 +58,19 @@ fun Route.routeComment() {
                     pageSize = loc.pageSize,
                     replyPageSize = 10,
                     reverse = loc.parentId == null,
+                )
+            }
+        }
+
+        get<CommentRes.Count> { loc ->
+            call.tryRespond {
+                val user = call.userOrNull()
+                service.countComment(
+                    user = user,
+                    site = loc.site,
+                    parentId = loc.parentId,
+                    unique = loc.unique != 0,
+                    reply = loc.reply != 0,
                 )
             }
         }
@@ -104,6 +126,9 @@ class CommentApi(
     private val articleRepo: ArticleRepository,
 ) {
     @Serializable
+    data class CommentCountDto(val total: Long)
+
+    @Serializable
     data class CommentDto(
         val id: String,
         val user: UserOutline,
@@ -127,6 +152,26 @@ class CommentApi(
             numReplies = numReplies,
             replies = replies,
         )
+
+    suspend fun countComment(
+        user: User?,
+        site: String,
+        parentId: String?,
+        unique: Boolean = false,
+        reply: Boolean = true,
+    ): CommentCountDto {
+        if (site.isBlank()) throwBadRequest("site 不能为空")
+
+        val ignoreHidden = user != null && user.role atLeast UserRole.Admin
+        val total = commentRepo.countComment(
+            site = site,
+            parent = parentId?.takeIf { it.isNotBlank() },
+            includeHidden = ignoreHidden,
+            unique = unique,
+            reply = reply,
+        )
+        return CommentCountDto(total = total)
+    }
 
     suspend fun listComment(
         user: User?,
