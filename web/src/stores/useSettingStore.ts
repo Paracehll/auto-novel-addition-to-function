@@ -137,16 +137,6 @@ export namespace Setting {
       }
     }
 
-    if (setting.showCommentCount === undefined) {
-      setting.showCommentCount = true;
-    }
-    if (setting.commentCountUnique === undefined) {
-      setting.commentCountUnique = false;
-    }
-    if (setting.commentCountReply === undefined) {
-      setting.commentCountReply = true;
-    }
-
     setting.version = 1;
   };
 
