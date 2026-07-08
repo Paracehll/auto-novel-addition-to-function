@@ -1,4 +1,4 @@
-<script lang="ts" set>
+<script lang="ts">
 import { useLocalStorage } from '@/util/useStorage';
 
 const collapsedStore = useLocalStorage<Record<string, boolean>>(
@@ -43,18 +43,26 @@ watch(page, () => {
   window.scrollBy({ top: -50, behavior: 'auto' });
 });
 
+const showInput = ref(false);
+
+watch(showInput, (v) => {
+  if (v) {
+    collapsed.value = false;
+  }
+});
+
 function onReplied() {
   showInput.value = false;
   draftStore.cancelAddDraft();
   draftStore.removeDraft(draftId);
 }
-const showInput = ref(false);
 
 const collapsed = computed({
   get: () => collapsedStore.value[props.comment.id] ?? false,
   set: (v) => {
     if (v) {
       collapsedStore.value[props.comment.id] = true;
+      showInput.value = false;
     } else {
       delete collapsedStore.value[props.comment.id];
     }
@@ -98,19 +106,26 @@ const collapsed = computed({
 
   <n-collapse-transition
     v-if="showInput || comment.numReplies > 0"
-    :show="!setting.enableCommentCollapse || !collapsed"
+    :show="!setting.enableCommentCollapse || !collapsed || showInput"
   >
-    <div style="display: flow-root">
-      <CommentEditor
-        v-if="showInput"
-        :site="site"
-        :draft-id="draftId"
-        :parent="comment.id"
-        :placeholder="`回复${comment.user.username}`"
-        style="padding-top: 8px"
-        @replied="onReplied()"
-        @cancel="showInput = false"
-      />
+    <div
+      :style="{
+        display: 'flow-root',
+        paddingBottom: showInput ? '48px' : '0',
+        transition: 'padding-bottom 0.3s ease',
+      }"
+    >
+      <div v-if="showInput" style="min-height: 200px">
+        <CommentEditor
+          :site="site"
+          :draft-id="draftId"
+          :parent="comment.id"
+          :placeholder="`回复${comment.user.username}`"
+          style="padding-top: 8px"
+          @replied="onReplied()"
+          @cancel="showInput = false"
+        />
+      </div>
 
       <div
         v-if="comment.numReplies > 0"
