@@ -129,7 +129,7 @@ defineExpose({
 
         <n-text v-if="item.total" depth="3">
           <CommentCountBadge :site="`web-${item.providerId}-${item.novelId}`" />
-          / {{ item.type ? item.type + ' / ' : '' }} 总计 {{ item.total }} / 有道
+          &nbsp;/ {{ item.type ? item.type + ' / ' : '' }} 总计 {{ item.total }} / 有道
           {{ item.youdao }} / GPT {{ item.gpt }} / Sakura {{ item.sakura }} /
         </n-text>
 
