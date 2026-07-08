@@ -92,7 +92,7 @@ const playSound = (source: string) => {
               仅计数独一用户
             </n-checkbox>
             <n-checkbox v-model:checked="setting.commentCountReply">
-              计数回覆评论
+              计数回复评论
             </n-checkbox>
           </n-flex>
           <b>收藏夹</b>
