@@ -44,6 +44,7 @@ class ArticleRepository(
         pageSize: Int,
         category: ArticleCategory? = null,
         authorId: String? = null,
+        query: String? = null,
         startAt: kotlinx.datetime.Instant? = null,
         endAt: kotlinx.datetime.Instant? = null,
         minViews: Int? = null,
@@ -61,6 +62,7 @@ class ArticleRepository(
         val filters = buildList {
             category?.let { add(eq(ArticleDbModel::category.field(), it)) }
             authorId?.let { add(eq(ArticleDbModel::user.field(), ObjectId(it))) }
+            query?.let { add(regex(ArticleDbModel::title.field(), it, "i")) }
             startAt?.let { add(gte(ArticleDbModel::createAt.field(), it)) }
             endAt?.let { add(lte(ArticleDbModel::createAt.field(), it)) }
             minViews?.let { add(gte(ArticleDbModel::numViews.field(), it)) }

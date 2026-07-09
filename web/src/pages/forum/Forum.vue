@@ -9,7 +9,7 @@ import { useBlacklistStore, useWhoamiStore } from '@/stores';
 const props = defineProps<{
   page: number;
   category: ArticleCategory;
-  author?: string;
+  search?: string;
 }>();
 
 const route = useRoute();
@@ -37,26 +37,82 @@ const onUpdateCategory = (category: ArticleCategory) => {
   router.push({ path: route.path, query });
 };
 
-const authorQuery = ref(props.author ?? '');
+const searchQuery = ref(props.search ?? '');
 watch(
-  () => props.author,
-  (newAuthor) => {
-    authorQuery.value = newAuthor ?? '';
+  () => props.search,
+  (newSearch) => {
+    searchQuery.value = newSearch ?? '';
   },
 );
+
+const parseSearch = (search: string) => {
+  const authorMatch = search.match(/a:"([^"]*)"/);
+  const timeMatch = search.match(/t:"([^"]*)"/);
+
+  let author = authorMatch ? authorMatch[1] : undefined;
+  let startAt: number | undefined = undefined;
+  let endAt: number | undefined = undefined;
+
+  if (timeMatch) {
+    const range = timeMatch[1].split('-');
+    const parseDate = (s: string) => {
+      if (!s) return undefined;
+      const year = parseInt(s.substring(0, 4));
+      const month = parseInt(s.substring(4, 6)) - 1;
+      const day = parseInt(s.substring(6, 8));
+      return Math.floor(new Date(year, month, day).getTime() / 1000);
+    };
+    if (range.length === 2) {
+      startAt = parseDate(range[0]);
+      endAt = parseDate(range[1]);
+    }
+  }
+
+  const query = search
+    .replace(/a:"[^"]*"/, '')
+    .replace(/t:"[^"]*"/, '')
+    .trim();
+
+  return { author, query: query || undefined, startAt, endAt };
+};
+
 const onSearch = () => {
   const query = {
     ...route.query,
-    author: authorQuery.value.trim() || undefined,
+    search: searchQuery.value.trim() || undefined,
     page: 1,
   };
   router.push({ path: route.path, query });
 };
 
+const searchInputInst = useTemplateRef<any>('searchInputInst');
+const handleInput = (v: string) => {
+  const triggerA = v === 'a:' || v.endsWith(' a:');
+  const triggerT = v === 't:' || v.endsWith(' t:');
+  if (triggerA || triggerT) {
+    searchQuery.value = v + '""';
+    nextTick(() => {
+      const el = searchInputInst.value?.elRef as HTMLInputElement;
+      if (el) {
+        const input = el.querySelector('input');
+        if (input) {
+          input.focus();
+          input.setSelectionRange(v.length + 1, v.length + 1);
+        }
+      }
+    });
+  }
+};
+
+const searchParams = computed(() => parseSearch(props.search ?? ''));
+
 const { data: articlePage, error } = ArticleRepo.useArticleList(
   () => props.page,
   () => props.category,
-  () => props.author,
+  () => searchParams.value.author,
+  () => searchParams.value.query,
+  () => searchParams.value.startAt,
+  () => searchParams.value.endAt,
 );
 
 const lockArticle = (article: ArticleSimplified) =>
@@ -125,10 +181,13 @@ const deleteArticle = (article: ArticleSimplified) =>
           :options="articleCategoryOptions"
         />
         <n-input
-          v-model:value="authorQuery"
-          placeholder="搜索作者..."
+          ref="searchInputInst"
+          v-model:value="searchQuery"
+          placeholder="搜索标题、a:作者、t:时间..."
           clearable
-          style="width: 200px"
+          class="search-input"
+          style="width: 300px"
+          @update:value="handleInput"
           @keyup.enter="onSearch"
         >
           <template #suffix>

@@ -18,15 +18,21 @@ const useArticleList = (
   page: MaybeRefOrGetter<number>,
   category: MaybeRefOrGetter<ArticleCategory>,
   author: MaybeRefOrGetter<string | undefined> = undefined,
+  query: MaybeRefOrGetter<string | undefined> = undefined,
+  startAt: MaybeRefOrGetter<number | undefined> = undefined,
+  endAt: MaybeRefOrGetter<number | undefined> = undefined,
 ) =>
   useQuery({
-    key: () => [ListKey, toValue(category), toValue(page), toValue(author)],
+    key: () => [ListKey, toValue(category), toValue(page), toValue(author), toValue(query), toValue(startAt), toValue(endAt)],
     query: () =>
       ArticleApi.listArticle({
         page: toValue(page) - 1,
         pageSize: 20,
         category: toValue(category),
         author: toValue(author),
+        query: toValue(query),
+        startAt: toValue(startAt),
+        endAt: toValue(endAt),
       }),
   });
 

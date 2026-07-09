@@ -11,6 +11,7 @@ const listArticle = (params: {
   pageSize: number;
   category?: ArticleCategory;
   author?: string;
+  query?: string;
   startAt?: number;
   endAt?: number;
   minViews?: number;
