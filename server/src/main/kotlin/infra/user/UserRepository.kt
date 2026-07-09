@@ -6,6 +6,7 @@ import infra.MongoClient
 import infra.MongoCollectionNames
 import infra.field
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.toList
 import org.bson.types.ObjectId
 
 class UserRepository(
@@ -21,6 +22,18 @@ class UserRepository(
             .find(eq(UserDbModel::username.field(), username))
             .firstOrNull()
             ?.id?.toHexString()
+    }
+
+    suspend fun getIdsByName(username: String, exact: Boolean): List<String> {
+        val filter = if (exact) {
+            eq(UserDbModel::username.field(), username)
+        } else {
+            regex(UserDbModel::username.field(), username, "i")
+        }
+        return userCollection
+            .find(filter)
+            .toList()
+            .map { it.id.toHexString() }
     }
 
     suspend fun getId(username: String): String {

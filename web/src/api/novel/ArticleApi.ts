@@ -12,6 +12,8 @@ const listArticle = (params: {
   category?: ArticleCategory;
   author?: string;
   query?: string;
+  exactAuthor?: boolean;
+  fuzzyTitle?: boolean;
   startAt?: number;
   endAt?: number;
   minViews?: number;

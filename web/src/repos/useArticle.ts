@@ -19,11 +19,13 @@ const useArticleList = (
   category: MaybeRefOrGetter<ArticleCategory>,
   author: MaybeRefOrGetter<string | undefined> = undefined,
   query: MaybeRefOrGetter<string | undefined> = undefined,
+  exactAuthor: MaybeRefOrGetter<boolean | undefined> = undefined,
+  fuzzyTitle: MaybeRefOrGetter<boolean | undefined> = undefined,
   startAt: MaybeRefOrGetter<number | undefined> = undefined,
   endAt: MaybeRefOrGetter<number | undefined> = undefined,
 ) =>
   useQuery({
-    key: () => [ListKey, toValue(category), toValue(page), toValue(author), toValue(query), toValue(startAt), toValue(endAt)],
+    key: () => [ListKey, toValue(category), toValue(page), toValue(author), toValue(query), toValue(exactAuthor), toValue(fuzzyTitle), toValue(startAt), toValue(endAt)],
     query: () =>
       ArticleApi.listArticle({
         page: toValue(page) - 1,
@@ -31,6 +33,8 @@ const useArticleList = (
         category: toValue(category),
         author: toValue(author),
         query: toValue(query),
+        exactAuthor: toValue(exactAuthor),
+        fuzzyTitle: toValue(fuzzyTitle),
         startAt: toValue(startAt),
         endAt: toValue(endAt),
       }),

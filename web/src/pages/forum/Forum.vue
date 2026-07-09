@@ -1,10 +1,10 @@
 <script lang="ts" setup>
-import { LockOutlined, PlusOutlined, PushPinOutlined, SearchOutlined } from '@vicons/material';
+import { LockOutlined, PlusOutlined, PushPinOutlined, SearchOutlined, SettingsOutlined } from '@vicons/material';
 
 import { ArticleRepo } from '@/repos';
 import type { ArticleCategory, ArticleSimplified } from '@/model/Article';
 import { doAction } from '@/pages/util';
-import { useBlacklistStore, useWhoamiStore } from '@/stores';
+import { useBlacklistStore, useForumSearchSettingStore, useWhoamiStore } from '@/stores';
 
 const props = defineProps<{
   page: number;
@@ -20,6 +20,7 @@ const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
 
 const blacklistStore = useBlacklistStore();
+const { setting: searchSetting } = storeToRefs(useForumSearchSettingStore());
 
 const articleCategoryOptions = [
   { value: 'General', label: '小说交流' },
@@ -55,16 +56,21 @@ const parseSearch = (search: string) => {
 
   if (timeMatch) {
     const range = timeMatch[1].split('-');
-    const parseDate = (s: string) => {
-      if (!s) return undefined;
+    const parseDate = (s: string, isEnd: boolean) => {
+      if (!s) {
+        if (isEnd && searchSetting.value.autoFillToDate) {
+          return Math.floor(new Date().getTime() / 1000);
+        }
+        return undefined;
+      }
       const year = parseInt(s.substring(0, 4));
       const month = parseInt(s.substring(4, 6)) - 1;
       const day = parseInt(s.substring(6, 8));
       return Math.floor(new Date(year, month, day).getTime() / 1000);
     };
     if (range.length === 2) {
-      startAt = parseDate(range[0]);
-      endAt = parseDate(range[1]);
+      startAt = parseDate(range[0], false);
+      endAt = parseDate(range[1], true);
     }
   }
 
@@ -90,6 +96,7 @@ const handleInput = (v: string) => {
   const triggerA = v === 'a:' || v.endsWith(' a:');
   const triggerT = v === 't:' || v.endsWith(' t:');
   if (triggerA || triggerT) {
+    const pos = v.length;
     searchQuery.value = v + '""';
     nextTick(() => {
       const el = searchInputInst.value?.elRef as HTMLInputElement;
@@ -97,7 +104,7 @@ const handleInput = (v: string) => {
         const input = el.querySelector('input');
         if (input) {
           input.focus();
-          input.setSelectionRange(v.length + 1, v.length + 1);
+          input.setSelectionRange(pos + 1, pos + 1);
         }
       }
     });
@@ -111,6 +118,8 @@ const { data: articlePage, error } = ArticleRepo.useArticleList(
   () => props.category,
   () => searchParams.value.author,
   () => searchParams.value.query,
+  () => searchSetting.value.exactAuthor,
+  () => searchSetting.value.fuzzyTitle,
   () => searchParams.value.startAt,
   () => searchParams.value.endAt,
 );
@@ -180,20 +189,51 @@ const deleteArticle = (article: ArticleSimplified) =>
           @update-value="onUpdateCategory"
           :options="articleCategoryOptions"
         />
-        <n-input
-          ref="searchInputInst"
-          v-model:value="searchQuery"
-          placeholder="搜索标题、a:作者、t:时间..."
-          clearable
-          class="search-input"
-          style="width: 300px"
-          @update:value="handleInput"
-          @keyup.enter="onSearch"
-        >
-          <template #suffix>
-            <n-icon :component="SearchOutlined" @click="onSearch" style="cursor: pointer" />
-          </template>
-        </n-input>
+        <div style="position: relative; display: flex; align-items: center">
+          <n-input
+            ref="searchInputInst"
+            v-model:value="searchQuery"
+            placeholder="搜索标题、a:作者、t:时间..."
+            clearable
+            class="search-input"
+            style="width: 300px"
+            @update:value="handleInput"
+            @keyup.enter="onSearch"
+          >
+            <template #prefix>
+              <n-flex :size="4" align="center" style="margin-right: 4px" :wrap="false">
+                <n-tag v-if="searchParams.author" size="small" type="info" round>
+                  a:{{ searchParams.author }}
+                </n-tag>
+                <n-tag v-if="searchParams.startAt || searchParams.endAt" size="small" type="success" round>
+                  t
+                </n-tag>
+              </n-flex>
+            </template>
+            <template #suffix>
+              <n-icon :component="SearchOutlined" @click="onSearch" style="cursor: pointer" />
+            </template>
+          </n-input>
+          <n-popover trigger="click" placement="bottom-end">
+            <template #trigger>
+              <c-icon-button :icon="SettingsOutlined" style="margin-left: 8px" />
+            </template>
+            <n-flex vertical>
+              <n-flex align="center" justify="space-between" style="width: 200px">
+                <n-text>标题模糊搜索</n-text>
+                <n-switch v-model:value="searchSetting.fuzzyTitle" />
+              </n-flex>
+              <n-flex align="center" justify="space-between">
+                <n-text>精确作者匹配</n-text>
+                <n-switch v-model:value="searchSetting.exactAuthor" />
+              </n-flex>
+              <n-flex align="center" justify="space-between">
+                <n-text>自动填入结束日期</n-text>
+                <n-switch v-model:value="searchSetting.autoFillToDate" />
+              </n-flex>
+            </n-flex>
+          </n-popover>
+        </div>
       </n-flex>
     </c-action-wrapper>
 

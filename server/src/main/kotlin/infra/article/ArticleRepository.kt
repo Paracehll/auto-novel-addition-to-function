@@ -44,7 +44,9 @@ class ArticleRepository(
         pageSize: Int,
         category: ArticleCategory? = null,
         authorId: String? = null,
+        authorIds: List<String>? = null,
         query: String? = null,
+        fuzzyTitle: Boolean = true,
         startAt: kotlinx.datetime.Instant? = null,
         endAt: kotlinx.datetime.Instant? = null,
         minViews: Int? = null,
@@ -62,7 +64,14 @@ class ArticleRepository(
         val filters = buildList {
             category?.let { add(eq(ArticleDbModel::category.field(), it)) }
             authorId?.let { add(eq(ArticleDbModel::user.field(), ObjectId(it))) }
-            query?.let { add(regex(ArticleDbModel::title.field(), it, "i")) }
+            authorIds?.let { add(`in`(ArticleDbModel::user.field(), it.map { ObjectId(it) })) }
+            query?.let {
+                if (fuzzyTitle) {
+                    add(regex(ArticleDbModel::title.field(), it, "i"))
+                } else {
+                    add(eq(ArticleDbModel::title.field(), it))
+                }
+            }
             startAt?.let { add(gte(ArticleDbModel::createAt.field(), it)) }
             endAt?.let { add(lte(ArticleDbModel::createAt.field(), it)) }
             minViews?.let { add(gte(ArticleDbModel::numViews.field(), it)) }

@@ -7,6 +7,7 @@ export const LSKey = {
   Notified: 'notified',
   SearchHistoryWeb: 'search-history-web',
   SearchHistoryWenku: 'search-history-wenku',
+  ForumSearchSetting: 'forum-search-setting',
   Setting: 'setting',
   SettingReader: 'setting-reader',
   WorkspaceGpt: 'workspace-gpt',

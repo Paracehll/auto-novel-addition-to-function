@@ -29,6 +29,8 @@ private class ArticleRes {
         val category: ArticleCategory? = null,
         val author: String? = null,
         val query: String? = null,
+        val exactAuthor: Boolean = true,
+        val fuzzyTitle: Boolean = true,
         val startAt: Long? = null,
         val endAt: Long? = null,
         val minViews: Int? = null,
@@ -65,6 +67,8 @@ fun Route.routeArticle() {
                     category = loc.category,
                     author = loc.author,
                     query = loc.query,
+                    exactAuthor = loc.exactAuthor,
+                    fuzzyTitle = loc.fuzzyTitle,
                     startAt = loc.startAt,
                     endAt = loc.endAt,
                     minViews = loc.minViews,
@@ -210,6 +214,8 @@ class ArticleApi(
         category: ArticleCategory?,
         author: String? = null,
         query: String? = null,
+        exactAuthor: Boolean = true,
+        fuzzyTitle: Boolean = true,
         startAt: Long? = null,
         endAt: Long? = null,
         minViews: Int? = null,
@@ -230,8 +236,10 @@ class ArticleApi(
             throwBadRequest("评论数范围不合法")
         }
 
-        val authorId = author?.let {
-            userRepo.getIdOrNull(it) ?: return emptyPage()
+        val authorIds = author?.let {
+            val ids = userRepo.getIdsByName(it, exactAuthor)
+            if (ids.isEmpty()) return emptyPage()
+            ids
         }
 
         val ignoreHidden = user != null && user.role atLeast UserRole.Admin
@@ -241,8 +249,9 @@ class ArticleApi(
                 page = page,
                 pageSize = pageSize,
                 category = category,
-                authorId = authorId,
+                authorIds = authorIds,
                 query = query,
+                fuzzyTitle = fuzzyTitle,
                 startAt = startAt?.let { kotlinx.datetime.Instant.fromEpochSeconds(it) },
                 endAt = endAt?.let { kotlinx.datetime.Instant.fromEpochSeconds(it) },
                 minViews = minViews,
