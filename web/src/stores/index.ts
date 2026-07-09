@@ -1,6 +1,5 @@
 export * from './forum/useBlacklistStore';
 export * from './forum/useDraftStore';
-export * from './forum/useForumSearchSettingStore';
 
 export * from './useFavored';
 export * from './useNoticeStore';

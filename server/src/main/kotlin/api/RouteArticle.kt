@@ -29,7 +29,7 @@ private class ArticleRes {
         val category: ArticleCategory? = null,
         val author: String? = null,
         val query: String? = null,
-        val exactAuthor: Boolean = true,
+        val fuzzyAuthor: Boolean = false,
         val fuzzyTitle: Boolean = true,
         val startAt: Long? = null,
         val endAt: Long? = null,
@@ -68,7 +68,7 @@ fun Route.routeArticle() {
                     category = loc.category,
                     author = loc.author,
                     query = loc.query,
-                    exactAuthor = loc.exactAuthor,
+                    fuzzyAuthor = loc.fuzzyAuthor,
                     fuzzyTitle = loc.fuzzyTitle,
                     startAt = loc.startAt,
                     endAt = loc.endAt,
@@ -216,7 +216,7 @@ class ArticleApi(
         category: ArticleCategory?,
         author: String? = null,
         query: String? = null,
-        exactAuthor: Boolean = true,
+        fuzzyAuthor: Boolean = false,
         fuzzyTitle: Boolean = true,
         startAt: Long? = null,
         endAt: Long? = null,
@@ -240,7 +240,7 @@ class ArticleApi(
         }
 
         val authorIds = author?.let {
-            val ids = userRepo.getIdsByName(it, exactAuthor)
+            val ids = userRepo.getIdsByName(it, fuzzyAuthor)
             if (ids.isEmpty()) return emptyPage()
             ids
         }

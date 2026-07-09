@@ -12,7 +12,7 @@ const listArticle = (params: {
   category?: ArticleCategory;
   author?: string;
   query?: string;
-  exactAuthor?: boolean;
+  fuzzyAuthor?: boolean;
   fuzzyTitle?: boolean;
   startAt?: number;
   endAt?: number;

@@ -7,7 +7,6 @@ import { doAction } from '@/pages/util';
 import {
   useBlacklistStore,
   useForumSearchHistoryStore,
-  useForumSearchSettingStore,
   useSettingStore,
   useWhoamiStore,
 } from '@/stores';
@@ -28,7 +27,6 @@ const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
 
 const blacklistStore = useBlacklistStore();
-const { setting: searchSetting } = storeToRefs(useForumSearchSettingStore());
 const { setting, cc } = storeToRefs(useSettingStore());
 
 const forumSearchHistoryStore = useForumSearchHistoryStore();
@@ -68,7 +66,7 @@ const currentSort = computed({
     const query = {
       ...route.query,
       sort: val.value,
-      sortDesc: val.desc ? undefined : false,
+      sortDesc: val.desc ? undefined : ('false' as any),
       page: 1,
     };
     router.push({ path: route.path, query });
@@ -106,7 +104,7 @@ const parseSearch = (search: string) => {
     const range = timeMatch[1].split('-');
     const parseDate = (s: string, isEnd: boolean) => {
       if (!s) {
-        if (isEnd && searchSetting.value.autoFillToDate) {
+        if (isEnd && setting.value.forumSearch.autoFillToDate) {
           return Math.floor(new Date().getTime() / 1000);
         }
         return undefined;
@@ -145,7 +143,7 @@ const onSearch = () => {
   searchStr = searchStr.trim();
 
   if (setting.value.searchLocaleAware) {
-    searchStr = cc.value(searchStr);
+    searchStr = cc.value.toView(searchStr);
   }
 
   if (searchStr) {
@@ -180,7 +178,7 @@ const handleInput = (v: string) => {
   if (match) {
     const type = match[1];
     let pos = v.length;
-    if (type === 't' && searchSetting.value.autoFillToDate) {
+    if (type === 't' && setting.value.forumSearch.autoFillToDate) {
       const today = new Date();
       const YYYY = today.getFullYear();
       const MM = String(today.getMonth() + 1).padStart(2, '0');
@@ -220,8 +218,8 @@ const { data: articlePage, error } = ArticleRepo.useArticleList(
   () => props.category,
   () => searchParams.value.author,
   () => searchParams.value.query,
-  () => searchSetting.value.exactAuthor,
-  () => searchSetting.value.fuzzyTitle,
+  () => setting.value.forumSearch.fuzzyAuthor,
+  () => setting.value.forumSearch.fuzzyTitle,
   () => searchParams.value.startAt,
   () => searchParams.value.endAt,
   undefined,
@@ -331,7 +329,7 @@ const deleteArticle = (article: ArticleSimplified) =>
                   @close.stop="removeTag(i)"
                   @click="editTag(i)"
                 >
-                  {{ tag.type === 'a' ? '作者' : '时间' }}: {{ tag.value }}
+                  {{ tag.type === 'a' ? '作者' : '時間' }}: {{ tag.value }}
                 </n-tag>
               </n-flex>
             </template>
@@ -354,15 +352,15 @@ const deleteArticle = (article: ArticleSimplified) =>
                 style="width: 200px"
               >
                 <n-text>标题模糊搜索</n-text>
-                <n-switch v-model:value="searchSetting.fuzzyTitle" />
+                <n-switch v-model:value="setting.forumSearch.fuzzyTitle" />
               </n-flex>
               <n-flex align="center" justify="space-between">
-                <n-text>精确作者匹配</n-text>
-                <n-switch v-model:value="searchSetting.exactAuthor" />
+                <n-text>作者模糊搜索</n-text>
+                <n-switch v-model:value="setting.forumSearch.fuzzyAuthor" />
               </n-flex>
               <n-flex align="center" justify="space-between">
                 <n-text>自动填入结束日期</n-text>
-                <n-switch v-model:value="searchSetting.autoFillToDate" />
+                <n-switch v-model:value="setting.forumSearch.autoFillToDate" />
               </n-flex>
             </n-flex>
           </n-popover>

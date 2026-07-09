@@ -35,6 +35,11 @@ export interface Setting {
   //
   locale: 'origin' | 'zh-cn' | 'zh-tw';
   searchLocaleAware: boolean;
+  forumSearch: {
+    fuzzyTitle: boolean;
+    fuzzyAuthor: boolean;
+    autoFillToDate: boolean;
+  };
 }
 
 const defaultEnabledTranslators = [
@@ -92,6 +97,11 @@ export namespace Setting {
     //
     locale: 'origin',
     searchLocaleAware: false,
+    forumSearch: {
+      fuzzyTitle: true,
+      fuzzyAuthor: false,
+      autoFillToDate: false,
+    },
   };
 
   export const migrate = (setting: Setting) => {
@@ -129,6 +139,17 @@ export namespace Setting {
       if ((setting.paginationMode as unknown) === 'auto') {
         setting.paginationMode = 'pagination';
       }
+    }
+
+    if (setting.forumSearch === undefined) {
+      setting.forumSearch = {
+        fuzzyTitle: true,
+        fuzzyAuthor: false,
+        autoFillToDate: false,
+      };
+    } else if ('exactAuthor' in setting.forumSearch) {
+      setting.forumSearch.fuzzyAuthor = !(setting.forumSearch as any).exactAuthor;
+      delete (setting.forumSearch as any).exactAuthor;
     }
 
     setting.version = 1;

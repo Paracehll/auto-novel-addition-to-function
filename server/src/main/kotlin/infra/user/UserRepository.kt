@@ -24,11 +24,11 @@ class UserRepository(
             ?.id?.toHexString()
     }
 
-    suspend fun getIdsByName(username: String, exact: Boolean): List<String> {
-        val filter = if (exact) {
-            eq(UserDbModel::username.field(), username)
-        } else {
+    suspend fun getIdsByName(username: String, fuzzy: Boolean): List<String> {
+        val filter = if (fuzzy) {
             regex(UserDbModel::username.field(), username, "i")
+        } else {
+            eq(UserDbModel::username.field(), username)
         }
         return userCollection
             .find(filter)

@@ -196,6 +196,21 @@ const playSound = (source: string) => {
           </n-checkbox>
         </n-flex>
       </n-list-item>
+
+      <n-list-item>
+        <n-flex vertical>
+          <b>论坛</b>
+          <n-checkbox v-model:checked="setting.forumSearch.fuzzyTitle">
+            标题模糊搜索
+          </n-checkbox>
+          <n-checkbox v-model:checked="setting.forumSearch.fuzzyAuthor">
+            作者模糊搜索
+          </n-checkbox>
+          <n-checkbox v-model:checked="setting.forumSearch.autoFillToDate">
+            自动填入结束日期
+          </n-checkbox>
+        </n-flex>
+      </n-list-item>
     </n-list>
   </div>
 </template>
