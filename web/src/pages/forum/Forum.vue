@@ -264,8 +264,13 @@ const deleteArticle = (article: ArticleSimplified) =>
       />
     </router-link>
 
-    <n-flex vertical>
-      <c-action-wrapper title="搜索">
+    <c-action-wrapper title="版块" style="margin-bottom: 20px">
+      <n-flex align="center">
+        <c-radio-group
+          :value="category"
+          @update-value="onUpdateCategory"
+          :options="articleCategoryOptions"
+        />
         <div style="position: relative; display: flex; align-items: center">
           <n-input
             ref="searchInputInst"
@@ -329,20 +334,12 @@ const deleteArticle = (article: ArticleSimplified) =>
             </n-flex>
           </n-popover>
         </div>
-      </c-action-wrapper>
+      </n-flex>
+    </c-action-wrapper>
 
-      <c-action-wrapper title="版块">
-        <c-radio-group
-          :value="category"
-          @update-value="onUpdateCategory"
-          :options="articleCategoryOptions"
-        />
-      </c-action-wrapper>
-
-      <c-action-wrapper title="排序" align="center">
-        <order-sort v-model:value="currentSort" :options="articleSortOptions" />
-      </c-action-wrapper>
-    </n-flex>
+    <c-action-wrapper title="排序" align="center" style="margin-bottom: 20px">
+      <order-sort v-model:value="currentSort" :options="articleSortOptions" />
+    </c-action-wrapper>
 
     <CPage
       :page="page"
