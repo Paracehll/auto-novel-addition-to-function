@@ -223,6 +223,7 @@ const router = createRouter({
             page: Number(route.query.page) || 1,
             category: route.query.category || 'General',
             search: route.query.search,
+            sort: route.query.sort,
           }),
         },
         {
