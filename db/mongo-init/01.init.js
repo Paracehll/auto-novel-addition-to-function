@@ -1,4 +1,8 @@
-db["article"].createIndex({ pinned: 1, updateAt: 1 });
+db["article"].createIndex({ category: 1, pinned: -1, changeAt: -1 });
+db["article"].createIndex({ user: 1, createAt: -1 });
+db["article"].createIndex({ createAt: -1 });
+db["article"].createIndex({ numViews: -1 });
+db["article"].createIndex({ numComments: -1 });
 db["comment-alt"].createIndex({ site: 1, parent: 1, id: 1 });
 db["operation-history"].createIndex({ createAt: 1 });
 db["user"].createIndex({ username: 1 }, { unique: true });

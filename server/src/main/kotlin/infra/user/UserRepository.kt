@@ -16,12 +16,17 @@ class UserRepository(
             MongoCollectionNames.USER,
         )
 
-    suspend fun getId(username: String): String {
-        val user = userCollection
+    suspend fun getIdOrNull(username: String): String? {
+        return userCollection
             .find(eq(UserDbModel::username.field(), username))
             .firstOrNull()
-        if (user != null) {
-            return user.id.toHexString()
+            ?.id?.toHexString()
+    }
+
+    suspend fun getId(username: String): String {
+        val userId = getIdOrNull(username)
+        if (userId != null) {
+            return userId
         }
 
         val model = UserDbModel(
@@ -30,10 +35,10 @@ class UserRepository(
             favoredWeb = listOf(UserFavored(id = "default", title = "默认收藏夹")),
             favoredWenku = listOf(UserFavored(id = "default", title = "默认收藏夹")),
         )
-        val userId = userCollection
+        val insertedUserId = userCollection
             .insertOne(model)
             .insertedId!!.asObjectId().value
-        return userId.toHexString()
+        return insertedUserId.toHexString()
     }
 
     suspend fun isReadHistoryPaused(

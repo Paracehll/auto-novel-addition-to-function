@@ -4,8 +4,7 @@ import com.mongodb.client.model.Aggregates.*
 import com.mongodb.client.model.CountOptions
 import com.mongodb.client.model.Facet
 import com.mongodb.client.model.Field
-import com.mongodb.client.model.Filters.and
-import com.mongodb.client.model.Filters.eq
+import com.mongodb.client.model.Filters.*
 import com.mongodb.client.model.Projections.*
 import com.mongodb.client.model.Sorts.descending
 import com.mongodb.client.model.Updates.*
@@ -33,25 +32,65 @@ class ArticleRepository(
         pageSize: Int,
         category: ArticleCategory,
     ): Page<ArticleListItem> {
+        return searchArticle(
+            page = page,
+            pageSize = pageSize,
+            category = category,
+        )
+    }
+
+    suspend fun searchArticle(
+        page: Int,
+        pageSize: Int,
+        category: ArticleCategory? = null,
+        authorId: String? = null,
+        startAt: kotlinx.datetime.Instant? = null,
+        endAt: kotlinx.datetime.Instant? = null,
+        minViews: Int? = null,
+        maxViews: Int? = null,
+        minComments: Int? = null,
+        maxComments: Int? = null,
+        sort: ArticleListSort = ArticleListSort.Default,
+    ): Page<ArticleListItem> {
         @Serializable
         data class PageModel(
             val total: Int = 0,
             val items: List<ArticleListItem>,
         )
 
+        val filters = buildList {
+            category?.let { add(eq(ArticleDbModel::category.field(), it)) }
+            authorId?.let { add(eq(ArticleDbModel::user.field(), ObjectId(it))) }
+            startAt?.let { add(gte(ArticleDbModel::createAt.field(), it)) }
+            endAt?.let { add(lte(ArticleDbModel::createAt.field(), it)) }
+            minViews?.let { add(gte(ArticleDbModel::numViews.field(), it)) }
+            maxViews?.let { add(lte(ArticleDbModel::numViews.field(), it)) }
+            minComments?.let { add(gte(ArticleDbModel::numComments.field(), it)) }
+            maxComments?.let { add(lte(ArticleDbModel::numComments.field(), it)) }
+        }
+
+        val matchStage = match(if (filters.isEmpty()) and() else and(filters))
+
+        val sortStage = when (sort) {
+            ArticleListSort.Default -> sort(
+                descending(
+                    ArticleDbModel::pinned.field(),
+                    ArticleDbModel::changeAt.field(),
+                )
+            )
+            ArticleListSort.CreateAt -> sort(descending(ArticleDbModel::createAt.field()))
+            ArticleListSort.Views -> sort(descending(ArticleDbModel::numViews.field()))
+            ArticleListSort.Comments -> sort(descending(ArticleDbModel::numComments.field()))
+        }
+
         val doc = articleCollection
             .aggregate<PageModel>(
-                match(eq(ArticleDbModel::category.field(), category)),
+                matchStage,
                 facet(
                     Facet("count", count()),
                     Facet(
                         "items",
-                        sort(
-                            descending(
-                                ArticleDbModel::pinned.field(),
-                                ArticleDbModel::changeAt.field(),
-                            )
-                        ),
+                        sortStage,
                         skip(page * pageSize),
                         limit(pageSize),
                         lookup(

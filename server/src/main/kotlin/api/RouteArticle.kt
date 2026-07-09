@@ -1,13 +1,14 @@
 package api
 
 import api.plugins.*
-import infra.article.ArticleCategory
-import infra.article.ArticleRepository
-import infra.article.ArticleListItem
-import infra.article.Article
+import infra.article.*
+import api.plugins.User
+import api.plugins.UserRole
 import infra.comment.CommentRepository
 import infra.common.Page
+import infra.common.emptyPage
 import infra.user.UserOutline
+import infra.user.UserRepository
 import io.ktor.resources.*
 import io.ktor.server.plugins.ratelimit.*
 import io.ktor.server.request.*
@@ -25,7 +26,15 @@ private class ArticleRes {
         val parent: ArticleRes,
         val page: Int,
         val pageSize: Int,
-        val category: ArticleCategory,
+        val category: ArticleCategory? = null,
+        val author: String? = null,
+        val startAt: Long? = null,
+        val endAt: Long? = null,
+        val minViews: Int? = null,
+        val maxViews: Int? = null,
+        val minComments: Int? = null,
+        val maxComments: Int? = null,
+        val sort: ArticleListSort = ArticleListSort.Default,
     )
 
     @Resource("/{id}")
@@ -53,6 +62,14 @@ fun Route.routeArticle() {
                     page = loc.page,
                     pageSize = loc.pageSize,
                     category = loc.category,
+                    author = loc.author,
+                    startAt = loc.startAt,
+                    endAt = loc.endAt,
+                    minViews = loc.minViews,
+                    maxViews = loc.maxViews,
+                    minComments = loc.minComments,
+                    maxComments = loc.maxComments,
+                    sort = loc.sort,
                 )
             }
         }
@@ -150,6 +167,7 @@ fun Route.routeArticle() {
 class ArticleApi(
     private val articleRepo: ArticleRepository,
     private val commentRepo: CommentRepository,
+    private val userRepo: UserRepository,
 ) {
     @Serializable
     data class ArticleSimplifiedDto(
@@ -187,18 +205,47 @@ class ArticleApi(
         user: User?,
         page: Int,
         pageSize: Int,
-        category: ArticleCategory,
+        category: ArticleCategory?,
+        author: String? = null,
+        startAt: Long? = null,
+        endAt: Long? = null,
+        minViews: Int? = null,
+        maxViews: Int? = null,
+        minComments: Int? = null,
+        maxComments: Int? = null,
+        sort: ArticleListSort = ArticleListSort.Default,
     ): Page<ArticleSimplifiedDto> {
         validatePageNumber(page)
         validatePageSize(pageSize)
+        if (startAt != null && endAt != null && startAt > endAt) {
+            throwBadRequest("起始时间不能晚于结束时间")
+        }
+        if (minViews != null && maxViews != null && minViews > maxViews) {
+            throwBadRequest("观看数范围不合法")
+        }
+        if (minComments != null && maxComments != null && minComments > maxComments) {
+            throwBadRequest("评论数范围不合法")
+        }
+
+        val authorId = author?.let {
+            userRepo.getIdOrNull(it) ?: return emptyPage()
+        }
 
         val ignoreHidden = user != null && user.role atLeast UserRole.Admin
 
         return articleRepo
-            .listArticle(
+            .searchArticle(
                 page = page,
                 pageSize = pageSize,
                 category = category,
+                authorId = authorId,
+                startAt = startAt?.let { kotlinx.datetime.Instant.fromEpochSeconds(it) },
+                endAt = endAt?.let { kotlinx.datetime.Instant.fromEpochSeconds(it) },
+                minViews = minViews,
+                maxViews = maxViews,
+                minComments = minComments,
+                maxComments = maxComments,
+                sort = sort,
             )
             .map { it.asDto(ignoreHidden) }
     }

@@ -8,6 +8,9 @@ import kotlinx.serialization.Serializable
 import org.bson.types.ObjectId
 
 @Serializable
+enum class ArticleListSort { Default, CreateAt, Views, Comments }
+
+@Serializable
 enum class ArticleCategory {
     @SerialName("Guide")
     Guide,
