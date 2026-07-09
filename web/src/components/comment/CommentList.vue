@@ -2,30 +2,29 @@
 import { CommentOutlined } from '@vicons/material';
 
 import { CommentRepo } from '@/repos';
-import { useDraftStore, useWhoamiStore } from '@/stores';
+import { useDraftStore, useWhoamiStore, useSettingStore } from '@/stores';
 
 const props = defineProps<{
   site: string;
   locked: boolean;
 }>();
 
-const page = ref(1);
 const { data: commentPage, error } = CommentRepo.useCommentList(
-  page,
+  1,
   () => props.site,
+  undefined,
+  undefined,
+  100,
 );
 
 const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
 
+const settingStore = useSettingStore();
+const { setting } = storeToRefs(settingStore);
+
 const draftStore = useDraftStore();
 const draftId = `comment-${props.site}`;
-
-const anchorEl = useTemplateRef('anchor');
-watch(page, () => {
-  anchorEl.value?.scrollIntoView();
-  window.scrollBy({ top: -50, behavior: 'auto' });
-});
 
 function onReplied() {
   showInput.value = false;
@@ -41,18 +40,55 @@ const canReply = computed(() => {
     : whoami.value.hasNovelAccess;
   return hasAccess && !props.locked;
 });
+
+const commentCount = computed(() => {
+  if (!commentPage.value) return undefined;
+
+  const items = commentPage.value.items;
+  const unique = setting.value.commentCountUnique;
+  const reply = setting.value.commentCountReply;
+
+  if (unique) {
+    const users = new Set<string>();
+    for (const item of items) {
+      if (item.user?.username) {
+        users.add(item.user.username);
+      }
+      if (reply && item.replies) {
+        for (const r of item.replies) {
+          if (r.user?.username) {
+            users.add(r.user.username);
+          }
+        }
+      }
+    }
+    return users.size;
+  } else {
+    if (reply) {
+      let count = 0;
+      for (const item of items) {
+        count += 1 + item.numReplies;
+      }
+      return count;
+    } else {
+      return items.length;
+    }
+  }
+});
 </script>
 
 <template>
-  <div ref="anchor" />
   <SectionHeader
     title="评论"
     ref="commentSectionRef"
     style="margin-bottom: 32px"
   >
     <template #title-extra>
-      <n-text depth="3">
-        <CommentCountBadge :site="site" />
+      <n-text
+        depth="3"
+        v-if="setting.showCommentCount && commentCount !== undefined"
+      >
+        💬 {{ commentCount }}
       </n-text>
     </template>
     <c-button
@@ -77,18 +113,16 @@ const canReply = computed(() => {
     <n-divider />
   </template>
 
-  <CPage v-model:page="page" :page-number="commentPage?.pageNumber" disable-top>
-    <template v-if="commentPage">
-      <template v-for="comment in commentPage.items" :key="comment.id">
-        <CommentThread :site="site" :comment="comment" :can-reply="canReply" />
-        <n-divider />
-      </template>
-      <n-empty
-        v-if="commentPage.items.length === 0 && !locked"
-        description="暂无评论"
-      />
+  <template v-if="commentPage">
+    <template v-for="comment in commentPage.items" :key="comment.id">
+      <CommentThread :site="site" :comment="comment" :can-reply="canReply" />
+      <n-divider />
     </template>
+    <n-empty
+      v-if="commentPage.items.length === 0 && !locked"
+      description="暂无评论"
+    />
+  </template>
 
-    <CResultX v-else :error="error" title="加载错误" />
-  </CPage>
+  <CResultX v-else-if="error" :error="error" title="加载错误" />
 </template>

@@ -12,13 +12,20 @@ const useCommentList = (
   site: MaybeRefOrGetter<string>,
   parentId: MaybeRefOrGetter<string | undefined> = undefined,
   initialData: Page<Comment1> | undefined = undefined,
+  pageSize: MaybeRefOrGetter<number> = 10,
 ) =>
   useQuery({
-    key: () => [ListKey, toValue(site), toValue(parentId) ?? '', toValue(page)],
+    key: () => [
+      ListKey,
+      toValue(site),
+      toValue(parentId) ?? '',
+      toValue(page),
+      toValue(pageSize),
+    ],
     query: () =>
       CommentApi.listComment({
         page: toValue(page) - 1,
-        pageSize: 10,
+        pageSize: toValue(pageSize),
         site: toValue(site),
         ...(toValue(parentId) ? { parentId: toValue(parentId) } : {}),
       }),
