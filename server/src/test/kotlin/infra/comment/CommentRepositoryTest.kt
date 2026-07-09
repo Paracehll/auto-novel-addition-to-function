@@ -14,11 +14,11 @@ class CommentRepositoryTest : DescribeSpec(), KoinTest {
     private val commentRepo by inject<CommentRepository>()
 
     init {
-        describe("CommentRepository.countComment") {
+        describe("countComment") {
             val site = "test-site"
             val collection = mongo.database.getCollection<CommentDbModel>(MongoCollectionNames.COMMENT)
 
-            it("should count all comments for a site when parent is null") {
+            it("当 parent 为 null 时统计站点的所有评论") {
                 collection.drop()
                 commentRepo.createComment(site, null, "user1", "content1")
                 val parentId = commentRepo.createComment(site, null, "user1", "content2")
@@ -27,7 +27,7 @@ class CommentRepositoryTest : DescribeSpec(), KoinTest {
                 commentRepo.countComment(site, null, true) shouldBe 3
             }
 
-            it("should count only replies when parent is specified") {
+            it("当指定 parent 时仅统计回复") {
                 collection.drop()
                 val parentId1 = commentRepo.createComment(site, null, "user1", "content1")
                 val parentId2 = commentRepo.createComment(site, null, "user1", "content2")
@@ -39,7 +39,7 @@ class CommentRepositoryTest : DescribeSpec(), KoinTest {
                 commentRepo.countComment(site, parentId2.toHexString(), true) shouldBe 1
             }
 
-            it("should exclude hidden comments when includeHidden is false") {
+            it("当 includeHidden 为 false 时排除隐藏评论") {
                 collection.drop()
                 commentRepo.createComment(site, null, "user1", "content1")
                 val hiddenId = commentRepo.createComment(site, null, "user1", "hidden content")
@@ -49,7 +49,7 @@ class CommentRepositoryTest : DescribeSpec(), KoinTest {
                 commentRepo.countComment(site, null, false) shouldBe 1
             }
 
-            it("should count unique users when unique is true") {
+            it("当 unique 为 true 时统计唯一用户数") {
                 collection.drop()
                 commentRepo.createComment(site, null, "user1", "content1")
                 commentRepo.createComment(site, null, "user1", "content2")
@@ -59,7 +59,7 @@ class CommentRepositoryTest : DescribeSpec(), KoinTest {
                 commentRepo.countComment(site, null, true, unique = false) shouldBe 3
             }
 
-            it("should exclude replies when reply is false") {
+            it("当 reply 为 false 时排除回复") {
                 collection.drop()
                 val parentId = commentRepo.createComment(site, null, "user1", "content1")
                 commentRepo.createComment(site, parentId.toHexString(), "user2", "reply1")
