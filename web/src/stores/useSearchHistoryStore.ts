@@ -54,3 +54,6 @@ export const useWebSearchHistoryStore = () =>
 
 export const useWenkuSearchHistoryStore = () =>
   useSearchHistoryStore(LSKey.SearchHistoryWenku);
+
+export const useForumSearchHistoryStore = () =>
+  useSearchHistoryStore(LSKey.SearchHistoryForum);

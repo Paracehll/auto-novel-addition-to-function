@@ -4,7 +4,13 @@ import { LockOutlined, PlusOutlined, PushPinOutlined, SearchOutlined, SettingsOu
 import { ArticleRepo } from '@/repos';
 import type { ArticleCategory, ArticleSimplified } from '@/model/Article';
 import { doAction } from '@/pages/util';
-import { useBlacklistStore, useForumSearchSettingStore, useWhoamiStore } from '@/stores';
+import {
+  useBlacklistStore,
+  useForumSearchHistoryStore,
+  useForumSearchSettingStore,
+  useSettingStore,
+  useWhoamiStore,
+} from '@/stores';
 
 const props = defineProps<{
   page: number;
@@ -23,6 +29,9 @@ const { whoami } = storeToRefs(whoamiStore);
 
 const blacklistStore = useBlacklistStore();
 const { setting: searchSetting } = storeToRefs(useForumSearchSettingStore());
+const { setting, cc } = storeToRefs(useSettingStore());
+
+const forumSearchHistoryStore = useForumSearchHistoryStore();
 
 const articleCategoryOptions = [
   { value: 'General', label: '小说交流' },
@@ -133,9 +142,19 @@ const onSearch = () => {
     searchStr += ` ${tag.type}:"${tag.value}"`;
   });
 
+  searchStr = searchStr.trim();
+
+  if (setting.value.searchLocaleAware) {
+    searchStr = cc.value(searchStr);
+  }
+
+  if (searchStr) {
+    forumSearchHistoryStore.addHistory(searchStr);
+  }
+
   const query = {
     ...route.query,
-    search: searchStr.trim() || undefined,
+    search: searchStr || undefined,
     page: 1,
   };
   router.push({ path: route.path, query });
@@ -144,6 +163,13 @@ const onSearch = () => {
 const removeTag = (index: number) => {
   activeTags.value.splice(index, 1);
   onSearch();
+};
+
+const editTag = (index: number) => {
+  const tag = activeTags.value[index];
+  activeTags.value.splice(index, 1);
+  searchQuery.value = (searchQuery.value + ` ${tag.type}:"${tag.value}"`).trim();
+  searchInputInst.value?.focus();
 };
 
 const searchInputInst = useTemplateRef<any>('searchInputInst');
@@ -265,13 +291,18 @@ const deleteArticle = (article: ArticleSimplified) =>
     </router-link>
 
     <c-action-wrapper title="版块" style="margin-bottom: 20px">
+      <c-radio-group
+        :value="category"
+        @update-value="onUpdateCategory"
+        :options="articleCategoryOptions"
+      />
+    </c-action-wrapper>
+
+    <c-action-wrapper title="排序" align="center" style="margin-bottom: 20px">
       <n-flex align="center">
-        <c-radio-group
-          :value="category"
-          @update-value="onUpdateCategory"
-          :options="articleCategoryOptions"
-        />
-        <div style="position: relative; display: flex; align-items: center">
+        <order-sort v-model:value="currentSort" :options="articleSortOptions" />
+
+        <div style="position: relative; display: flex; align-items: center; margin-left: 12px">
           <n-input
             ref="searchInputInst"
             v-model:value="searchQuery"
@@ -296,7 +327,9 @@ const deleteArticle = (article: ArticleSimplified) =>
                   :type="tag.type === 'a' ? 'info' : 'success'"
                   closable
                   round
-                  @close="removeTag(i)"
+                  style="cursor: pointer"
+                  @close.stop="removeTag(i)"
+                  @click="editTag(i)"
                 >
                   {{ tag.type === 'a' ? '作者' : '时间' }}: {{ tag.value }}
                 </n-tag>
@@ -335,10 +368,6 @@ const deleteArticle = (article: ArticleSimplified) =>
           </n-popover>
         </div>
       </n-flex>
-    </c-action-wrapper>
-
-    <c-action-wrapper title="排序" align="center" style="margin-bottom: 20px">
-      <order-sort v-model:value="currentSort" :options="articleSortOptions" />
     </c-action-wrapper>
 
     <CPage
