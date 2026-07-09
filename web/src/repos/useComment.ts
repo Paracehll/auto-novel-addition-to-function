@@ -12,13 +12,20 @@ const useCommentList = (
   site: MaybeRefOrGetter<string>,
   parentId: MaybeRefOrGetter<string | undefined> = undefined,
   initialData: Page<Comment1> | undefined = undefined,
+  pageSize: MaybeRefOrGetter<number> = 10,
 ) =>
   useQuery({
-    key: () => [ListKey, toValue(site), toValue(parentId) ?? '', toValue(page)],
+    key: () => [
+      ListKey,
+      toValue(site),
+      toValue(parentId) ?? '',
+      toValue(page),
+      toValue(pageSize),
+    ],
     query: () =>
       CommentApi.listComment({
         page: toValue(page) - 1,
-        pageSize: 10,
+        pageSize: toValue(pageSize),
         site: toValue(site),
         ...(toValue(parentId) ? { parentId: toValue(parentId) } : {}),
       }),
@@ -28,14 +35,18 @@ const useCommentList = (
 export const CommentRepo = {
   useCommentList,
 
-  createComment: withOnSuccess(CommentApi.createComment, (_, comment) =>
+  createComment: withOnSuccess(CommentApi.createComment, (_, comment) => {
     cache.invalidateQueries({
       key: [ListKey, comment.site, comment.parent ?? ''],
-    }),
-  ),
+    });
+    cache.invalidateQueries({
+      key: ['comment-count', comment.site],
+    });
+  }),
   deleteComment: (id: string, site: string, parentId?: string) =>
     CommentApi.deleteComment(id).then(() => {
       cache.invalidateQueries({ key: [ListKey, site, parentId ?? ''] });
+      cache.invalidateQueries({ key: ['comment-count', site] });
     }),
   hideComment: CommentApi.hideComment,
   unhideComment: CommentApi.unhideComment,

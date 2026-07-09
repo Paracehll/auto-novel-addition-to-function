@@ -105,6 +105,39 @@ class CommentRepository(
         }
     }
 
+    suspend fun countComment(
+        site: String,
+        parent: String?,
+        includeHidden: Boolean,
+        unique: Boolean = false,
+        reply: Boolean = true,
+    ): Long {
+        val filters = mutableListOf(
+            eq(CommentDbModel::site.field(), site)
+        )
+        if (parent != null) {
+            filters.add(eq(CommentDbModel::parent.field(), ObjectId(parent)))
+        } else if (!reply) {
+            filters.add(eq(CommentDbModel::parent.field(), null))
+        }
+        if (!includeHidden) {
+            filters.add(eq(CommentDbModel::hidden.field(), false))
+        }
+
+        return if (unique) {
+            @Serializable
+            data class CountModel(val count: Int)
+
+            commentCollection.aggregate<CountModel>(
+                match(and(filters)),
+                group("\$" + CommentDbModel::user.field()),
+                count("count")
+            ).firstOrNull()?.count?.toLong() ?: 0L
+        } else {
+            commentCollection.countDocuments(and(filters))
+        }
+    }
+
     suspend fun isCommentCanRevoke(
         id: String,
         userId: String,

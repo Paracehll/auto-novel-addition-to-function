@@ -9,6 +9,13 @@ const listComment = (params: {
   pageSize: number;
 }) => client.get('comment', { searchParams: params }).json<Page<Comment1>>();
 
+const countComment = (params: {
+  site: string;
+  parentId?: string;
+  unique?: number;
+  reply?: number;
+}) => client.get('comment/count', { searchParams: params }).json<{ total: number }>();
+
 const createComment = (json: {
   site: string;
   parent: string | undefined;
@@ -21,6 +28,7 @@ const unhideComment = (id: string) => client.delete(`comment/${id}/hidden`);
 
 export const CommentApi = {
   listComment,
+  countComment,
   createComment,
   deleteComment,
   hideComment,
