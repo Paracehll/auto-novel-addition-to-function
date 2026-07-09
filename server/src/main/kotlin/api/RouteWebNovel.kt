@@ -609,6 +609,7 @@ class WebNovelApi(
         val noChapterDeleted = novel
             .toc
             .mapNotNull { it.chapterId }
+            .filter { it != "default" }
             .all { oldChapterId -> oldChapterId in newChapterIds }
         if (!noChapterDeleted) {
             user.requireAdmin()
