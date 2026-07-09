@@ -322,8 +322,8 @@ router.afterEach((to, from) => {
     if (to.meta.title) {
       titleParts.push(to.meta.title);
     }
-    if (to.query.query) {
-      titleParts.push(`搜索:${to.query.query}`);
+    if (to.query.query || to.query.search) {
+      titleParts.push(`搜索:${to.query.query || to.query.search}`);
     }
     if (titleParts.length > 0) {
       titleParts.push('|');

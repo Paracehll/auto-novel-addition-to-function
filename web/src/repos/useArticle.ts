@@ -23,9 +23,29 @@ const useArticleList = (
   fuzzyTitle: MaybeRefOrGetter<boolean | undefined> = undefined,
   startAt: MaybeRefOrGetter<number | undefined> = undefined,
   endAt: MaybeRefOrGetter<number | undefined> = undefined,
+  minViews: MaybeRefOrGetter<number | undefined> = undefined,
+  maxViews: MaybeRefOrGetter<number | undefined> = undefined,
+  minComments: MaybeRefOrGetter<number | undefined> = undefined,
+  maxComments: MaybeRefOrGetter<number | undefined> = undefined,
+  sort: MaybeRefOrGetter<string | undefined> = undefined,
 ) =>
   useQuery({
-    key: () => [ListKey, toValue(category), toValue(page), toValue(author), toValue(query), toValue(exactAuthor), toValue(fuzzyTitle), toValue(startAt), toValue(endAt)],
+    key: () => [
+      ListKey,
+      toValue(category),
+      toValue(page),
+      toValue(author),
+      toValue(query),
+      toValue(exactAuthor),
+      toValue(fuzzyTitle),
+      toValue(startAt),
+      toValue(endAt),
+      toValue(minViews),
+      toValue(maxViews),
+      toValue(minComments),
+      toValue(maxComments),
+      toValue(sort),
+    ],
     query: () =>
       ArticleApi.listArticle({
         page: toValue(page) - 1,
@@ -37,6 +57,11 @@ const useArticleList = (
         fuzzyTitle: toValue(fuzzyTitle),
         startAt: toValue(startAt),
         endAt: toValue(endAt),
+        minViews: toValue(minViews),
+        maxViews: toValue(maxViews),
+        minComments: toValue(minComments),
+        maxComments: toValue(maxComments),
+        sort: toValue(sort),
       }),
   });
 

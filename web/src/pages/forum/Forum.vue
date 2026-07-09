@@ -38,17 +38,34 @@ const onUpdateCategory = (category: ArticleCategory) => {
   router.push({ path: route.path, query });
 };
 
-const searchQuery = ref(props.search ?? '');
+const searchQuery = ref('');
+const activeTags = ref<{ type: 'a' | 't'; value: string }[]>([]);
+
 watch(
   () => props.search,
   (newSearch) => {
-    searchQuery.value = newSearch ?? '';
+    const search = newSearch ?? '';
+    const tags: { type: 'a' | 't' | 'v' | 'c' | 's'; value: string }[] = [];
+
+    const matches = search.matchAll(/([atvcs]):"([^"]*)"/g);
+    for (const match of matches) {
+      tags.push({ type: match[1] as any, value: match[2] });
+    }
+
+    activeTags.value = tags;
+    searchQuery.value = search
+      .replace(/[atvcs]:"[^"]*"/g, '')
+      .trim();
   },
+  { immediate: true },
 );
 
 const parseSearch = (search: string) => {
   const authorMatch = search.match(/a:"([^"]*)"/);
   const timeMatch = search.match(/t:"([^"]*)"/);
+  const viewsMatch = search.match(/v:"([^"]*)"/);
+  const commentsMatch = search.match(/c:"([^"]*)"/);
+  const sortMatch = search.match(/s:"([^"]*)"/);
 
   let author = authorMatch ? authorMatch[1] : undefined;
   let startAt: number | undefined = undefined;
@@ -71,43 +88,88 @@ const parseSearch = (search: string) => {
     if (range.length === 2) {
       startAt = parseDate(range[0], false);
       endAt = parseDate(range[1], true);
+    } else if (!timeMatch[1].includes('-')) {
+      startAt = parseDate(timeMatch[1], false);
     }
   }
 
+  const parseRange = (s: string) => {
+    const parts = s.split('-');
+    if (parts.length === 2) {
+      return { min: parts[0] ? parseInt(parts[0]) : undefined, max: parts[1] ? parseInt(parts[1]) : undefined };
+    }
+    return { min: parseInt(s), max: parseInt(s) };
+  };
+
+  const views = viewsMatch ? parseRange(viewsMatch[1]) : undefined;
+  const comments = commentsMatch ? parseRange(commentsMatch[1]) : undefined;
+  const sort = sortMatch ? sortMatch[1] : undefined;
+
   const query = search
-    .replace(/a:"[^"]*"/, '')
-    .replace(/t:"[^"]*"/, '')
+    .replace(/[atvcs]:"[^"]*"/g, '')
     .trim();
 
-  return { author, query: query || undefined, startAt, endAt };
+  return {
+    author,
+    query: query || undefined,
+    startAt,
+    endAt,
+    minViews: views?.min,
+    maxViews: views?.max,
+    minComments: comments?.min,
+    maxComments: comments?.max,
+    sort,
+  };
 };
 
 const onSearch = () => {
+  let searchStr = searchQuery.value.trim();
+  activeTags.value.forEach((tag) => {
+    searchStr += ` ${tag.type}:"${tag.value}"`;
+  });
+
   const query = {
     ...route.query,
-    search: searchQuery.value.trim() || undefined,
+    search: searchStr.trim() || undefined,
     page: 1,
   };
   router.push({ path: route.path, query });
 };
 
+const removeTag = (index: number) => {
+  activeTags.value.splice(index, 1);
+  onSearch();
+};
+
 const searchInputInst = useTemplateRef<any>('searchInputInst');
 const handleInput = (v: string) => {
-  const triggerA = v === 'a:' || v.endsWith(' a:');
-  const triggerT = v === 't:' || v.endsWith(' t:');
-  if (triggerA || triggerT) {
+  // 1. Auto-quote and cursor positioning
+  const triggerRegex = /(?:^|\s)([atvcs]):$/;
+  const match = v.match(triggerRegex);
+  if (match) {
     const pos = v.length;
     searchQuery.value = v + '""';
-    nextTick(() => {
-      const el = searchInputInst.value?.elRef as HTMLInputElement;
-      if (el) {
-        const input = el.querySelector('input');
-        if (input) {
-          input.focus();
-          input.setSelectionRange(pos + 1, pos + 1);
-        }
+    setTimeout(() => {
+      const el = (searchInputInst.value?.elRef as HTMLElement) || document.querySelector('.search-bar');
+      const input = el?.querySelector('input');
+      if (input) {
+        input.focus();
+        input.setSelectionRange(pos + 1, pos + 1);
       }
-    });
+    }, 10);
+    return;
+  }
+
+  // 2. Tokenization: if user types a space after a completed tag, convert it to a badge
+  const tokenMatch = v.match(/(?:^|\s)([atvcs]):"([^"]*)"\s$/);
+  if (tokenMatch) {
+    const type = tokenMatch[1] as any;
+    const value = tokenMatch[2];
+    if (value) {
+      activeTags.value.push({ type, value });
+      searchQuery.value = v.replace(tokenMatch[0], ' ').trimStart();
+      onSearch();
+    }
   }
 };
 
@@ -122,6 +184,11 @@ const { data: articlePage, error } = ArticleRepo.useArticleList(
   () => searchSetting.value.fuzzyTitle,
   () => searchParams.value.startAt,
   () => searchParams.value.endAt,
+  () => searchParams.value.minViews,
+  () => searchParams.value.maxViews,
+  () => searchParams.value.minComments,
+  () => searchParams.value.maxComments,
+  () => searchParams.value.sort,
 );
 
 const lockArticle = (article: ArticleSimplified) =>
@@ -193,20 +260,45 @@ const deleteArticle = (article: ArticleSimplified) =>
           <n-input
             ref="searchInputInst"
             v-model:value="searchQuery"
-            placeholder="搜索标题、a:作者、t:时间..."
+            placeholder="搜索标题、a:作者、t:时间、v:阅读、c:回复、s:排序..."
             clearable
-            class="search-input"
+            class="search-input search-bar"
             style="width: 300px"
             @update:value="handleInput"
             @keyup.enter="onSearch"
           >
             <template #prefix>
               <n-flex :size="4" align="center" style="margin-right: 4px" :wrap="false">
-                <n-tag v-if="searchParams.author" size="small" type="info" round>
-                  a:{{ searchParams.author }}
-                </n-tag>
-                <n-tag v-if="searchParams.startAt || searchParams.endAt" size="small" type="success" round>
-                  t
+                <n-tag
+                  v-for="(tag, i) in activeTags"
+                  :key="i"
+                  size="small"
+                  :type="
+                    tag.type === 'a'
+                      ? 'info'
+                      : tag.type === 't'
+                        ? 'success'
+                        : tag.type === 'v'
+                          ? 'warning'
+                          : tag.type === 'c'
+                            ? 'error'
+                            : 'default'
+                  "
+                  closable
+                  round
+                  @close="removeTag(i)"
+                >
+                  {{
+                    tag.type === 'a'
+                      ? '作者'
+                      : tag.type === 't'
+                        ? '时间'
+                        : tag.type === 'v'
+                          ? '阅读'
+                          : tag.type === 'c'
+                            ? '回复'
+                            : '排序'
+                  }}: {{ tag.value }}
                 </n-tag>
               </n-flex>
             </template>
