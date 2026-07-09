@@ -69,7 +69,7 @@ class ArticleRepository(
             maxComments?.let { add(lte(ArticleDbModel::numComments.field(), it)) }
         }
 
-        val matchStage = match(if (filters.isEmpty()) and() else and(filters))
+        val matchStage = match(if (filters.isEmpty()) org.bson.Document() else and(filters))
 
         val sortStage = when (sort) {
             ArticleListSort.Default -> sort(

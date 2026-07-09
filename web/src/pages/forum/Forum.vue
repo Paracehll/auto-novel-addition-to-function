@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { LockOutlined, PlusOutlined, PushPinOutlined } from '@vicons/material';
+import { LockOutlined, PlusOutlined, PushPinOutlined, SearchOutlined } from '@vicons/material';
 
 import { ArticleRepo } from '@/repos';
 import type { ArticleCategory, ArticleSimplified } from '@/model/Article';
@@ -9,6 +9,7 @@ import { useBlacklistStore, useWhoamiStore } from '@/stores';
 const props = defineProps<{
   page: number;
   category: ArticleCategory;
+  author?: string;
 }>();
 
 const route = useRoute();
@@ -36,9 +37,26 @@ const onUpdateCategory = (category: ArticleCategory) => {
   router.push({ path: route.path, query });
 };
 
+const authorQuery = ref(props.author ?? '');
+watch(
+  () => props.author,
+  (newAuthor) => {
+    authorQuery.value = newAuthor ?? '';
+  },
+);
+const onSearch = () => {
+  const query = {
+    ...route.query,
+    author: authorQuery.value.trim() || undefined,
+    page: 1,
+  };
+  router.push({ path: route.path, query });
+};
+
 const { data: articlePage, error } = ArticleRepo.useArticleList(
   () => props.page,
   () => props.category,
+  () => props.author,
 );
 
 const lockArticle = (article: ArticleSimplified) =>
@@ -100,11 +118,24 @@ const deleteArticle = (article: ArticleSimplified) =>
     </router-link>
 
     <c-action-wrapper title="版块" style="margin-bottom: 20px">
-      <c-radio-group
-        :value="category"
-        @update-value="onUpdateCategory"
-        :options="articleCategoryOptions"
-      />
+      <n-flex align="center">
+        <c-radio-group
+          :value="category"
+          @update-value="onUpdateCategory"
+          :options="articleCategoryOptions"
+        />
+        <n-input
+          v-model:value="authorQuery"
+          placeholder="搜索作者..."
+          clearable
+          style="width: 200px"
+          @keyup.enter="onSearch"
+        >
+          <template #suffix>
+            <n-icon :component="SearchOutlined" @click="onSearch" style="cursor: pointer" />
+          </template>
+        </n-input>
+      </n-flex>
     </c-action-wrapper>
 
     <CPage

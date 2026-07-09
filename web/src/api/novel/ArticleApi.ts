@@ -9,7 +9,15 @@ import { client } from './client';
 const listArticle = (params: {
   page: number;
   pageSize: number;
-  category: ArticleCategory;
+  category?: ArticleCategory;
+  author?: string;
+  startAt?: number;
+  endAt?: number;
+  minViews?: number;
+  maxViews?: number;
+  minComments?: number;
+  maxComments?: number;
+  sort?: string;
 }) =>
   client
     .get('article', { searchParams: params })

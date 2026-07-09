@@ -17,14 +17,16 @@ const useArticle = (id: string, enabled: boolean = true) =>
 const useArticleList = (
   page: MaybeRefOrGetter<number>,
   category: MaybeRefOrGetter<ArticleCategory>,
+  author: MaybeRefOrGetter<string | undefined> = undefined,
 ) =>
   useQuery({
-    key: () => [ListKey, toValue(category), toValue(page)],
+    key: () => [ListKey, toValue(category), toValue(page), toValue(author)],
     query: () =>
       ArticleApi.listArticle({
         page: toValue(page) - 1,
         pageSize: 20,
         category: toValue(category),
+        author: toValue(author),
       }),
   });
 
