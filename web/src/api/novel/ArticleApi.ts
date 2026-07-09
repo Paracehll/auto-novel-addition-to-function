@@ -21,6 +21,7 @@ const listArticle = (params: {
   minComments?: number;
   maxComments?: number;
   sort?: string;
+  sortDesc?: boolean;
 }) =>
   client
     .get('article', { searchParams: params })

@@ -38,6 +38,7 @@ private class ArticleRes {
         val minComments: Int? = null,
         val maxComments: Int? = null,
         val sort: ArticleListSort = ArticleListSort.Default,
+        val sortDesc: Boolean = true,
     )
 
     @Resource("/{id}")
@@ -76,6 +77,7 @@ fun Route.routeArticle() {
                     minComments = loc.minComments,
                     maxComments = loc.maxComments,
                     sort = loc.sort,
+                    sortDesc = loc.sortDesc,
                 )
             }
         }
@@ -223,6 +225,7 @@ class ArticleApi(
         minComments: Int? = null,
         maxComments: Int? = null,
         sort: ArticleListSort = ArticleListSort.Default,
+        sortDesc: Boolean = true,
     ): Page<ArticleSimplifiedDto> {
         validatePageNumber(page)
         validatePageSize(pageSize)
@@ -259,6 +262,7 @@ class ArticleApi(
                 minComments = minComments,
                 maxComments = maxComments,
                 sort = sort,
+                sortDesc = sortDesc,
             )
             .map { it.asDto(ignoreHidden) }
     }

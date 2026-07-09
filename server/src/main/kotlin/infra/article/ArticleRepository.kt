@@ -6,6 +6,7 @@ import com.mongodb.client.model.Facet
 import com.mongodb.client.model.Field
 import com.mongodb.client.model.Filters.*
 import com.mongodb.client.model.Projections.*
+import com.mongodb.client.model.Sorts.ascending
 import com.mongodb.client.model.Sorts.descending
 import com.mongodb.client.model.Updates.*
 import infra.*
@@ -54,6 +55,7 @@ class ArticleRepository(
         minComments: Int? = null,
         maxComments: Int? = null,
         sort: ArticleListSort = ArticleListSort.Default,
+        sortDesc: Boolean = true,
     ): Page<ArticleListItem> {
         @Serializable
         data class PageModel(
@@ -84,14 +86,30 @@ class ArticleRepository(
 
         val sortStage = when (sort) {
             ArticleListSort.Default -> sort(
-                descending(
-                    ArticleDbModel::pinned.field(),
-                    ArticleDbModel::changeAt.field(),
-                )
+                if (sortDesc) {
+                    descending(
+                        ArticleDbModel::pinned.field(),
+                        ArticleDbModel::changeAt.field(),
+                    )
+                } else {
+                    ascending(
+                        ArticleDbModel::pinned.field(),
+                        ArticleDbModel::changeAt.field(),
+                    )
+                }
             )
-            ArticleListSort.CreateAt -> sort(descending(ArticleDbModel::createAt.field()))
-            ArticleListSort.Views -> sort(descending(ArticleDbModel::numViews.field()))
-            ArticleListSort.Comments -> sort(descending(ArticleDbModel::numComments.field()))
+            ArticleListSort.CreateAt -> sort(
+                if (sortDesc) descending(ArticleDbModel::createAt.field())
+                else ascending(ArticleDbModel::createAt.field())
+            )
+            ArticleListSort.Views -> sort(
+                if (sortDesc) descending(ArticleDbModel::numViews.field())
+                else ascending(ArticleDbModel::numViews.field())
+            )
+            ArticleListSort.Comments -> sort(
+                if (sortDesc) descending(ArticleDbModel::numComments.field())
+                else ascending(ArticleDbModel::numComments.field())
+            )
         }
 
         val doc = articleCollection

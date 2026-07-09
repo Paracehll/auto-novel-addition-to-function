@@ -28,6 +28,7 @@ const useArticleList = (
   minComments: MaybeRefOrGetter<number | undefined> = undefined,
   maxComments: MaybeRefOrGetter<number | undefined> = undefined,
   sort: MaybeRefOrGetter<string | undefined> = undefined,
+  sortDesc: MaybeRefOrGetter<boolean | undefined> = undefined,
 ) =>
   useQuery({
     key: () => [
@@ -45,6 +46,7 @@ const useArticleList = (
       toValue(minComments),
       toValue(maxComments),
       toValue(sort),
+      toValue(sortDesc),
     ],
     query: () =>
       ArticleApi.listArticle({
@@ -62,6 +64,7 @@ const useArticleList = (
         minComments: toValue(minComments),
         maxComments: toValue(maxComments),
         sort: toValue(sort),
+        sortDesc: toValue(sortDesc),
       }),
   });
 

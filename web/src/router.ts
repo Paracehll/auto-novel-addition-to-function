@@ -224,6 +224,7 @@ const router = createRouter({
             category: route.query.category || 'General',
             search: route.query.search,
             sort: route.query.sort,
+            sortDesc: route.query.sortDesc !== 'false',
           }),
         },
         {

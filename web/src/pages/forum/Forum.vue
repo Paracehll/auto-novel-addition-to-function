@@ -11,6 +11,7 @@ const props = defineProps<{
   category: ArticleCategory;
   search?: string;
   sort?: string;
+  sortDesc?: boolean;
 }>();
 
 const route = useRoute();
@@ -49,10 +50,21 @@ const articleSortOptions = [
   { value: 'Comments', label: '评论量' },
 ];
 
-const onUpdateSort = (sort: string) => {
-  const query = { ...route.query, sort, page: 1 };
-  router.push({ path: route.path, query });
-};
+const currentSort = computed({
+  get: () => ({
+    value: props.sort ?? 'Default',
+    desc: props.sortDesc ?? true,
+  }),
+  set: (val) => {
+    const query = {
+      ...route.query,
+      sort: val.value,
+      sortDesc: val.desc ? undefined : false,
+      page: 1,
+    };
+    router.push({ path: route.path, query });
+  },
+});
 
 watch(
   () => props.search,
@@ -191,6 +203,7 @@ const { data: articlePage, error } = ArticleRepo.useArticleList(
   undefined,
   undefined,
   () => props.sort,
+  () => props.sortDesc,
 );
 
 const lockArticle = (article: ArticleSimplified) =>
@@ -251,13 +264,8 @@ const deleteArticle = (article: ArticleSimplified) =>
       />
     </router-link>
 
-    <c-action-wrapper title="版块" style="margin-bottom: 20px">
-      <n-flex align="center">
-        <c-radio-group
-          :value="category"
-          @update-value="onUpdateCategory"
-          :options="articleCategoryOptions"
-        />
+    <n-flex vertical>
+      <c-action-wrapper title="搜索">
         <div style="position: relative; display: flex; align-items: center">
           <n-input
             ref="searchInputInst"
@@ -270,7 +278,12 @@ const deleteArticle = (article: ArticleSimplified) =>
             @keyup.enter="onSearch"
           >
             <template #prefix>
-              <n-flex :size="4" align="center" style="margin-right: 4px" :wrap="false">
+              <n-flex
+                :size="4"
+                align="center"
+                style="margin-right: 4px"
+                :wrap="false"
+              >
                 <n-tag
                   v-for="(tag, i) in activeTags"
                   :key="i"
@@ -285,23 +298,23 @@ const deleteArticle = (article: ArticleSimplified) =>
               </n-flex>
             </template>
             <template #suffix>
-              <n-icon :component="SearchOutlined" @click="onSearch" style="cursor: pointer" />
+              <n-icon
+                :component="SearchOutlined"
+                @click="onSearch"
+                style="cursor: pointer"
+              />
             </template>
           </n-input>
-          <n-text style="margin-left: 12px; margin-right: 8px; white-space: nowrap">
-            排序
-          </n-text>
-          <c-radio-group
-            :value="sort ?? 'Default'"
-            @update-value="onUpdateSort"
-            :options="articleSortOptions"
-          />
           <n-popover trigger="click" placement="bottom-end">
             <template #trigger>
               <c-icon-button :icon="SettingsOutlined" style="margin-left: 8px" />
             </template>
             <n-flex vertical>
-              <n-flex align="center" justify="space-between" style="width: 200px">
+              <n-flex
+                align="center"
+                justify="space-between"
+                style="width: 200px"
+              >
                 <n-text>标题模糊搜索</n-text>
                 <n-switch v-model:value="searchSetting.fuzzyTitle" />
               </n-flex>
@@ -316,8 +329,20 @@ const deleteArticle = (article: ArticleSimplified) =>
             </n-flex>
           </n-popover>
         </div>
-      </n-flex>
-    </c-action-wrapper>
+      </c-action-wrapper>
+
+      <c-action-wrapper title="版块">
+        <c-radio-group
+          :value="category"
+          @update-value="onUpdateCategory"
+          :options="articleCategoryOptions"
+        />
+      </c-action-wrapper>
+
+      <c-action-wrapper title="排序" align="center">
+        <order-sort v-model:value="currentSort" :options="articleSortOptions" />
+      </c-action-wrapper>
+    </n-flex>
 
     <CPage
       :page="page"
