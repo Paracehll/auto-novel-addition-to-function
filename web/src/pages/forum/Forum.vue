@@ -1,5 +1,7 @@
 <script lang="ts" setup>
-import { LockOutlined, PlusOutlined, PushPinOutlined, SearchOutlined, SettingsOutlined } from '@vicons/material';
+import { CloseOutlined, LockOutlined, PlusOutlined, PushPinOutlined, SearchOutlined, SettingsOutlined } from '@vicons/material';
+import { NIcon } from 'naive-ui';
+import { h } from 'vue';
 
 import { ArticleRepo } from '@/repos';
 import type { ArticleCategory, ArticleSimplified } from '@/model/Article';
@@ -31,6 +33,61 @@ const { setting, cc } = storeToRefs(useSettingStore());
 
 const forumSearchHistoryStore = useForumSearchHistoryStore();
 
+const showDropdown = ref(false);
+const handleFocus = () => {
+  showDropdown.value = true;
+};
+const handleBlur = () => {
+  setTimeout(() => {
+    showDropdown.value = false;
+  }, 200);
+};
+
+const handleSelectHistory = (key: string) => {
+  searchQuery.value = key;
+  onSearch();
+  showDropdown.value = false;
+};
+
+const searchHistoryOptions = computed(() => {
+  const queries = forumSearchHistoryStore.searchHistory.queries || [];
+  return queries.map((query) => ({
+    key: query,
+    label: () => h(
+      'div',
+      {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+        }
+      },
+      [
+        h('span', query),
+        h(
+          NIcon,
+          {
+            component: CloseOutlined,
+            size: '14',
+            style: {
+              cursor: 'pointer',
+              marginLeft: '8px',
+            },
+            onMousedown: (e: MouseEvent) => {
+              e.preventDefault(); // Prevent input from losing focus
+            },
+            onClick: (e: MouseEvent) => {
+              e.stopPropagation(); // Avoid triggering row select
+              forumSearchHistoryStore.removeHistory(query);
+            }
+          }
+        )
+      ]
+    )
+  }));
+});
+
 const articleCategoryOptions = [
   { value: 'General', label: '小说交流' },
   { value: 'Guide', label: '使用指南' },
@@ -57,10 +114,16 @@ const articleSortOptions = [
   { value: 'Comments', label: '评论量' },
 ];
 
+const currentPage = computed(() => Number(route.query.page) || 1);
+const currentCategory = computed(() => (route.query.category as ArticleCategory) || 'General');
+const currentSearch = computed(() => (route.query.search as string) || undefined);
+const currentSortParam = computed(() => (route.query.sort as string) || undefined);
+const currentSortDescParam = computed(() => route.query.sortDesc !== 'false');
+
 const currentSort = computed({
   get: () => ({
-    value: props.sort ?? 'Default',
-    desc: props.sortDesc ?? true,
+    value: currentSortParam.value ?? 'Default',
+    desc: currentSortDescParam.value,
   }),
   set: (val) => {
     const query = {
@@ -74,7 +137,7 @@ const currentSort = computed({
 });
 
 watch(
-  () => props.search,
+  currentSearch,
   (newSearch) => {
     const search = newSearch ?? '';
     const tags: { type: 'a' | 't'; value: string }[] = [];
@@ -211,11 +274,11 @@ const handleInput = (v: string) => {
   }
 };
 
-const searchParams = computed(() => parseSearch(props.search ?? ''));
+const searchParams = computed(() => parseSearch(currentSearch.value ?? ''));
 
 const { data: articlePage, error } = ArticleRepo.useArticleList(
-  () => props.page,
-  () => props.category,
+  currentPage,
+  currentCategory,
   () => searchParams.value.author,
   () => searchParams.value.query,
   () => setting.value.forumSearch.fuzzyAuthor,
@@ -226,8 +289,8 @@ const { data: articlePage, error } = ArticleRepo.useArticleList(
   undefined,
   undefined,
   undefined,
-  () => props.sort,
-  () => props.sortDesc,
+  currentSortParam,
+  currentSortDescParam,
 );
 
 const lockArticle = (article: ArticleSimplified) =>
@@ -290,7 +353,7 @@ const deleteArticle = (article: ArticleSimplified) =>
 
     <c-action-wrapper title="版块" style="margin-bottom: 20px">
       <c-radio-group
-        :value="category"
+        :value="currentCategory"
         @update-value="onUpdateCategory"
         :options="articleCategoryOptions"
       />
@@ -301,46 +364,57 @@ const deleteArticle = (article: ArticleSimplified) =>
         <order-sort v-model:value="currentSort" :options="articleSortOptions" />
 
         <div style="position: relative; display: flex; align-items: center; margin-left: 12px">
-          <n-input
-            ref="searchInputInst"
-            v-model:value="searchQuery"
-            placeholder="搜索标题、a:作者、t:时间..."
-            clearable
-            class="search-input search-bar"
-            style="width: 260px"
-            @update:value="handleInput"
-            @keyup.enter="onSearch"
+          <n-dropdown
+            :show="showDropdown && searchHistoryOptions.length > 0"
+            :options="searchHistoryOptions"
+            trigger="manual"
+            placement="bottom-start"
+            :keyboard="false"
+            @select="handleSelectHistory"
           >
-            <template #prefix>
-              <n-flex
-                :size="4"
-                align="center"
-                style="margin-right: 4px"
-                :wrap="false"
-              >
-                <n-tag
-                  v-for="(tag, i) in activeTags"
-                  :key="i"
-                  size="small"
-                  :type="tag.type === 'a' ? 'info' : 'success'"
-                  closable
-                  round
-                  style="cursor: pointer"
-                  @close.stop="removeTag(i)"
-                  @click="editTag(i)"
+            <n-input
+              ref="searchInputInst"
+              v-model:value="searchQuery"
+              placeholder="搜索标题、a:作者、t:时间..."
+              clearable
+              class="search-input search-bar"
+              style="width: 260px"
+              @update:value="handleInput"
+              @keyup.enter="onSearch"
+              @focus="handleFocus"
+              @blur="handleBlur"
+            >
+              <template #prefix>
+                <n-flex
+                  :size="4"
+                  align="center"
+                  style="margin-right: 4px"
+                  :wrap="false"
                 >
-                  {{ tag.type === 'a' ? '作者' : '時間' }}: {{ tag.value }}
-                </n-tag>
-              </n-flex>
-            </template>
-            <template #suffix>
-              <n-icon
-                :component="SearchOutlined"
-                @click="onSearch"
-                style="cursor: pointer"
-              />
-            </template>
-          </n-input>
+                  <n-tag
+                    v-for="(tag, i) in activeTags"
+                    :key="i"
+                    size="small"
+                    :type="tag.type === 'a' ? 'info' : 'success'"
+                    closable
+                    round
+                    style="cursor: pointer"
+                    @close.stop="removeTag(i)"
+                    @click="editTag(i)"
+                  >
+                    {{ tag.type === 'a' ? '作者' : '時間' }}: {{ tag.value }}
+                  </n-tag>
+                </n-flex>
+              </template>
+              <template #suffix>
+                <n-icon
+                  :component="SearchOutlined"
+                  @click="onSearch"
+                  style="cursor: pointer"
+                />
+              </template>
+            </n-input>
+          </n-dropdown>
           <n-popover trigger="click" placement="bottom-end">
             <template #trigger>
               <c-icon-button :icon="SettingsOutlined" style="margin-left: 8px" />
@@ -369,7 +443,7 @@ const deleteArticle = (article: ArticleSimplified) =>
     </c-action-wrapper>
 
     <CPage
-      :page="page"
+      :page="currentPage"
       :page-number="articlePage?.pageNumber"
       @update:page="onUpdatePage"
     >

@@ -36,6 +36,10 @@ const useSearchHistoryStore = (key: string) => {
       ref.value.queries = newQueries.slice(0, 8);
     };
 
+    const removeHistory = (query: string) => {
+      ref.value.queries = ref.value.queries.filter((it) => it !== query);
+    };
+
     const clear = () => {
       ref.value.queries = [];
       ref.value.tags = [];
@@ -44,6 +48,7 @@ const useSearchHistoryStore = (key: string) => {
     return {
       searchHistory: ref,
       addHistory,
+      removeHistory,
       clear,
     };
   })();

@@ -21,13 +21,10 @@ const props = withDefaults(
   },
 );
 
-let currentValue = modelValue.value.value;
-
 const handelClick = (option: Option) => {
   let desc = false;
-  if (currentValue != option.value) {
+  if (modelValue.value.value !== option.value) {
     // 当前切换了选项，重置desc
-    currentValue = option.value;
     desc = props.defaultDesc;
   } else {
     desc = !modelValue.value.desc;
