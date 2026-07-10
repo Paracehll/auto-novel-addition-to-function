@@ -77,7 +77,19 @@ const searchHistoryOptions = computed(() => {
         }
       },
       [
-        h('span', query),
+        h(
+          'span',
+          {
+            style: {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: '1',
+              marginRight: '8px',
+            }
+          },
+          query
+        ),
         h(
           NIcon,
           {
@@ -85,7 +97,7 @@ const searchHistoryOptions = computed(() => {
             size: '14',
             style: {
               cursor: 'pointer',
-              marginLeft: '8px',
+              flexShrink: '0',
             },
             onMousedown: (e: MouseEvent) => {
               e.preventDefault(); // Prevent input from losing focus
@@ -401,6 +413,7 @@ const deleteArticle = (article: ArticleSimplified) =>
             placement="bottom-start"
             :keyboard="false"
             @select="handleSelectHistory"
+            style="width: 260px"
           >
             <n-input
               ref="searchInputInst"
