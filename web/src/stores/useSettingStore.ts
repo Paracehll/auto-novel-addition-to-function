@@ -39,6 +39,7 @@ export interface Setting {
     fuzzyTitle: boolean;
     fuzzyAuthor: boolean;
     autoFillToDate: boolean;
+    searchBarWidth: number;
   };
 }
 
@@ -101,6 +102,7 @@ export namespace Setting {
       fuzzyTitle: true,
       fuzzyAuthor: false,
       autoFillToDate: false,
+      searchBarWidth: 280,
     },
   };
 
@@ -146,11 +148,17 @@ export namespace Setting {
         fuzzyTitle: true,
         fuzzyAuthor: false,
         autoFillToDate: false,
+        searchBarWidth: 280,
       };
-    } else if ('exactAuthor' in setting.forumSearch) {
-      setting.forumSearch.fuzzyAuthor = !(setting.forumSearch as any)
-        .exactAuthor;
-      delete (setting.forumSearch as any).exactAuthor;
+    } else {
+      if ('exactAuthor' in setting.forumSearch) {
+        setting.forumSearch.fuzzyAuthor = !(setting.forumSearch as any)
+          .exactAuthor;
+        delete (setting.forumSearch as any).exactAuthor;
+      }
+      if (setting.forumSearch.searchBarWidth === undefined) {
+        setting.forumSearch.searchBarWidth = 280;
+      }
     }
 
     setting.version = 1;

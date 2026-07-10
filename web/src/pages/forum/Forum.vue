@@ -507,9 +507,10 @@ const deleteArticle = (article: ArticleSimplified) =>
                   v-model:value="setting.forumSearch.searchBarWidth"
                   :min="100"
                   :max="1200"
+                  :step="10"
                   size="small"
                   style="width: 110px"
-                  placeholder="360"
+                  placeholder="280"
                 >
                   <template #suffix>px</template>
                 </n-input-number>
