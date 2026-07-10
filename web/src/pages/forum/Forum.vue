@@ -7,7 +7,7 @@ import {
   SearchOutlined,
   SettingsOutlined,
 } from '@vicons/material';
-import { NIcon } from 'naive-ui';
+import { NIcon, NInputNumber } from 'naive-ui';
 import { h, onMounted, ref, computed } from 'vue';
 
 import { useOpenCC } from '@/util';
@@ -413,7 +413,7 @@ const deleteArticle = (article: ArticleSimplified) =>
     </c-action-wrapper>
 
     <c-action-wrapper title="排序" align="center" style="margin-bottom: 20px">
-      <n-flex align="center">
+      <n-flex align="center" :size="12">
         <order-sort v-model:value="currentSort" :options="articleSortOptions" />
 
         <div
@@ -421,8 +421,9 @@ const deleteArticle = (article: ArticleSimplified) =>
             position: relative;
             display: flex;
             align-items: center;
-            margin-left: 12px;
+            max-width: 100%;
           "
+          :style="{ width: (setting.forumSearch.searchBarWidth + 48) + 'px' }"
         >
           <n-dropdown
             :show="showDropdown && searchHistoryOptions.length > 0"
@@ -431,7 +432,7 @@ const deleteArticle = (article: ArticleSimplified) =>
             placement="bottom-start"
             :keyboard="false"
             @select="handleSelectHistory"
-            style="width: 360px"
+            width="trigger"
           >
             <n-input
               ref="searchInputInst"
@@ -439,7 +440,7 @@ const deleteArticle = (article: ArticleSimplified) =>
               placeholder="搜索标题、a:作者、t:时间..."
               clearable
               class="search-input search-bar"
-              style="width: 360px"
+              style="flex: 1; min-width: 100px"
               @update:value="handleInput"
               @keyup.enter="onSearch"
               @focus="handleFocus"
@@ -499,6 +500,19 @@ const deleteArticle = (article: ArticleSimplified) =>
               <n-flex align="center" justify="space-between">
                 <n-text>自动填入结束日期</n-text>
                 <n-switch v-model:value="setting.forumSearch.autoFillToDate" />
+              </n-flex>
+              <n-flex align="center" justify="space-between">
+                <n-text>搜索栏长度</n-text>
+                <n-input-number
+                  v-model:value="setting.forumSearch.searchBarWidth"
+                  :min="100"
+                  :max="1200"
+                  size="small"
+                  style="width: 110px"
+                  placeholder="360"
+                >
+                  <template #suffix>px</template>
+                </n-input-number>
               </n-flex>
             </n-flex>
           </n-popover>

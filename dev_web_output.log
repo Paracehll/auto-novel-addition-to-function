@@ -1,0 +1,62 @@
+
+> auto-novel@0.0.0 dev:web /app
+> pnpm --stream --filter "@auto-novel/web^..." run build && pnpm --stream --parallel --filter "@auto-novel/web..." run dev
+
+Scope: 2 of 5 workspace projects
+packages/crawler build$ rslib build
+packages/translator build$ rslib build
+packages/crawler build: Rslib v0.18.6
+packages/translator build: Rslib v0.18.6
+packages/translator build: info    build started...
+packages/crawler build: info    build started...
+packages/translator build: ready   built in 0.66 s
+packages/crawler build: ready   built in 0.65 s
+packages/translator build: start   generating declaration files... (esm)
+packages/crawler build: start   generating declaration files... (esm)
+packages/translator build: ready   declaration files generated in 4.08 s (esm)
+packages/translator build: File (esm)      Size      Gzip
+packages/translator build: dist/index.js   19.0 kB   7.7 kB
+packages/translator build: Done
+packages/crawler build: ready   declaration files generated in 5.03 s (esm)
+packages/crawler build: File (esm)      Size      Gzip
+packages/crawler build: dist/index.js   27.1 kB   9.5 kB
+packages/crawler build: Done
+Scope: 3 of 5 workspace projects
+packages/crawler dev$ rslib dev --watch
+packages/translator dev$ rslib dev --watch
+web dev$ pnpm dev:remote
+packages/translator dev: Rslib v0.18.6
+packages/crawler dev: Rslib v0.18.6
+packages/crawler dev: start   build started...
+packages/translator dev: start   build started...
+web dev: > @auto-novel/web@0.0.0 dev:remote /app/web
+web dev: > cross-env VITE_API_MODE=remote vite
+packages/translator dev: ready   built in 0.23 s
+packages/crawler dev: ready   built in 0.26 s
+packages/translator dev: info    [tsc] Starting compilation in watch mode... (esm)
+packages/crawler dev: info    [tsc] Starting compilation in watch mode... (esm)
+web dev:   VITE v8.0.8  ready in 1149 ms
+web dev:   ➜  Local:   http://localhost:5173/
+web dev:   ➜  Network: use --host to expose
+web dev: 7:31:56 PM [vite] (client) [optimizer] bundling dependencies...
+packages/translator dev: info    [tsc] Found 0 errors. Watching for file changes. (esm)
+packages/translator dev: File (esm)      Size      Gzip
+packages/translator dev: dist/index.js   45.0 kB   11.8 kB
+packages/translator dev: success build complete, watching for changes...
+packages/crawler dev: info    [tsc] Found 0 errors. Watching for file changes. (esm)
+packages/crawler dev: File (esm)      Size      Gzip
+packages/crawler dev: dist/index.js   57.1 kB   12.8 kB
+packages/crawler dev: success build complete, watching for changes...
+web dev: 7:33:42 PM [vite] (client) [optimizer] bundling dependencies...
+web dev: 7:33:48 PM [vite] (client) ✨ new dependencies optimized: pinia
+web dev: 7:33:48 PM [vite] (client) ✨ optimized dependencies changed. reloading
+web dev:  ELIFECYCLE  Command failed.
+web dev: Terminated
+packages/crawler dev: Failed
+/app/packages/crawler:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @auto-novel/crawler@0.0.1 dev: `rslib dev --watch`
+Command failed with signal "SIGTERM"
+web dev: Failed
+packages/translator dev: Failed
+Terminated
+ ELIFECYCLE  Command failed with exit code 143.

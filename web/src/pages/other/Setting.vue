@@ -209,6 +209,19 @@ const playSound = (source: string) => {
           <n-checkbox v-model:checked="setting.forumSearch.autoFillToDate">
             自动填入结束日期
           </n-checkbox>
+          <n-flex align="center" style="margin-top: 4px">
+            <n-text>搜索栏长度</n-text>
+            <n-input-number
+              v-model:value="setting.forumSearch.searchBarWidth"
+              :min="100"
+              :max="1200"
+              size="small"
+              style="width: 120px"
+              placeholder="360"
+            >
+              <template #suffix>px</template>
+            </n-input-number>
+          </n-flex>
         </n-flex>
       </n-list-item>
     </n-list>
