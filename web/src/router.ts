@@ -222,6 +222,9 @@ const router = createRouter({
           props: (route) => ({
             page: Number(route.query.page) || 1,
             category: route.query.category || 'General',
+            search: route.query.search,
+            sort: route.query.sort,
+            sortDesc: route.query.sortDesc !== 'false',
           }),
         },
         {
@@ -321,8 +324,8 @@ router.afterEach((to, from) => {
     if (to.meta.title) {
       titleParts.push(to.meta.title);
     }
-    if (to.query.query) {
-      titleParts.push(`搜索:${to.query.query}`);
+    if (to.query.query || to.query.search) {
+      titleParts.push(`搜索:${to.query.query || to.query.search}`);
     }
     if (titleParts.length > 0) {
       titleParts.push('|');

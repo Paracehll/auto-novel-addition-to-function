@@ -6,6 +6,7 @@ import infra.MongoClient
 import infra.MongoCollectionNames
 import infra.field
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.toList
 import org.bson.types.ObjectId
 
 class UserRepository(
@@ -16,12 +17,29 @@ class UserRepository(
             MongoCollectionNames.USER,
         )
 
-    suspend fun getId(username: String): String {
-        val user = userCollection
+    suspend fun getIdOrNull(username: String): String? {
+        return userCollection
             .find(eq(UserDbModel::username.field(), username))
             .firstOrNull()
-        if (user != null) {
-            return user.id.toHexString()
+            ?.id?.toHexString()
+    }
+
+    suspend fun getIdsByName(username: String, fuzzy: Boolean): List<String> {
+        val filter = if (fuzzy) {
+            regex(UserDbModel::username.field(), username, "i")
+        } else {
+            eq(UserDbModel::username.field(), username)
+        }
+        return userCollection
+            .find(filter)
+            .toList()
+            .map { it.id.toHexString() }
+    }
+
+    suspend fun getId(username: String): String {
+        val userId = getIdOrNull(username)
+        if (userId != null) {
+            return userId
         }
 
         val model = UserDbModel(
@@ -30,10 +48,10 @@ class UserRepository(
             favoredWeb = listOf(UserFavored(id = "default", title = "默认收藏夹")),
             favoredWenku = listOf(UserFavored(id = "default", title = "默认收藏夹")),
         )
-        val userId = userCollection
+        val insertedUserId = userCollection
             .insertOne(model)
             .insertedId!!.asObjectId().value
-        return userId.toHexString()
+        return insertedUserId.toHexString()
     }
 
     suspend fun isReadHistoryPaused(

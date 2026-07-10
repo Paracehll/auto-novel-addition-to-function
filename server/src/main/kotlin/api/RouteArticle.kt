@@ -1,13 +1,14 @@
 package api
 
 import api.plugins.*
-import infra.article.ArticleCategory
-import infra.article.ArticleRepository
-import infra.article.ArticleListItem
-import infra.article.Article
+import infra.article.*
+import api.plugins.User
+import api.plugins.UserRole
 import infra.comment.CommentRepository
 import infra.common.Page
+import infra.common.emptyPage
 import infra.user.UserOutline
+import infra.user.UserRepository
 import io.ktor.resources.*
 import io.ktor.server.plugins.ratelimit.*
 import io.ktor.server.request.*
@@ -18,24 +19,42 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
 import org.koin.ktor.ext.inject
 
+@Serializable
 @Resource("/article")
 private class ArticleRes {
+    @Serializable
     @Resource("")
     class List(
         val parent: ArticleRes,
         val page: Int,
         val pageSize: Int,
-        val category: ArticleCategory,
+        val category: ArticleCategory? = null,
+        val author: String? = null,
+        val query: String? = null,
+        val fuzzyAuthor: Boolean = false,
+        val fuzzyTitle: Boolean = true,
+        val startAt: Long? = null,
+        val endAt: Long? = null,
+        val minViews: Int? = null,
+        val maxViews: Int? = null,
+        val minComments: Int? = null,
+        val maxComments: Int? = null,
+        val sort: ArticleListSort = ArticleListSort.Default,
+        val sortDesc: Boolean = true,
     )
 
+    @Serializable
     @Resource("/{id}")
     class Id(val parent: ArticleRes, val id: String) {
+        @Serializable
         @Resource("/locked")
         class Locked(val parent: Id)
 
+        @Serializable
         @Resource("/pinned")
         class Pinned(val parent: Id)
 
+        @Serializable
         @Resource("/hidden")
         class Hidden(val parent: Id)
     }
@@ -53,6 +72,18 @@ fun Route.routeArticle() {
                     page = loc.page,
                     pageSize = loc.pageSize,
                     category = loc.category,
+                    author = loc.author,
+                    query = loc.query,
+                    fuzzyAuthor = loc.fuzzyAuthor,
+                    fuzzyTitle = loc.fuzzyTitle,
+                    startAt = loc.startAt,
+                    endAt = loc.endAt,
+                    minViews = loc.minViews,
+                    maxViews = loc.maxViews,
+                    minComments = loc.minComments,
+                    maxComments = loc.maxComments,
+                    sort = loc.sort,
+                    sortDesc = loc.sortDesc,
                 )
             }
         }
@@ -150,6 +181,7 @@ fun Route.routeArticle() {
 class ArticleApi(
     private val articleRepo: ArticleRepository,
     private val commentRepo: CommentRepository,
+    private val userRepo: UserRepository,
 ) {
     @Serializable
     data class ArticleSimplifiedDto(
@@ -187,18 +219,57 @@ class ArticleApi(
         user: User?,
         page: Int,
         pageSize: Int,
-        category: ArticleCategory,
+        category: ArticleCategory?,
+        author: String? = null,
+        query: String? = null,
+        fuzzyAuthor: Boolean = false,
+        fuzzyTitle: Boolean = true,
+        startAt: Long? = null,
+        endAt: Long? = null,
+        minViews: Int? = null,
+        maxViews: Int? = null,
+        minComments: Int? = null,
+        maxComments: Int? = null,
+        sort: ArticleListSort = ArticleListSort.Default,
+        sortDesc: Boolean = true,
     ): Page<ArticleSimplifiedDto> {
         validatePageNumber(page)
         validatePageSize(pageSize)
+        if (startAt != null && endAt != null && startAt > endAt) {
+            throwBadRequest("起始时间不能晚于结束时间")
+        }
+        if (minViews != null && maxViews != null && minViews > maxViews) {
+            throwBadRequest("观看数范围不合法")
+        }
+        if (minComments != null && maxComments != null && minComments > maxComments) {
+            throwBadRequest("评论数范围不合法")
+        }
+
+        val actualFuzzyAuthor = fuzzyAuthor || !fuzzyTitle
+        val authorIds = author?.let {
+            val ids = userRepo.getIdsByName(it, actualFuzzyAuthor)
+            if (ids.isEmpty()) return emptyPage()
+            ids
+        }
 
         val ignoreHidden = user != null && user.role atLeast UserRole.Admin
 
         return articleRepo
-            .listArticle(
+            .searchArticle(
                 page = page,
                 pageSize = pageSize,
                 category = category,
+                authorIds = authorIds,
+                query = query,
+                fuzzyTitle = fuzzyTitle,
+                startAt = startAt?.let { kotlinx.datetime.Instant.fromEpochSeconds(it) },
+                endAt = endAt?.let { kotlinx.datetime.Instant.fromEpochSeconds(it) },
+                minViews = minViews,
+                maxViews = maxViews,
+                minComments = minComments,
+                maxComments = maxComments,
+                sort = sort,
+                sortDesc = sortDesc,
             )
             .map { it.asDto(ignoreHidden) }
     }

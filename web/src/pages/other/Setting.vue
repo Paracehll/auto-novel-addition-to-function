@@ -5,6 +5,7 @@ import {
   useSettingStore,
   useWebSearchHistoryStore,
   useWenkuSearchHistoryStore,
+  useForumSearchHistoryStore,
 } from '@/stores';
 import { InfoOutlined } from '@vicons/material';
 
@@ -20,6 +21,11 @@ const clearWebSearchHistory = () => {
 
 const clearWenkuSearchHistory = () => {
   useWenkuSearchHistoryStore().clear();
+  message.success('清空成功');
+};
+
+const clearForumSearchHistory = () => {
+  useForumSearchHistoryStore().clear();
   message.success('清空成功');
 };
 
@@ -158,6 +164,11 @@ const playSound = (source: string) => {
               size="small"
               @action="clearWenkuSearchHistory"
             />
+            <c-button
+              label="清空论坛搜索历史"
+              size="small"
+              @action="clearForumSearchHistory"
+            />
           </n-flex>
         </n-flex>
       </n-list-item>
@@ -174,7 +185,7 @@ const playSound = (source: string) => {
       <n-list-item>
         <n-flex vertical>
           <b>语言</b>
-          简繁转换目前只覆盖web章节内容。
+          简繁转换目前只覆盖web章节内容與論壇搜索。
           <c-radio-group
             v-model:value="setting.locale"
             :options="Setting.localeOptions"
@@ -182,6 +193,21 @@ const playSound = (source: string) => {
           />
           <n-checkbox v-model:checked="setting.searchLocaleAware">
             支持繁体搜索（不稳定）
+          </n-checkbox>
+        </n-flex>
+      </n-list-item>
+
+      <n-list-item>
+        <n-flex vertical>
+          <b>论坛</b>
+          <n-checkbox v-model:checked="setting.forumSearch.fuzzyTitle">
+            标题模糊搜索
+          </n-checkbox>
+          <n-checkbox v-model:checked="setting.forumSearch.fuzzyAuthor">
+            作者模糊搜索
+          </n-checkbox>
+          <n-checkbox v-model:checked="setting.forumSearch.autoFillToDate">
+            自动填入结束日期
           </n-checkbox>
         </n-flex>
       </n-list-item>
