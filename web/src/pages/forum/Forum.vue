@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { CloseOutlined, LockOutlined, PlusOutlined, PushPinOutlined, SearchOutlined, SettingsOutlined } from '@vicons/material';
 import { NIcon } from 'naive-ui';
-import { h } from 'vue';
+import { h, onMounted, ref, computed } from 'vue';
 
+import { useOpenCC } from '@/util';
 import { ArticleRepo } from '@/repos';
 import type { ArticleCategory, ArticleSimplified } from '@/model/Article';
 import { doAction } from '@/pages/util';
@@ -32,6 +33,18 @@ const blacklistStore = useBlacklistStore();
 const { setting, cc } = storeToRefs(useSettingStore());
 
 const forumSearchHistoryStore = useForumSearchHistoryStore();
+
+const s2tConverter = ref<any>(null);
+const t2sConverter = ref<any>(null);
+
+onMounted(async () => {
+  try {
+    s2tConverter.value = await useOpenCC('zh-tw');
+    t2sConverter.value = await useOpenCC('zh-cn');
+  } catch (err) {
+    console.error('Failed to load OpenCC converters', err);
+  }
+});
 
 const showDropdown = ref(false);
 const handleFocus = () => {
@@ -276,11 +289,28 @@ const handleInput = (v: string) => {
 
 const searchParams = computed(() => parseSearch(currentSearch.value ?? ''));
 
+const processedQuery = computed(() => {
+  const q = searchParams.value.query;
+  if (!q) return undefined;
+  if (setting.value.forumSearch.fuzzyTitle) {
+    return q;
+  }
+  const variants = new Set<string>();
+  variants.add(q);
+  if (s2tConverter.value) {
+    variants.add(s2tConverter.value.toView(q));
+  }
+  if (t2sConverter.value) {
+    variants.add(t2sConverter.value.toView(q));
+  }
+  return Array.from(variants).join('\u0000');
+});
+
 const { data: articlePage, error } = ArticleRepo.useArticleList(
   currentPage,
   currentCategory,
   () => searchParams.value.author,
-  () => searchParams.value.query,
+  processedQuery,
   () => setting.value.forumSearch.fuzzyAuthor,
   () => setting.value.forumSearch.fuzzyTitle,
   () => searchParams.value.startAt,

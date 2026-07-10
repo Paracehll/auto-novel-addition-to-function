@@ -67,11 +67,16 @@ class ArticleRepository(
             category?.let { add(eq(ArticleDbModel::category.field(), it)) }
             authorId?.let { add(eq(ArticleDbModel::user.field(), ObjectId(it))) }
             authorIds?.let { add(`in`(ArticleDbModel::user.field(), it.map { ObjectId(it) })) }
-            query?.let {
+            query?.let { q ->
                 if (fuzzyTitle) {
-                    add(regex(ArticleDbModel::title.field(), it, "i"))
+                    add(regex(ArticleDbModel::title.field(), q, "i"))
                 } else {
-                    add(eq(ArticleDbModel::title.field(), it))
+                    val variants = q.split("\u0000")
+                    if (variants.size > 1) {
+                        add(`in`(ArticleDbModel::title.field(), variants))
+                    } else {
+                        add(eq(ArticleDbModel::title.field(), q))
+                    }
                 }
             }
             startAt?.let { add(gte(ArticleDbModel::createAt.field(), it)) }
