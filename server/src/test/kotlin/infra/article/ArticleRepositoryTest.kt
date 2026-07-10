@@ -115,6 +115,30 @@ class ArticleRepositoryTest : DescribeSpec(), KoinTest {
                 result.items shouldHaveSize 1
                 result.items[0].title shouldBe "Target"
             }
+
+            it("非模糊模式下（fuzzyTitle為false）應該支援子字串搜尋") {
+                val now = Clock.System.now()
+                val user = ObjectId()
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "My Test Article", "C", ArticleCategory.General, false, false, false, 0, 0, user, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Another Story", "C", ArticleCategory.General, false, false, false, 0, 0, user, now, now, now))
+
+                val result = repo.searchArticle(0, 10, query = "Test", fuzzyTitle = false)
+                result.items shouldHaveSize 1
+                result.items[0].title shouldBe "My Test Article"
+            }
+
+            it("模糊模式下（fuzzyTitle為true）應該比對與目標的字串相似度並降序排列") {
+                val now = Clock.System.now()
+                val user = ObjectId()
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Match Exact", "C", ArticleCategory.General, false, false, false, 0, 0, user, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Match Medium Thing", "C", ArticleCategory.General, false, false, false, 0, 0, user, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Completely Unrelated", "C", ArticleCategory.General, false, false, false, 0, 0, user, now, now, now))
+
+                val result = repo.searchArticle(0, 10, query = "Match Exact", fuzzyTitle = true)
+                result.items.size shouldBe 2
+                result.items[0].title shouldBe "Match Exact"
+                result.items[1].title shouldBe "Match Medium Thing"
+            }
         }
     }
 }
