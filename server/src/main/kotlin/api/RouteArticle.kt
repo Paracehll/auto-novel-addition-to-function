@@ -66,24 +66,45 @@ fun Route.routeArticle() {
     authenticateDb(optional = true) {
         get<ArticleRes.List> { loc ->
             val user = call.userOrNull()
+            val rawParams = call.request.queryParameters
+            val page = rawParams["page"]?.toIntOrNull() ?: loc.page
+            val pageSize = rawParams["pageSize"]?.toIntOrNull() ?: loc.pageSize
+            val category = rawParams["category"]?.let { cat ->
+                try { ArticleCategory.valueOf(cat) } catch(e: Exception) { null }
+            } ?: loc.category
+            val author = rawParams["author"] ?: loc.author
+            val query = rawParams["query"] ?: loc.query
+            val fuzzyAuthor = rawParams["fuzzyAuthor"]?.toBooleanStrictOrNull() ?: loc.fuzzyAuthor
+            val fuzzyTitle = rawParams["fuzzyTitle"]?.toBooleanStrictOrNull() ?: loc.fuzzyTitle
+            val sortDesc = rawParams["sortDesc"]?.toBooleanStrictOrNull() ?: loc.sortDesc
+            val sort = rawParams["sort"]?.let { s ->
+                try { ArticleListSort.valueOf(s) } catch(e: Exception) { null }
+            } ?: loc.sort
+            val startAt = rawParams["startAt"]?.toLongOrNull() ?: loc.startAt
+            val endAt = rawParams["endAt"]?.toLongOrNull() ?: loc.endAt
+            val minViews = rawParams["minViews"]?.toIntOrNull() ?: loc.minViews
+            val maxViews = rawParams["maxViews"]?.toIntOrNull() ?: loc.maxViews
+            val minComments = rawParams["minComments"]?.toIntOrNull() ?: loc.minComments
+            val maxComments = rawParams["maxComments"]?.toIntOrNull() ?: loc.maxComments
+
             call.tryRespond {
                 service.listArticle(
                     user = user,
-                    page = loc.page,
-                    pageSize = loc.pageSize,
-                    category = loc.category,
-                    author = loc.author,
-                    query = loc.query,
-                    fuzzyAuthor = loc.fuzzyAuthor,
-                    fuzzyTitle = loc.fuzzyTitle,
-                    startAt = loc.startAt,
-                    endAt = loc.endAt,
-                    minViews = loc.minViews,
-                    maxViews = loc.maxViews,
-                    minComments = loc.minComments,
-                    maxComments = loc.maxComments,
-                    sort = loc.sort,
-                    sortDesc = loc.sortDesc,
+                    page = page,
+                    pageSize = pageSize,
+                    category = category,
+                    author = author,
+                    query = query,
+                    fuzzyAuthor = fuzzyAuthor,
+                    fuzzyTitle = fuzzyTitle,
+                    startAt = startAt,
+                    endAt = endAt,
+                    minViews = minViews,
+                    maxViews = maxViews,
+                    minComments = minComments,
+                    maxComments = maxComments,
+                    sort = sort,
+                    sortDesc = sortDesc,
                 )
             }
         }
