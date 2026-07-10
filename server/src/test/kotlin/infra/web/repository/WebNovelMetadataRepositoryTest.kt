@@ -5,8 +5,8 @@ import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 
 class WebNovelMetadataRepositoryTest : DescribeSpec({
-    describe("mergeToc with 'default' chapter ID") {
-        it("unstable provider: single-chapter (default) to multi-chapter") {
+    describe("mergeToc 包含 'default' 章节 ID") {
+        it("非稳定源：单章 (default) 转多章") {
             val localToc = listOf(
                 WebNovelTocItem(titleJp = "TitleJp", titleZh = "TitleZh", chapterId = "default")
             )
@@ -21,7 +21,7 @@ class WebNovelMetadataRepositoryTest : DescribeSpec({
             merged.hasChanged shouldBe true
         }
 
-        it("stable provider: single-chapter (default) to multi-chapter") {
+        it("稳定源：单章 (default) 转多章") {
             val localToc = listOf(
                 WebNovelTocItem(titleJp = "TitleJp", titleZh = "TitleZh", chapterId = "default")
             )
