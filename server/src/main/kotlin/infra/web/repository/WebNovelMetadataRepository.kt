@@ -515,11 +515,11 @@ private fun mergeTocUnstable(
     localToc: List<WebNovelTocItem>,
 ): MergedResult {
     val remoteIdToTitle = remoteToc.mapNotNull {
-        if (it.chapterId == null) null
+        if (it.chapterId == null || it.chapterId == "default") null
         else it.chapterId to it.titleJp
     }.toMap()
     val localIdToTitle = localToc.mapNotNull {
-        if (it.chapterId == null) null
+        if (it.chapterId == null || it.chapterId == "default") null
         else it.chapterId to it.titleJp
     }.toMap()
 
@@ -546,8 +546,8 @@ private fun mergeTocStable(
     remoteToc: List<WebNovelTocItem>,
     localToc: List<WebNovelTocItem>,
 ): MergedResult {
-    val remoteEpIds = remoteToc.mapNotNull { it.chapterId }
-    val localEpIds = localToc.mapNotNull { it.chapterId }
+    val remoteEpIds = remoteToc.mapNotNull { if (it.chapterId == "default") null else it.chapterId }
+    val localEpIds = localToc.mapNotNull { if (it.chapterId == "default") null else it.chapterId }
     val noEpDeleted = remoteEpIds.containsAll(localEpIds)
     val noEpAdded = localEpIds.containsAll(remoteEpIds)
     return MergedResult(
