@@ -412,7 +412,7 @@ const deleteArticle = (article: ArticleSimplified) =>
       />
     </c-action-wrapper>
 
-    <c-action-wrapper title="排序" align="center" style="margin-bottom: 20px">
+    <c-action-wrapper title="排序" style="margin-bottom: 20px">
       <n-flex align="center" :size="12">
         <order-sort v-model:value="currentSort" :options="articleSortOptions" />
 
