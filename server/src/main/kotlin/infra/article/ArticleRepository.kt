@@ -40,6 +40,29 @@ class ArticleRepository(
         )
     }
 
+    private fun levenshteinDistance(s1: String, s2: String): Int {
+        val d = Array(s1.length + 1) { IntArray(s2.length + 1) }
+        for (i in 0..s1.length) d[i][0] = i
+        for (j in 0..s2.length) d[0][j] = j
+        for (i in 1..s1.length) {
+            for (j in 1..s2.length) {
+                val cost = if (s1[i - 1] == s2[j - 1]) 0 else 1
+                d[i][j] = minOf(
+                    d[i - 1][j] + 1,
+                    d[i][j - 1] + 1,
+                    d[i - 1][j - 1] + cost
+                )
+            }
+        }
+        return d[s1.length][s2.length]
+    }
+
+    private fun calculateSimilarity(s1: String, s2: String): Double {
+        val len = maxOf(s1.length, s2.length)
+        if (len == 0) return 1.0
+        return 1.0 - levenshteinDistance(s1.lowercase(), s2.lowercase()).toDouble() / len
+    }
+
     suspend fun searchArticle(
         page: Int,
         pageSize: Int,
@@ -69,14 +92,12 @@ class ArticleRepository(
             authorIds?.let { add(`in`(ArticleDbModel::user.field(), it.map { ObjectId(it) })) }
             query?.let { q ->
                 if (fuzzyTitle) {
-                    add(regex(ArticleDbModel::title.field(), q, "i"))
+                    // Fuzzy title search: handled via in-memory similarity comparison.
+                    // No MongoDB title filter here so we fetch all relevant category/date posts.
                 } else {
                     val variants = q.split("\u0000")
-                    if (variants.size > 1) {
-                        add(`in`(ArticleDbModel::title.field(), variants))
-                    } else {
-                        add(eq(ArticleDbModel::title.field(), q))
-                    }
+                    val titleRegexes = variants.map { regex(ArticleDbModel::title.field(), it, "i") }
+                    add(or(titleRegexes))
                 }
             }
             startAt?.let { add(gte(ArticleDbModel::createAt.field(), it)) }
@@ -117,6 +138,10 @@ class ArticleRepository(
             )
         }
 
+        val isFuzzySearch = query != null && fuzzyTitle
+        val mongoPageSize = if (isFuzzySearch) 999999 else pageSize
+        val mongoPage = if (isFuzzySearch) 0 else page
+
         val doc = articleCollection
             .aggregate<PageModel>(
                 matchStage,
@@ -125,8 +150,8 @@ class ArticleRepository(
                     Facet(
                         "items",
                         sortStage,
-                        skip(page * pageSize),
-                        limit(pageSize),
+                        skip(mongoPage * mongoPageSize),
+                        limit(mongoPageSize),
                         lookup(
                             /* from = */ MongoCollectionNames.USER,
                             /* localField = */ ArticleDbModel::user.field(),
@@ -164,15 +189,63 @@ class ArticleRepository(
                 ),
             )
             .firstOrNull()
-        return if (doc == null) {
-            emptyPage()
+
+        val items = doc?.items ?: emptyList()
+
+        val finalItems = if (isFuzzySearch) {
+            val queryVariants = query!!.split("\u0000")
+            val sortedWithSim = items.map { item ->
+                val maxSim = queryVariants.maxOf { variant ->
+                    calculateSimilarity(item.title, variant)
+                }
+                item to maxSim
+            }
+            .filter { it.second > 0.1 }
+            .sortedWith { a, b ->
+                var cmp = b.second.compareTo(a.second)
+                if (cmp == 0) {
+                    cmp = b.first.pinned.compareTo(a.first.pinned)
+                    if (cmp == 0) {
+                        cmp = when (sort) {
+                            ArticleListSort.Default -> {
+                                val timeCmp = b.first.updateAt.compareTo(a.first.updateAt)
+                                if (sortDesc) timeCmp else -timeCmp
+                            }
+                            ArticleListSort.CreateAt -> {
+                                val timeCmp = b.first.createAt.compareTo(a.first.createAt)
+                                if (sortDesc) timeCmp else -timeCmp
+                            }
+                            ArticleListSort.Views -> {
+                                val viewCmp = b.first.numViews.compareTo(a.first.numViews)
+                                if (sortDesc) viewCmp else -viewCmp
+                            }
+                            ArticleListSort.Comments -> {
+                                val commentCmp = b.first.numComments.compareTo(a.first.numComments)
+                                if (sortDesc) commentCmp else -commentCmp
+                            }
+                        }
+                    }
+                }
+                cmp
+            }
+            .map { it.first }
+            sortedWithSim
         } else {
-            Page(
-                items = doc.items,
-                total = doc.total.toLong(),
-                pageSize = pageSize,
-            )
+            items
         }
+
+        val totalCount = if (isFuzzySearch) finalItems.size.toLong() else doc?.total?.toLong() ?: 0L
+        val pagedItems = if (isFuzzySearch) {
+            finalItems.drop(page * pageSize).take(pageSize)
+        } else {
+            finalItems
+        }
+
+        return Page(
+            items = pagedItems,
+            total = totalCount,
+            pageSize = pageSize,
+        )
     }
 
     suspend fun getArticle(

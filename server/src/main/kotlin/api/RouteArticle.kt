@@ -19,8 +19,10 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
 import org.koin.ktor.ext.inject
 
+@Serializable
 @Resource("/article")
 private class ArticleRes {
+    @Serializable
     @Resource("")
     class List(
         val parent: ArticleRes,
@@ -41,14 +43,18 @@ private class ArticleRes {
         val sortDesc: Boolean = true,
     )
 
+    @Serializable
     @Resource("/{id}")
     class Id(val parent: ArticleRes, val id: String) {
+        @Serializable
         @Resource("/locked")
         class Locked(val parent: Id)
 
+        @Serializable
         @Resource("/pinned")
         class Pinned(val parent: Id)
 
+        @Serializable
         @Resource("/hidden")
         class Hidden(val parent: Id)
     }
@@ -239,8 +245,9 @@ class ArticleApi(
             throwBadRequest("评论数范围不合法")
         }
 
+        val actualFuzzyAuthor = fuzzyAuthor || !fuzzyTitle
         val authorIds = author?.let {
-            val ids = userRepo.getIdsByName(it, fuzzyAuthor)
+            val ids = userRepo.getIdsByName(it, actualFuzzyAuthor)
             if (ids.isEmpty()) return emptyPage()
             ids
         }
