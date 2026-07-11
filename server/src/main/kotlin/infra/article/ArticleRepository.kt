@@ -15,6 +15,7 @@ import infra.common.emptyPage
 import infra.user.UserDbModel
 import infra.user.UserOutline
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.toList
 import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import org.bson.types.ObjectId
@@ -396,4 +397,28 @@ class ArticleRepository(
                 set(ArticleDbModel::hidden.field(), hidden),
             )
             .run { matchedCount > 0 }
+
+    suspend fun getAllArticleAuthors(): List<String> {
+        @Serializable
+        data class AuthorModel(val username: String)
+        return articleCollection
+            .aggregate<AuthorModel>(
+                group("\$" + ArticleDbModel::user.field()),
+                lookup(
+                    /* from = */ MongoCollectionNames.USER,
+                    /* localField = */ "_id",
+                    /* foreignField = */ UserDbModel::id.field(),
+                    /* as = */ "user",
+                ),
+                unwind("\$user"),
+                project(
+                    fields(
+                        computed("username", "\$user." + UserDbModel::username.field()),
+                        excludeId(),
+                    )
+                )
+            )
+            .toList()
+            .map { it.username }
+    }
 }

@@ -8,7 +8,7 @@ import {
   SettingsOutlined,
 } from '@vicons/material';
 import { NIcon, NInputNumber } from 'naive-ui';
-import { h, onMounted, ref, computed } from 'vue';
+import { h, onMounted, ref, computed, nextTick, watch } from 'vue';
 
 import { useOpenCC } from '@/util';
 import { ArticleRepo } from '@/repos';
@@ -39,7 +39,31 @@ const { whoami } = storeToRefs(whoamiStore);
 const blacklistStore = useBlacklistStore();
 const { setting, cc } = storeToRefs(useSettingStore());
 
+const searchQuery = ref('');
+const activeTags = ref<{ type: 'a' | 't'; value: string }[]>([]);
+
 const forumSearchHistoryStore = useForumSearchHistoryStore();
+
+const cursorPosition = ref(0);
+const allAuthors = ref<string[]>([]);
+
+const getInputElement = () => {
+  const el = searchInputInst.value?.$el || searchInputInst.value?.elRef;
+  return el?.querySelector('input');
+};
+
+const updateCursor = () => {
+  const input = getInputElement();
+  if (input) {
+    cursorPosition.value = input.selectionStart ?? 0;
+  }
+};
+
+watch(searchQuery, () => {
+  nextTick(() => {
+    updateCursor();
+  });
+});
 
 const s2tConverter = ref<any>(null);
 const t2sConverter = ref<any>(null);
@@ -51,15 +75,61 @@ onMounted(async () => {
   } catch (err) {
     console.error('Failed to load OpenCC converters', err);
   }
+
+  try {
+    const cachedStr = localStorage.getItem('forum-authors');
+    let cached: { version: number; authors: string[] } | null = null;
+    if (cachedStr) {
+      try {
+        cached = JSON.parse(cachedStr);
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (cached && cached.version === 1) {
+      allAuthors.value = cached.authors;
+    }
+
+    const currentAuthors = await ArticleRepo.getArticleAuthors();
+    if (currentAuthors) {
+      allAuthors.value = currentAuthors;
+
+      if (
+        !cached ||
+        cached.version !== 1 ||
+        cached.authors.length !== currentAuthors.length
+      ) {
+        localStorage.setItem(
+          'forum-authors',
+          JSON.stringify({
+            version: 1,
+            authors: currentAuthors,
+          }),
+        );
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load article authors', err);
+  }
 });
 
 const showDropdown = ref(false);
 const handleFocus = () => {
   showDropdown.value = true;
+  updateCursor();
 };
 const handleBlur = () => {
   setTimeout(() => {
-    showDropdown.value = false;
+    const activeEl = document.activeElement;
+    const isInsideDropdown =
+      activeEl && activeEl.closest('.forum-search-dropdown');
+    const isInsideInput =
+      activeEl &&
+      (activeEl === getInputElement() || activeEl.closest('.search-bar'));
+    if (!isInsideDropdown && !isInsideInput) {
+      showDropdown.value = false;
+    }
   }, 200);
 };
 
@@ -120,6 +190,186 @@ const searchHistoryOptions = computed(() => {
   }));
 });
 
+const isCursorInAuthor = computed(() => {
+  const val = searchQuery.value;
+  const pos = cursorPosition.value;
+  const matches = [...val.matchAll(/a:"([^"]*)"/g)];
+  for (const match of matches) {
+    if (match.index !== undefined) {
+      const start = match.index + 3;
+      const end = match.index + 3 + match[1].length;
+      if (pos >= start && pos <= end) {
+        return true;
+      }
+    }
+  }
+  return false;
+});
+
+const authorQuery = computed(() => {
+  const val = searchQuery.value;
+  const pos = cursorPosition.value;
+  const matches = [...val.matchAll(/a:"([^"]*)"/g)];
+  for (const match of matches) {
+    if (match.index !== undefined) {
+      const start = match.index + 3;
+      const end = match.index + 3 + match[1].length;
+      if (pos >= start && pos <= end) {
+        return match[1];
+      }
+    }
+  }
+  return '';
+});
+
+const filteredAuthors = computed(() => {
+  const query = authorQuery.value.trim();
+  const list = allAuthors.value;
+  if (!query) {
+    return list;
+  }
+  const isFuzzy = setting.value.forumSearch.fuzzyAuthor;
+  return list.filter((author) => {
+    if (isFuzzy) {
+      return author.toLowerCase().includes(query.toLowerCase());
+    } else {
+      return author.toLowerCase().startsWith(query.toLowerCase());
+    }
+  });
+});
+
+const filteredAuthorsOptions = computed(() => {
+  return filteredAuthors.value.slice(0, 50).map((author) => ({
+    key: author,
+    label: author,
+  }));
+});
+
+const activeDropdownOptions = computed(() => {
+  if (isCursorInAuthor.value) {
+    return filteredAuthorsOptions.value;
+  }
+  return searchHistoryOptions.value;
+});
+
+const handleSelectAuthor = (clickedAuthor: string) => {
+  const input = getInputElement();
+  const pos = input ? input.selectionStart ?? 0 : 0;
+  const val = searchQuery.value;
+
+  const matches = [...val.matchAll(/a:"([^"]*)"/g)];
+  for (const match of matches) {
+    if (match.index !== undefined) {
+      const start = match.index + 3;
+      const end = match.index + 3 + match[1].length;
+      if (pos >= start && pos <= end) {
+        const before = val.substring(0, match.index);
+        const replacement = `a:"${clickedAuthor}"`;
+        const after = val.substring(match.index + match[0].length);
+
+        searchQuery.value = before + replacement + after;
+
+        const newCursorPos = match.index + replacement.length;
+        cursorPosition.value = newCursorPos;
+
+        setTimeout(() => {
+          input?.focus();
+          input?.setSelectionRange(newCursorPos, newCursorPos);
+        }, 50);
+        break;
+      }
+    }
+  }
+  showDropdown.value = false;
+};
+
+const handleSelectDropdown = (key: string) => {
+  if (isCursorInAuthor.value) {
+    handleSelectAuthor(key);
+  } else {
+    handleSelectHistory(key);
+  }
+};
+
+const handleSearchInputKeyDown = (e: KeyboardEvent) => {
+  if (e.key === 'Tab' || e.key === 'ArrowDown') {
+    if (showDropdown.value && activeDropdownOptions.value.length > 0) {
+      e.preventDefault();
+      nextTick(() => {
+        const options = document.querySelectorAll(
+          '.forum-search-dropdown .n-dropdown-option',
+        );
+        if (options && options.length > 0) {
+          (options[0] as HTMLElement).focus();
+        }
+      });
+    }
+  }
+};
+
+const nodeProps = (option: any) => {
+  return {
+    tabindex: '0',
+    onKeydown: (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSelectDropdown(option.key);
+      } else if (e.key === 'Tab' && e.shiftKey) {
+        const options = document.querySelectorAll(
+          '.forum-search-dropdown .n-dropdown-option',
+        );
+        if (options && options.length > 0 && e.currentTarget === options[0]) {
+          e.preventDefault();
+          getInputElement()?.focus();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        getInputElement()?.focus();
+        showDropdown.value = false;
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const options = Array.from(
+          document.querySelectorAll(
+            '.forum-search-dropdown .n-dropdown-option',
+          ),
+        );
+        const index = options.indexOf(e.currentTarget as Element);
+        if (index !== -1 && index < options.length - 1) {
+          (options[index + 1] as HTMLElement).focus();
+        } else if (index === options.length - 1) {
+          (options[0] as HTMLElement).focus();
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const options = Array.from(
+          document.querySelectorAll(
+            '.forum-search-dropdown .n-dropdown-option',
+          ),
+        );
+        const index = options.indexOf(e.currentTarget as Element);
+        if (index > 0) {
+          (options[index - 1] as HTMLElement).focus();
+        } else if (index === 0) {
+          (options[options.length - 1] as HTMLElement).focus();
+        }
+      }
+    },
+    onFocusout: () => {
+      setTimeout(() => {
+        const activeEl = document.activeElement;
+        const isInsideDropdown =
+          activeEl && activeEl.closest('.forum-search-dropdown');
+        const isInsideInput =
+          activeEl &&
+          (activeEl === getInputElement() || activeEl.closest('.search-bar'));
+        if (!isInsideDropdown && !isInsideInput) {
+          showDropdown.value = false;
+        }
+      }, 200);
+    },
+  };
+};
+
 const articleCategoryOptions = [
   { value: 'General', label: '小说交流' },
   { value: 'Guide', label: '使用指南' },
@@ -135,9 +385,6 @@ const onUpdateCategory = (category: ArticleCategory) => {
   const query = { ...route.query, category, page: 1 };
   router.push({ path: route.path, query });
 };
-
-const searchQuery = ref('');
-const activeTags = ref<{ type: 'a' | 't'; value: string }[]>([]);
 
 const articleSortOptions = [
   { value: 'Default', label: '默认' },
@@ -425,16 +672,17 @@ const deleteArticle = (article: ArticleSimplified) =>
             align-items: center;
             max-width: 100%;
           "
-          :style="{ width: (setting.forumSearch.searchBarWidth + 48) + 'px' }"
+          :style="{ width: setting.forumSearch.searchBarWidth + 48 + 'px' }"
         >
           <n-dropdown
             class="forum-search-dropdown"
-            :show="showDropdown && searchHistoryOptions.length > 0"
-            :options="searchHistoryOptions"
+            :show="showDropdown && activeDropdownOptions.length > 0"
+            :options="activeDropdownOptions"
             trigger="manual"
             placement="bottom-start"
             :keyboard="false"
-            @select="handleSelectHistory"
+            :node-props="nodeProps as any"
+            @select="handleSelectDropdown"
             width="trigger"
           >
             <n-input
@@ -446,8 +694,11 @@ const deleteArticle = (article: ArticleSimplified) =>
               style="flex: 1; min-width: 100px"
               @update:value="handleInput"
               @keyup.enter="onSearch"
+              @keydown="handleSearchInputKeyDown"
               @focus="handleFocus"
               @blur="handleBlur"
+              @click="updateCursor"
+              @keyup="updateCursor"
             >
               <template #prefix>
                 <n-flex
@@ -648,5 +899,16 @@ const deleteArticle = (article: ArticleSimplified) =>
 <style>
 .forum-search-dropdown .n-dropdown-option-body__label {
   min-width: 0;
+}
+.forum-search-dropdown .n-dropdown-option:focus {
+  outline: none;
+}
+.forum-search-dropdown
+  .n-dropdown-option:focus
+  .n-dropdown-option-body::before {
+  background-color: var(--n-option-color-hover);
+}
+.forum-search-dropdown .n-dropdown-option:focus .n-dropdown-option-body {
+  color: var(--n-option-text-color-hover);
 }
 </style>

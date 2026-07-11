@@ -29,6 +29,7 @@ const listArticle = (params: {
 
 const getArticle = (id: string) => client.get(`article/${id}`).json<Article>();
 const deleteArticle = (id: string) => client.delete(`article/${id}`);
+const getArticleAuthors = () => client.get('article/author').json<string[]>();
 
 interface ArticleBody {
   title: string;
@@ -53,6 +54,7 @@ const unhideArticle = (id: string) => client.delete(`article/${id}/hidden`);
 
 export const ArticleApi = {
   listArticle,
+  getArticleAuthors,
 
   getArticle,
   createArticle,
