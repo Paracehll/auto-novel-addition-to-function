@@ -142,6 +142,32 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
     }),
   );
 };
+
+const importGlossaryFromClipboard = async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    let isValid = false;
+    try {
+      JSON.parse(text);
+      isValid = true;
+    } catch {
+      const imported = Glossary.fromText(text);
+      if (imported !== undefined) {
+        isValid = true;
+      }
+    }
+
+    if (!isValid) {
+      message.error('检测到内容不是支援格式');
+      return;
+    }
+
+    importGlossaryRaw.value = text;
+    message.success('从剪贴簿导入成功');
+  } catch (err: any) {
+    message.error('无法读取剪贴簿: ' + (err?.message ?? err));
+  }
+};
 </script>
 
 <template>
@@ -206,13 +232,19 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
             @action="exportGlossary"
           />
           <c-button
+            label="剪贴簿导入"
+            :round="false"
+            size="small"
+            @action="importGlossaryFromClipboard"
+          />
+          <c-button
             label="导入"
             :round="false"
             size="small"
             @action="importGlossary"
           />
           <c-button
-            label="下载json文件"
+            label="下载json"
             :round="false"
             size="small"
             @action="downloadGlossaryAsJsonFile"
