@@ -8,6 +8,8 @@ import {
   FileDownloadOutlined,
 } from '@vicons/material';
 
+import { isEqual } from 'lodash-es';
+
 import { WebNovelApi, WenkuNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
 import { Glossary } from '@/model/Glossary';
@@ -32,8 +34,50 @@ const showGlossaryModal = ref(false);
 const toggleGlossaryModal = () => {
   if (showGlossaryModal.value === false) {
     glossary.value = { ...props.value };
+    showGlossaryModal.value = true;
+  } else {
+    handleUpdateShow(false);
   }
-  showGlossaryModal.value = !showGlossaryModal.value;
+};
+
+const handleUpdateShow = async (value: boolean) => {
+  if (value === false) {
+    const hasChanges = !isEqual(toRaw(glossary.value), toRaw(props.value));
+    if (hasChanges) {
+      if (window.confirm('术语表有未保存的修改，是否保存？')) {
+        await handleSaveConfirm();
+      } else {
+        if (window.confirm('是否确认不保存并关闭？')) {
+          handleDiscardConfirm();
+        }
+      }
+    } else {
+      showGlossaryModal.value = false;
+    }
+  } else {
+    showGlossaryModal.value = true;
+  }
+};
+
+const handleSaveConfirm = async () => {
+  try {
+    await updateGlossary();
+    for (const key in props.value) {
+      delete props.value[key];
+    }
+    for (const key in glossary.value) {
+      props.value[key] = glossary.value[key];
+    }
+    message.success('保存成功');
+    showGlossaryModal.value = false;
+  } catch (e: any) {
+    message.error('保存失败:' + e);
+  }
+};
+
+const handleDiscardConfirm = () => {
+  glossary.value = { ...props.value };
+  showGlossaryModal.value = false;
 };
 
 const gnidHint = computed(() => {
@@ -187,7 +231,8 @@ const importGlossaryFromClipboard = async () => {
 
   <c-modal
     title="编辑术语表"
-    v-model:show="showGlossaryModal"
+    :show="showGlossaryModal"
+    @update:show="handleUpdateShow"
     :extra-height="120"
   >
     <template #header-extra>
