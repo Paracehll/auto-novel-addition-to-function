@@ -95,11 +95,18 @@ onMounted(async () => {
     if (currentAuthors) {
       allAuthors.value = currentAuthors;
 
-      if (!cached || cached.version !== 1 || cached.authors.length !== currentAuthors.length) {
-        localStorage.setItem('forum-authors', JSON.stringify({
-          version: 1,
-          authors: currentAuthors
-        }));
+      if (
+        !cached ||
+        cached.version !== 1 ||
+        cached.authors.length !== currentAuthors.length
+      ) {
+        localStorage.setItem(
+          'forum-authors',
+          JSON.stringify({
+            version: 1,
+            authors: currentAuthors,
+          }),
+        );
       }
     }
   } catch (err) {
@@ -115,8 +122,11 @@ const handleFocus = () => {
 const handleBlur = () => {
   setTimeout(() => {
     const activeEl = document.activeElement;
-    const isInsideDropdown = activeEl && activeEl.closest('.forum-search-dropdown');
-    const isInsideInput = activeEl && (activeEl === getInputElement() || activeEl.closest('.search-bar'));
+    const isInsideDropdown =
+      activeEl && activeEl.closest('.forum-search-dropdown');
+    const isInsideInput =
+      activeEl &&
+      (activeEl === getInputElement() || activeEl.closest('.search-bar'));
     if (!isInsideDropdown && !isInsideInput) {
       showDropdown.value = false;
     }
@@ -286,7 +296,9 @@ const handleSearchInputKeyDown = (e: KeyboardEvent) => {
     if (showDropdown.value && activeDropdownOptions.value.length > 0) {
       e.preventDefault();
       nextTick(() => {
-        const options = document.querySelectorAll('.forum-search-dropdown .n-dropdown-option');
+        const options = document.querySelectorAll(
+          '.forum-search-dropdown .n-dropdown-option',
+        );
         if (options && options.length > 0) {
           (options[0] as HTMLElement).focus();
         }
@@ -303,7 +315,9 @@ const nodeProps = (option: any) => {
         e.preventDefault();
         handleSelectDropdown(option.key);
       } else if (e.key === 'Tab' && e.shiftKey) {
-        const options = document.querySelectorAll('.forum-search-dropdown .n-dropdown-option');
+        const options = document.querySelectorAll(
+          '.forum-search-dropdown .n-dropdown-option',
+        );
         if (options && options.length > 0 && e.currentTarget === options[0]) {
           e.preventDefault();
           getInputElement()?.focus();
@@ -314,7 +328,11 @@ const nodeProps = (option: any) => {
         showDropdown.value = false;
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        const options = Array.from(document.querySelectorAll('.forum-search-dropdown .n-dropdown-option'));
+        const options = Array.from(
+          document.querySelectorAll(
+            '.forum-search-dropdown .n-dropdown-option',
+          ),
+        );
         const index = options.indexOf(e.currentTarget as Element);
         if (index !== -1 && index < options.length - 1) {
           (options[index + 1] as HTMLElement).focus();
@@ -323,7 +341,11 @@ const nodeProps = (option: any) => {
         }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        const options = Array.from(document.querySelectorAll('.forum-search-dropdown .n-dropdown-option'));
+        const options = Array.from(
+          document.querySelectorAll(
+            '.forum-search-dropdown .n-dropdown-option',
+          ),
+        );
         const index = options.indexOf(e.currentTarget as Element);
         if (index > 0) {
           (options[index - 1] as HTMLElement).focus();
@@ -335,13 +357,16 @@ const nodeProps = (option: any) => {
     onFocusout: () => {
       setTimeout(() => {
         const activeEl = document.activeElement;
-        const isInsideDropdown = activeEl && activeEl.closest('.forum-search-dropdown');
-        const isInsideInput = activeEl && (activeEl === getInputElement() || activeEl.closest('.search-bar'));
+        const isInsideDropdown =
+          activeEl && activeEl.closest('.forum-search-dropdown');
+        const isInsideInput =
+          activeEl &&
+          (activeEl === getInputElement() || activeEl.closest('.search-bar'));
         if (!isInsideDropdown && !isInsideInput) {
           showDropdown.value = false;
         }
       }, 200);
-    }
+    },
   };
 };
 
@@ -647,7 +672,7 @@ const deleteArticle = (article: ArticleSimplified) =>
             align-items: center;
             max-width: 100%;
           "
-          :style="{ width: (setting.forumSearch.searchBarWidth + 48) + 'px' }"
+          :style="{ width: setting.forumSearch.searchBarWidth + 48 + 'px' }"
         >
           <n-dropdown
             class="forum-search-dropdown"
@@ -656,7 +681,7 @@ const deleteArticle = (article: ArticleSimplified) =>
             trigger="manual"
             placement="bottom-start"
             :keyboard="false"
-            :node-props="nodeProps"
+            :node-props="nodeProps as any"
             @select="handleSelectDropdown"
             width="trigger"
           >
@@ -878,7 +903,9 @@ const deleteArticle = (article: ArticleSimplified) =>
 .forum-search-dropdown .n-dropdown-option:focus {
   outline: none;
 }
-.forum-search-dropdown .n-dropdown-option:focus .n-dropdown-option-body::before {
+.forum-search-dropdown
+  .n-dropdown-option:focus
+  .n-dropdown-option-body::before {
   background-color: var(--n-option-color-hover);
 }
 .forum-search-dropdown .n-dropdown-option:focus .n-dropdown-option-body {
