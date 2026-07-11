@@ -82,6 +82,7 @@ const searchHistoryOptions = computed(() => {
             alignItems: 'center',
             justifyContent: 'space-between',
             width: '100%',
+            minWidth: '0',
           },
         },
         [
@@ -94,6 +95,7 @@ const searchHistoryOptions = computed(() => {
                 whiteSpace: 'nowrap',
                 flex: '1',
                 marginRight: '8px',
+                minWidth: '0',
               },
             },
             query,
@@ -426,6 +428,7 @@ const deleteArticle = (article: ArticleSimplified) =>
           :style="{ width: (setting.forumSearch.searchBarWidth + 48) + 'px' }"
         >
           <n-dropdown
+            class="forum-search-dropdown"
             :show="showDropdown && searchHistoryOptions.length > 0"
             :options="searchHistoryOptions"
             trigger="manual"
@@ -639,5 +642,11 @@ const deleteArticle = (article: ArticleSimplified) =>
 .article-number {
   width: 50px;
   text-align: center;
+}
+</style>
+
+<style>
+.forum-search-dropdown .n-dropdown-option-body__label {
+  min-width: 0;
 }
 </style>
