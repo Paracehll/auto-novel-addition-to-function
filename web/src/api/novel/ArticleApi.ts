@@ -6,6 +6,17 @@ import type {
 import type { Page } from '@/model/Page';
 import { client } from './client';
 
+const cleanParams = (obj: Record<string, any>) => {
+  const cleaned: Record<string, any> = {};
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val !== undefined && val !== null && val !== '') {
+      cleaned[key] = val;
+    }
+  }
+  return cleaned;
+};
+
 const listArticle = (params: {
   page: number;
   pageSize: number;
@@ -22,10 +33,12 @@ const listArticle = (params: {
   maxComments?: number;
   sort?: string;
   sortDesc?: boolean;
-}) =>
-  client
-    .get('article', { searchParams: params })
+}) => {
+  const searchParams = cleanParams(params);
+  return client
+    .get('article', { searchParams })
     .json<Page<ArticleSimplified>>();
+};
 
 const getArticle = (id: string) => client.get(`article/${id}`).json<Article>();
 const deleteArticle = (id: string) => client.delete(`article/${id}`);

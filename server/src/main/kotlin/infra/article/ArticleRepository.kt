@@ -29,6 +29,14 @@ class ArticleRepository(
             MongoCollectionNames.ARTICLE,
         )
 
+    private val userCollection =
+        mongo.database.getCollection<UserDbModel>(
+            MongoCollectionNames.USER,
+        )
+
+    @Volatile
+    private var cachedAuthors: List<String>? = null
+
     suspend fun listArticle(
         page: Int,
         pageSize: Int,
@@ -64,6 +72,43 @@ class ArticleRepository(
         return 1.0 - levenshteinDistance(s1.lowercase(), s2.lowercase()).toDouble() / len
     }
 
+    private suspend fun mapArticlesToListItemPage(
+        pagedItems: List<ArticleDbModel>,
+        totalCount: Long,
+        pageSize: Int,
+    ): Page<ArticleListItem> {
+        val userIds = pagedItems.map { item -> item.user }.distinct()
+        val usersMap = if (userIds.isEmpty()) {
+            emptyMap<ObjectId, String>()
+        } else {
+            userCollection.find(`in`(UserDbModel::id.field(), userIds))
+                .toList()
+                .associate { item: UserDbModel -> item.id to item.username }
+        }
+
+        val items = pagedItems.map { item ->
+            ArticleListItem(
+                id = item.id.toHexString(),
+                title = item.title,
+                category = item.category,
+                locked = item.locked,
+                pinned = item.pinned,
+                hidden = item.hidden,
+                numViews = item.numViews,
+                numComments = item.numComments,
+                user = UserOutline(username = usersMap[item.user] ?: ""),
+                createAt = item.createAt,
+                updateAt = item.updateAt,
+            )
+        }
+
+        return Page(
+            items = items,
+            total = totalCount,
+            pageSize = pageSize,
+        )
+    }
+
     suspend fun searchArticle(
         page: Int,
         pageSize: Int,
@@ -81,12 +126,6 @@ class ArticleRepository(
         sort: ArticleListSort = ArticleListSort.Default,
         sortDesc: Boolean = true,
     ): Page<ArticleListItem> {
-        @Serializable
-        data class PageModel(
-            val total: Int = 0,
-            val items: List<ArticleListItem>,
-        )
-
         val filters = buildList {
             category?.let { add(eq(ArticleDbModel::category.field(), it)) }
             authorId?.let { add(eq(ArticleDbModel::user.field(), ObjectId(it))) }
@@ -109,93 +148,61 @@ class ArticleRepository(
             maxComments?.let { add(lte(ArticleDbModel::numComments.field(), it)) }
         }
 
-        val matchStage = match(if (filters.isEmpty()) org.bson.Document() else and(filters))
-
-        val sortStage = when (sort) {
-            ArticleListSort.Default -> sort(
-                if (sortDesc) {
-                    descending(
-                        ArticleDbModel::pinned.field(),
-                        ArticleDbModel::changeAt.field(),
-                    )
-                } else {
-                    ascending(
-                        ArticleDbModel::pinned.field(),
-                        ArticleDbModel::changeAt.field(),
-                    )
-                }
-            )
-            ArticleListSort.CreateAt -> sort(
-                if (sortDesc) descending(ArticleDbModel::createAt.field())
-                else ascending(ArticleDbModel::createAt.field())
-            )
-            ArticleListSort.Views -> sort(
-                if (sortDesc) descending(ArticleDbModel::numViews.field())
-                else ascending(ArticleDbModel::numViews.field())
-            )
-            ArticleListSort.Comments -> sort(
-                if (sortDesc) descending(ArticleDbModel::numComments.field())
-                else ascending(ArticleDbModel::numComments.field())
-            )
-        }
+        val filter = if (filters.isEmpty()) org.bson.Document() else and(filters)
 
         val isFuzzySearch = query != null && fuzzyTitle
-        val mongoPageSize = if (isFuzzySearch) 999999 else pageSize
-        val mongoPage = if (isFuzzySearch) 0 else page
 
-        val doc = articleCollection
-            .aggregate<PageModel>(
-                matchStage,
-                facet(
-                    Facet("count", count()),
-                    Facet(
-                        "items",
-                        sortStage,
-                        skip(mongoPage * mongoPageSize),
-                        limit(mongoPageSize),
-                        lookup(
-                            /* from = */ MongoCollectionNames.USER,
-                            /* localField = */ ArticleDbModel::user.field(),
-                            /* foreignField = */ UserDbModel::id.field(),
-                            /* as = */ ArticleListItem::user.field(),
-                        ),
-                        unwind(ArticleListItem::user.fieldPath()),
-                        project(
-                            fields(
-                                computed(
-                                    ArticleListItem::id.field(),
-                                    toString(ArticleDbModel::id.field()),
-                                ),
-                                include(
-                                    ArticleListItem::title.field(),
-                                    ArticleListItem::category.field(),
-                                    ArticleListItem::locked.field(),
-                                    ArticleListItem::pinned.field(),
-                                    ArticleListItem::hidden.field(),
-                                    ArticleListItem::numViews.field(),
-                                    ArticleListItem::numComments.field(),
-                                    ArticleListItem::user.field() + "." + UserOutline::username.field(),
-                                    ArticleListItem::createAt.field(),
-                                    ArticleListItem::updateAt.field(),
-                                )
-                            )
-                        ),
-                    )
-                ),
-                project(
-                    fields(
-                        computed(PageModel::total.field(), arrayElemAt("count.count", 0)),
-                        include(PageModel::items.field())
-                    )
-                ),
-            )
-            .firstOrNull()
+        if (!isFuzzySearch) {
+            val totalCount = articleCollection.countDocuments(filter)
+            if (totalCount == 0L) {
+                return emptyPage()
+            }
 
-        val items = doc?.items ?: emptyList()
+            val mongoSort = when (sort) {
+                ArticleListSort.Default -> {
+                    if (sortDesc) {
+                        descending(
+                            ArticleDbModel::pinned.field(),
+                            ArticleDbModel::changeAt.field(),
+                        )
+                    } else {
+                        ascending(
+                            ArticleDbModel::pinned.field(),
+                            ArticleDbModel::changeAt.field(),
+                        )
+                    }
+                }
+                ArticleListSort.CreateAt -> {
+                    if (sortDesc) descending(ArticleDbModel::createAt.field())
+                    else ascending(ArticleDbModel::createAt.field())
+                }
+                ArticleListSort.Views -> {
+                    if (sortDesc) descending(ArticleDbModel::numViews.field())
+                    else ascending(ArticleDbModel::numViews.field())
+                }
+                ArticleListSort.Comments -> {
+                    if (sortDesc) descending(ArticleDbModel::numComments.field())
+                    else ascending(ArticleDbModel::numComments.field())
+                }
+            }
 
-        val finalItems = if (isFuzzySearch) {
+            val pagedItems = articleCollection
+                .find(filter)
+                .projection(exclude(ArticleDbModel::content.field()))
+                .sort(mongoSort)
+                .skip(page * pageSize)
+                .limit(pageSize)
+                .toList()
+
+            return mapArticlesToListItemPage(pagedItems, totalCount, pageSize)
+        } else {
+            val allItems = articleCollection
+                .find(filter)
+                .projection(exclude(ArticleDbModel::content.field()))
+                .toList()
+
             val queryVariants = query!!.split("\u0000")
-            val sortedWithSim = items.map { item ->
+            val sortedWithSim = allItems.map { item ->
                 val maxSim = queryVariants.maxOf { variant ->
                     calculateSimilarity(item.title, variant)
                 }
@@ -230,23 +237,12 @@ class ArticleRepository(
                 cmp
             }
             .map { it.first }
-            sortedWithSim
-        } else {
-            items
-        }
 
-        val totalCount = if (isFuzzySearch) finalItems.size.toLong() else doc?.total?.toLong() ?: 0L
-        val pagedItems = if (isFuzzySearch) {
-            finalItems.drop(page * pageSize).take(pageSize)
-        } else {
-            finalItems
-        }
+            val totalCount = sortedWithSim.size.toLong()
+            val pagedItems = sortedWithSim.drop(page * pageSize).take(pageSize)
 
-        return Page(
-            items = pagedItems,
-            total = totalCount,
-            pageSize = pageSize,
-        )
+            return mapArticlesToListItemPage(pagedItems, totalCount, pageSize)
+        }
     }
 
     suspend fun getArticle(
@@ -287,12 +283,17 @@ class ArticleRepository(
 
     suspend fun deleteArticle(
         id: String,
-    ): Boolean =
-        articleCollection
+    ): Boolean {
+        val isDeleted = articleCollection
             .deleteOne(
                 eq(ArticleDbModel::id.field(), ObjectId(id)),
             )
             .run { deletedCount > 0 }
+        if (isDeleted) {
+            cachedAuthors = null
+        }
+        return isDeleted
+    }
 
     suspend fun createArticle(
         title: String,
@@ -301,7 +302,7 @@ class ArticleRepository(
         userId: String,
     ): ObjectId {
         val now = Clock.System.now()
-        return articleCollection
+        val newId = articleCollection
             .insertOne(
                 ArticleDbModel(
                     id = ObjectId(),
@@ -319,6 +320,8 @@ class ArticleRepository(
                 )
             )
             .run { insertedId!!.asObjectId().value }
+        cachedAuthors = null
+        return newId
     }
 
     suspend fun increaseNumViews(
@@ -399,9 +402,14 @@ class ArticleRepository(
             .run { matchedCount > 0 }
 
     suspend fun getAllArticleAuthors(): List<String> {
+        val cached = cachedAuthors
+        if (cached != null) {
+            return cached
+        }
+
         @Serializable
         data class AuthorModel(val username: String)
-        return articleCollection
+        val authors = articleCollection
             .aggregate<AuthorModel>(
                 group("\$" + ArticleDbModel::user.field()),
                 lookup(
@@ -420,5 +428,8 @@ class ArticleRepository(
             )
             .toList()
             .map { it.username }
+
+        cachedAuthors = authors
+        return authors
     }
 }
