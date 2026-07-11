@@ -28,6 +28,8 @@ const hasSider = bp.greater('tablet');
 const menuShowTrigger = bp.greater('desktop');
 const showMenuModal = ref(false);
 
+const osThemeRef = useOsTheme();
+
 watch(hasSider, () => (showMenuModal.value = false));
 
 const route = useRoute();
@@ -54,8 +56,7 @@ const renderIcon = (icon: Component) => () =>
 const menuOptions = computed<MenuOption[]>(() => {
   const resolveTheme = () => {
     if (setting.value.theme === 'system') {
-      const osTheme = useOsTheme();
-      return osTheme.value ?? 'light';
+      return osThemeRef.value ?? 'light';
     } else {
       return setting.value.theme;
     }
