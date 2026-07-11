@@ -72,6 +72,7 @@ const useArticleList = (
 export const ArticleRepo = {
   useArticle,
   useArticleList,
+  getArticleAuthors: ArticleApi.getArticleAuthors,
 
   createArticle: withOnSuccess(ArticleApi.createArticle, (_, article) =>
     cache.invalidateQueries({ key: [ListKey, article.category] }),

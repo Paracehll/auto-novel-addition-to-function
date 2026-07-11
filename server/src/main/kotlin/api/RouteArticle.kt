@@ -44,6 +44,10 @@ private class ArticleRes {
     )
 
     @Serializable
+    @Resource("/author")
+    class Author(val parent: ArticleRes)
+
+    @Serializable
     @Resource("/{id}")
     class Id(val parent: ArticleRes, val id: String) {
         @Serializable
@@ -64,6 +68,12 @@ fun Route.routeArticle() {
     val service by inject<ArticleApi>()
 
     authenticateDb(optional = true) {
+        get<ArticleRes.Author> {
+            call.tryRespond {
+                service.getArticleAuthors()
+            }
+        }
+
         get<ArticleRes.List> { loc ->
             val user = call.userOrNull()
             call.tryRespond {
@@ -214,6 +224,10 @@ class ArticleApi(
             createAt = createAt.epochSeconds,
             updateAt = updateAt.epochSeconds,
         )
+
+    suspend fun getArticleAuthors(): List<String> {
+        return articleRepo.getAllArticleAuthors()
+    }
 
     suspend fun listArticle(
         user: User?,
