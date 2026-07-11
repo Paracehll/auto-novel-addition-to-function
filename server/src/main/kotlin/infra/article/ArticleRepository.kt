@@ -22,10 +22,28 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.bson.types.ObjectId
 
+import kotlinx.datetime.Instant
+
 @Serializable
 private data class UserOutlineDbModel(
     @Contextual @SerialName("_id") val id: ObjectId,
     val username: String,
+)
+
+@Serializable
+private data class ArticleMinimalDbModel(
+    @Contextual @SerialName("_id") val id: ObjectId,
+    val title: String,
+    val category: ArticleCategory,
+    val locked: Boolean,
+    val pinned: Boolean,
+    val hidden: Boolean = false,
+    val numViews: Int,
+    val numComments: Int,
+    @Contextual val user: ObjectId,
+    @Contextual val createAt: Instant,
+    @Contextual val updateAt: Instant,
+    @Contextual val changeAt: Instant,
 )
 
 class ArticleRepository(
@@ -34,6 +52,11 @@ class ArticleRepository(
 ) {
     private val articleCollection =
         mongo.database.getCollection<ArticleDbModel>(
+            MongoCollectionNames.ARTICLE,
+        )
+
+    private val articleMinimalCollection =
+        mongo.database.getCollection<ArticleMinimalDbModel>(
             MongoCollectionNames.ARTICLE,
         )
 
@@ -81,7 +104,7 @@ class ArticleRepository(
     }
 
     private suspend fun mapArticlesToListItemPage(
-        pagedItems: List<ArticleDbModel>,
+        pagedItems: List<ArticleMinimalDbModel>,
         totalCount: Long,
         pageSize: Int,
     ): Page<ArticleListItem> {
@@ -170,33 +193,33 @@ class ArticleRepository(
                 ArticleListSort.Default -> {
                     if (sortDesc) {
                         descending(
-                            ArticleDbModel::pinned.field(),
-                            ArticleDbModel::changeAt.field(),
+                            ArticleMinimalDbModel::pinned.field(),
+                            ArticleMinimalDbModel::changeAt.field(),
                         )
                     } else {
                         ascending(
-                            ArticleDbModel::pinned.field(),
-                            ArticleDbModel::changeAt.field(),
+                            ArticleMinimalDbModel::pinned.field(),
+                            ArticleMinimalDbModel::changeAt.field(),
                         )
                     }
                 }
                 ArticleListSort.CreateAt -> {
-                    if (sortDesc) descending(ArticleDbModel::createAt.field())
-                    else ascending(ArticleDbModel::createAt.field())
+                    if (sortDesc) descending(ArticleMinimalDbModel::createAt.field())
+                    else ascending(ArticleMinimalDbModel::createAt.field())
                 }
                 ArticleListSort.Views -> {
-                    if (sortDesc) descending(ArticleDbModel::numViews.field())
-                    else ascending(ArticleDbModel::numViews.field())
+                    if (sortDesc) descending(ArticleMinimalDbModel::numViews.field())
+                    else ascending(ArticleMinimalDbModel::numViews.field())
                 }
                 ArticleListSort.Comments -> {
-                    if (sortDesc) descending(ArticleDbModel::numComments.field())
-                    else ascending(ArticleDbModel::numComments.field())
+                    if (sortDesc) descending(ArticleMinimalDbModel::numComments.field())
+                    else ascending(ArticleMinimalDbModel::numComments.field())
                 }
             }
 
-            val pagedItems = articleCollection
+            val pagedItems = articleMinimalCollection
                 .find(filter)
-                .projection(exclude(ArticleDbModel::content.field()))
+                .projection(exclude("content"))
                 .sort(mongoSort)
                 .skip(page * pageSize)
                 .limit(pageSize)
@@ -204,9 +227,9 @@ class ArticleRepository(
 
             return mapArticlesToListItemPage(pagedItems, totalCount, pageSize)
         } else {
-            val allItems = articleCollection
+            val allItems = articleMinimalCollection
                 .find(filter)
-                .projection(exclude(ArticleDbModel::content.field()))
+                .projection(exclude("content"))
                 .toList()
 
             val queryVariants = query!!.split("\u0000")
