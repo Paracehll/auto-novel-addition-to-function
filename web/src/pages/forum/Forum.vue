@@ -114,7 +114,12 @@ const handleFocus = () => {
 };
 const handleBlur = () => {
   setTimeout(() => {
-    showDropdown.value = false;
+    const activeEl = document.activeElement;
+    const isInsideDropdown = activeEl && activeEl.closest('.forum-search-dropdown');
+    const isInsideInput = activeEl && (activeEl === getInputElement() || activeEl.closest('.search-bar'));
+    if (!isInsideDropdown && !isInsideInput) {
+      showDropdown.value = false;
+    }
   }, 200);
 };
 
@@ -274,6 +279,70 @@ const handleSelectDropdown = (key: string) => {
   } else {
     handleSelectHistory(key);
   }
+};
+
+const handleSearchInputKeyDown = (e: KeyboardEvent) => {
+  if (e.key === 'Tab' || e.key === 'ArrowDown') {
+    if (showDropdown.value && activeDropdownOptions.value.length > 0) {
+      e.preventDefault();
+      nextTick(() => {
+        const options = document.querySelectorAll('.forum-search-dropdown .n-dropdown-option');
+        if (options && options.length > 0) {
+          (options[0] as HTMLElement).focus();
+        }
+      });
+    }
+  }
+};
+
+const nodeProps = (option: any) => {
+  return {
+    tabindex: '0',
+    onKeydown: (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSelectDropdown(option.key);
+      } else if (e.key === 'Tab' && e.shiftKey) {
+        const options = document.querySelectorAll('.forum-search-dropdown .n-dropdown-option');
+        if (options && options.length > 0 && e.currentTarget === options[0]) {
+          e.preventDefault();
+          getInputElement()?.focus();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        getInputElement()?.focus();
+        showDropdown.value = false;
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const options = Array.from(document.querySelectorAll('.forum-search-dropdown .n-dropdown-option'));
+        const index = options.indexOf(e.currentTarget as Element);
+        if (index !== -1 && index < options.length - 1) {
+          (options[index + 1] as HTMLElement).focus();
+        } else if (index === options.length - 1) {
+          (options[0] as HTMLElement).focus();
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const options = Array.from(document.querySelectorAll('.forum-search-dropdown .n-dropdown-option'));
+        const index = options.indexOf(e.currentTarget as Element);
+        if (index > 0) {
+          (options[index - 1] as HTMLElement).focus();
+        } else if (index === 0) {
+          (options[options.length - 1] as HTMLElement).focus();
+        }
+      }
+    },
+    onFocusout: () => {
+      setTimeout(() => {
+        const activeEl = document.activeElement;
+        const isInsideDropdown = activeEl && activeEl.closest('.forum-search-dropdown');
+        const isInsideInput = activeEl && (activeEl === getInputElement() || activeEl.closest('.search-bar'));
+        if (!isInsideDropdown && !isInsideInput) {
+          showDropdown.value = false;
+        }
+      }, 200);
+    }
+  };
 };
 
 const articleCategoryOptions = [
@@ -587,6 +656,7 @@ const deleteArticle = (article: ArticleSimplified) =>
             trigger="manual"
             placement="bottom-start"
             :keyboard="false"
+            :node-props="nodeProps"
             @select="handleSelectDropdown"
             width="trigger"
           >
@@ -599,6 +669,7 @@ const deleteArticle = (article: ArticleSimplified) =>
               style="flex: 1; min-width: 100px"
               @update:value="handleInput"
               @keyup.enter="onSearch"
+              @keydown="handleSearchInputKeyDown"
               @focus="handleFocus"
               @blur="handleBlur"
               @click="updateCursor"
@@ -803,5 +874,14 @@ const deleteArticle = (article: ArticleSimplified) =>
 <style>
 .forum-search-dropdown .n-dropdown-option-body__label {
   min-width: 0;
+}
+.forum-search-dropdown .n-dropdown-option:focus {
+  outline: none;
+}
+.forum-search-dropdown .n-dropdown-option:focus .n-dropdown-option-body::before {
+  background-color: var(--n-option-color-hover);
+}
+.forum-search-dropdown .n-dropdown-option:focus .n-dropdown-option-body {
+  color: var(--n-option-text-color-hover);
 }
 </style>
