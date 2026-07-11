@@ -17,8 +17,16 @@ import infra.user.UserOutline
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.datetime.Clock
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.bson.types.ObjectId
+
+@Serializable
+private data class UserOutlineDbModel(
+    @Contextual @SerialName("_id") val id: ObjectId,
+    val username: String,
+)
 
 class ArticleRepository(
     mongo: MongoClient,
@@ -29,8 +37,8 @@ class ArticleRepository(
             MongoCollectionNames.ARTICLE,
         )
 
-    private val userCollection =
-        mongo.database.getCollection<UserDbModel>(
+    private val userOutlineCollection =
+        mongo.database.getCollection<UserOutlineDbModel>(
             MongoCollectionNames.USER,
         )
 
@@ -81,9 +89,9 @@ class ArticleRepository(
         val usersMap = if (userIds.isEmpty()) {
             emptyMap<ObjectId, String>()
         } else {
-            userCollection.find(`in`(UserDbModel::id.field(), userIds))
+            userOutlineCollection.find(`in`(UserOutlineDbModel::id.field(), userIds))
                 .toList()
-                .associate { item: UserDbModel -> item.id to item.username }
+                .associate { item: UserOutlineDbModel -> item.id to item.username }
         }
 
         val items = pagedItems.map { item ->
