@@ -1,5 +1,12 @@
 <script lang="ts" setup>
-import { DeleteOutlineOutlined } from '@vicons/material';
+import {
+  DeleteOutlineOutlined,
+  ContentCopyOutlined,
+  UploadOutlined,
+  DownloadOutlined,
+  ContentPasteOutlined,
+  FileDownloadOutlined,
+} from '@vicons/material';
 
 import { WebNovelApi, WenkuNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
@@ -151,6 +158,7 @@ const importGlossaryFromClipboard = async () => {
       JSON.parse(text);
       isValid = true;
     } catch {
+      // If not JSON, check if it's the valid human-readable glossary format
       const imported = Glossary.fromText(text);
       if (imported !== undefined) {
         isValid = true;
@@ -158,7 +166,7 @@ const importGlossaryFromClipboard = async () => {
     }
 
     if (!isValid) {
-      message.error('检测到内容不是支援格式');
+      message.error('检测到剪贴簿内容不是 JSON 格式');
       return;
     }
 
@@ -224,41 +232,55 @@ const importGlossaryFromClipboard = async () => {
           :rows="1"
         />
 
-        <n-flex align="center" :wrap="false">
-          <c-button
-            label="导出"
-            :round="false"
-            size="small"
-            @action="exportGlossary"
-          />
-          <c-button
-            label="剪贴簿导入"
-            :round="false"
-            size="small"
-            @action="importGlossaryFromClipboard"
-          />
-          <c-button
-            label="导入"
-            :round="false"
-            size="small"
-            @action="importGlossary"
-          />
-          <c-button
-            label="下载json"
-            :round="false"
-            size="small"
-            @action="downloadGlossaryAsJsonFile"
-          />
-          <c-button
-            v-if="whoami.isAdmin"
-            secondary
-            type="error"
-            label="清空"
-            :round="false"
-            size="small"
-            @action="clearTerm"
-          />
-        </n-flex>
+        <c-action-wrapper align="center" title="编辑区">
+          <n-flex align="center" :wrap="false">
+            <c-button
+              label="导入"
+              :icon="DownloadOutlined"
+              :round="false"
+              size="small"
+              @action="importGlossary"
+            />
+            <c-button
+              label="下载JSON"
+              :icon="FileDownloadOutlined"
+              :round="false"
+              size="small"
+              @action="downloadGlossaryAsJsonFile"
+            />
+            <c-button
+              v-if="whoami.isAdmin"
+              secondary
+              type="error"
+              label="清空"
+              :icon="DeleteOutlineOutlined"
+              :round="false"
+              size="small"
+              @action="clearTerm"
+            />
+          </n-flex>
+        </c-action-wrapper>
+
+        <c-action-wrapper align="center" title="剪贴簿">
+          <n-flex align="center" :wrap="false">
+            <c-button
+              label="导出"
+              :icon="ContentCopyOutlined"
+              :round="false"
+              size="small"
+              @action="exportGlossary"
+            />
+            <c-button
+              class="clipboard-import-btn"
+              label="剪贴"
+              :icon="ContentPasteOutlined"
+              :round="false"
+              size="small"
+              @action="importGlossaryFromClipboard"
+            />
+          </n-flex>
+        </c-action-wrapper>
+
         <n-flex align="center" :wrap="false">
           <c-button
             :disabled="deletedTerms.length === 0"
