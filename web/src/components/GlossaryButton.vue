@@ -160,10 +160,10 @@ const addTerm = () => {
   }
 };
 
-const exportGlossary = async (ev: MouseEvent) => {
+const exportGlossary = async (ev?: MouseEvent) => {
   const isSuccess = await copyToClipBoard(
     Glossary.toText(glossary.value),
-    ev.target as HTMLElement,
+    ev?.target as HTMLElement,
   );
   if (isSuccess) {
     message.success('导出成功：已复制到剪贴板');
@@ -220,6 +220,49 @@ const importGlossaryFromClipboard = async () => {
     message.error('无法读取剪贴簿: ' + (err?.message ?? err));
   }
 };
+
+const isEditable = (el: Element | null): boolean => {
+  if (!el) return false;
+  const tagName = el.tagName.toUpperCase();
+  if (tagName === 'INPUT' || tagName === 'TEXTAREA') {
+    return true;
+  }
+  if (
+    el.hasAttribute('contenteditable') &&
+    el.getAttribute('contenteditable') !== 'false'
+  ) {
+    return true;
+  }
+  return false;
+};
+
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (isEditable(document.activeElement)) {
+    return;
+  }
+  const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+  if (isCtrlOrCmd) {
+    if (e.key === 'c' || e.key === 'C') {
+      e.preventDefault();
+      exportGlossary();
+    } else if (e.key === 'v' || e.key === 'V') {
+      e.preventDefault();
+      importGlossaryFromClipboard();
+    }
+  }
+};
+
+watch(showGlossaryModal, (isOpen) => {
+  if (isOpen) {
+    window.addEventListener('keydown', handleKeyDown);
+  } else {
+    window.removeEventListener('keydown', handleKeyDown);
+  }
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
+});
 </script>
 
 <template>
