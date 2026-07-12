@@ -304,6 +304,40 @@ const handleSearchInputKeyDown = (e: KeyboardEvent) => {
         }
       });
     }
+  } else if (
+    (e.key === 'ArrowLeft' || e.key === 'Backspace') &&
+    !e.shiftKey &&
+    !e.ctrlKey &&
+    !e.altKey &&
+    !e.metaKey
+  ) {
+    const input = getInputElement();
+    if (
+      input &&
+      input.selectionStart === 0 &&
+      input.selectionEnd === 0 &&
+      activeTags.value.length > 0
+    ) {
+      e.preventDefault();
+      const lastTag = activeTags.value[activeTags.value.length - 1];
+      activeTags.value.pop();
+
+      const isBackspace = e.key === 'Backspace';
+      const tagValue = isBackspace ? lastTag.value.slice(0, -1) : lastTag.value;
+      const prependStr = `${lastTag.type}:"${tagValue}"`;
+      const originalQuery = searchQuery.value;
+      searchQuery.value = originalQuery
+        ? `${prependStr} ${originalQuery}`
+        : prependStr;
+
+      const newCursorPos = 3 + tagValue.length;
+      cursorPosition.value = newCursorPos;
+
+      nextTick(() => {
+        input.focus();
+        input.setSelectionRange(newCursorPos, newCursorPos);
+      });
+    }
   }
 };
 
