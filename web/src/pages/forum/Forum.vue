@@ -620,6 +620,25 @@ const handleClear = () => {
 
 const searchInputInst = useTemplateRef<any>('searchInputInst');
 const handleInput = (v: string) => {
+  // Translate @ to a:"" on input
+  const atMatch = v.match(/(?:^|\s)@$/);
+  if (atMatch && setting.value.forumSearch.forceTranslateAt) {
+    const pos = v.length - 1;
+    searchQuery.value = v.substring(0, pos) + 'a:""';
+    setTimeout(() => {
+      const el =
+        (searchInputInst.value?.elRef as HTMLElement) ||
+        document.querySelector('.search-bar');
+      const input = el?.querySelector('input');
+      if (input) {
+        input.focus();
+        input.setSelectionRange(pos + 3, pos + 3);
+      }
+    }, 10);
+    showDropdown.value = true;
+    return;
+  }
+
   // 1. Auto-quote and cursor positioning
   const triggerRegex = /(?:^|\s)([at]):$/;
   const match = v.match(triggerRegex);
@@ -858,6 +877,12 @@ const deleteArticle = (article: ArticleSimplified) =>
               <n-flex align="center" justify="space-between">
                 <n-text>自动填入结束日期</n-text>
                 <n-switch v-model:value="setting.forumSearch.autoFillToDate" />
+              </n-flex>
+              <n-flex align="center" justify="space-between">
+                <n-text>强行转译 @</n-text>
+                <n-switch
+                  v-model:value="setting.forumSearch.forceTranslateAt"
+                />
               </n-flex>
               <n-flex align="center" justify="space-between">
                 <n-text>搜索栏长度</n-text>

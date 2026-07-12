@@ -209,6 +209,9 @@ const playSound = (source: string) => {
           <n-checkbox v-model:checked="setting.forumSearch.autoFillToDate">
             自动填入结束日期
           </n-checkbox>
+          <n-checkbox v-model:checked="setting.forumSearch.forceTranslateAt">
+            强行转译 @
+          </n-checkbox>
           <n-flex align="center" style="margin-top: 4px">
             <n-text>搜索栏长度</n-text>
             <n-input-number

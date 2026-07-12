@@ -40,6 +40,7 @@ export interface Setting {
     fuzzyAuthor: boolean;
     autoFillToDate: boolean;
     searchBarWidth: number;
+    forceTranslateAt?: boolean;
   };
 }
 
@@ -103,6 +104,7 @@ export namespace Setting {
       fuzzyAuthor: false,
       autoFillToDate: false,
       searchBarWidth: 280,
+      forceTranslateAt: true,
     },
   };
 
@@ -149,6 +151,7 @@ export namespace Setting {
         fuzzyAuthor: false,
         autoFillToDate: false,
         searchBarWidth: 280,
+        forceTranslateAt: true,
       };
     } else {
       if ('exactAuthor' in setting.forumSearch) {
@@ -158,6 +161,9 @@ export namespace Setting {
       }
       if (setting.forumSearch.searchBarWidth === undefined) {
         setting.forumSearch.searchBarWidth = 280;
+      }
+      if (setting.forumSearch.forceTranslateAt === undefined) {
+        setting.forumSearch.forceTranslateAt = true;
       }
     }
 
