@@ -167,8 +167,14 @@ class ArticleRepository(
                     // No MongoDB title filter here so we fetch all relevant category/date posts.
                 } else {
                     val variants = q.split("\u0000")
-                    val titleRegexes = variants.map { regex(ArticleDbModel::title.field(), it, "i") }
-                    add(or(titleRegexes))
+                    val titleRegexes = variants.flatMap { variant ->
+                        variant.split(Regex("\\s+"))
+                            .filter { it.isNotBlank() }
+                            .map { regex(ArticleDbModel::title.field(), it, "i") }
+                    }
+                    if (titleRegexes.isNotEmpty()) {
+                        add(or(titleRegexes))
+                    }
                 }
             }
             startAt?.let { add(gte(ArticleDbModel::createAt.field(), it)) }
@@ -232,10 +238,12 @@ class ArticleRepository(
                 .projection(exclude("content"))
                 .toList()
 
-            val queryVariants = query!!.split("\u0000")
+            val queryItems = query!!.split("\u0000").flatMap { it.split(Regex("\\s+")) }.filter { it.isNotBlank() }
             val sortedWithSim = allItems.map { item ->
-                val maxSim = queryVariants.maxOf { variant ->
-                    calculateSimilarity(item.title, variant)
+                val maxSim = if (queryItems.isEmpty()) 0.0 else {
+                    queryItems.maxOf { qItem ->
+                        calculateSimilarity(item.title, qItem)
+                    }
                 }
                 item to maxSim
             }

@@ -25,11 +25,18 @@ class UserRepository(
     }
 
     suspend fun getIdsByName(username: String, fuzzy: Boolean): List<String> {
-        val filter = if (fuzzy) {
-            regex(UserDbModel::username.field(), username, "i")
-        } else {
-            eq(UserDbModel::username.field(), username)
+        val items = username.split(Regex("\\s+")).filter { it.isNotBlank() }
+        if (items.isEmpty()) return emptyList()
+
+        val filters = items.map { item ->
+            if (fuzzy) {
+                regex(UserDbModel::username.field(), item, "i")
+            } else {
+                eq(UserDbModel::username.field(), item)
+            }
         }
+
+        val filter = if (filters.size == 1) filters[0] else or(filters)
         return userCollection
             .find(filter)
             .toList()

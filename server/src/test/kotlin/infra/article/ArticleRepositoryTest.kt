@@ -139,6 +139,64 @@ class ArticleRepositoryTest : DescribeSpec(), KoinTest {
                 result.items[0].title shouldBe "Match Exact"
                 result.items[1].title shouldBe "Match Medium Thing"
             }
+
+            it("非模糊模式下如果有多個用空格隔開的項目，表示 or") {
+                val now = Clock.System.now()
+                val user = ObjectId()
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Apple Book", "C", ArticleCategory.General, false, false, false, 0, 0, user, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Orange Box", "C", ArticleCategory.General, false, false, false, 0, 0, user, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Grape Juice", "C", ArticleCategory.General, false, false, false, 0, 0, user, now, now, now))
+
+                val result = repo.searchArticle(0, 10, query = "Apple Orange", fuzzyTitle = false)
+                result.items.size shouldBe 2
+                val titles = result.items.map { it.title }.toSet()
+                titles shouldBe setOf("Apple Book", "Orange Box")
+            }
+
+            it("模糊模式下如果有多個用空格隔開的項目，表示 or") {
+                val now = Clock.System.now()
+                val user = ObjectId()
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Apple Book", "C", ArticleCategory.General, false, false, false, 0, 0, user, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Orange Box", "C", ArticleCategory.General, false, false, false, 0, 0, user, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Completely Unrelated", "C", ArticleCategory.General, false, false, false, 0, 0, user, now, now, now))
+
+                val result = repo.searchArticle(0, 10, query = "Apple Orange", fuzzyTitle = true)
+                result.items.size shouldBe 2
+                val titles = result.items.map { it.title }.toSet()
+                titles shouldBe setOf("Apple Book", "Orange Box")
+            }
+
+            it("非模糊模式下標題與參數同時存在應該表示 AND 關係") {
+                val now = Clock.System.now()
+                val userA = ObjectId()
+                val userB = ObjectId()
+                val userC = ObjectId()
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Apple Book", "C", ArticleCategory.General, false, false, false, 0, 0, userA, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Orange Box", "C", ArticleCategory.General, false, false, false, 0, 0, userB, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Grape Juice", "C", ArticleCategory.General, false, false, false, 0, 0, userA, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Apple Book", "C", ArticleCategory.General, false, false, false, 0, 0, userC, now, now, now))
+
+                val result = repo.searchArticle(0, 10, query = "Apple Orange", authorIds = listOf(userA.toHexString(), userB.toHexString()), fuzzyTitle = false)
+                result.items.size shouldBe 2
+                val titles = result.items.map { it.title }.toSet()
+                titles shouldBe setOf("Apple Book", "Orange Box")
+            }
+
+            it("模糊模式下標題與參數同時存在應該表示 AND 關係") {
+                val now = Clock.System.now()
+                val userA = ObjectId()
+                val userB = ObjectId()
+                val userC = ObjectId()
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Apple Book", "C", ArticleCategory.General, false, false, false, 0, 0, userA, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Orange Box", "C", ArticleCategory.General, false, false, false, 0, 0, userB, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Grape Juice", "C", ArticleCategory.General, false, false, false, 0, 0, userA, now, now, now))
+                articleCollection.insertOne(ArticleDbModel(ObjectId(), "Apple Book", "C", ArticleCategory.General, false, false, false, 0, 0, userC, now, now, now))
+
+                val result = repo.searchArticle(0, 10, query = "Apple Orange", authorIds = listOf(userA.toHexString(), userB.toHexString()), fuzzyTitle = true)
+                result.items.size shouldBe 2
+                val titles = result.items.map { it.title }.toSet()
+                titles shouldBe setOf("Apple Book", "Orange Box")
+            }
         }
     }
 }

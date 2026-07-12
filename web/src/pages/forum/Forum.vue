@@ -330,7 +330,7 @@ const handleSearchInputKeyDown = (e: KeyboardEvent) => {
         ? `${prependStr} ${originalQuery}`
         : prependStr;
 
-      const newCursorPos = 3 + tagValue.length;
+      const newCursorPos = lastTag.type.length + 2 + tagValue.length;
       cursorPosition.value = newCursorPos;
 
       nextTick(() => {
