@@ -7,7 +7,7 @@ import {
   SearchOutlined,
   SettingsOutlined,
 } from '@vicons/material';
-import { NIcon, NInputNumber } from 'naive-ui';
+import { NIcon, NInputNumber, NTag } from 'naive-ui';
 import { h, onMounted, ref, computed, nextTick, watch } from 'vue';
 
 import { useOpenCC } from '@/util';
@@ -134,60 +134,122 @@ const handleBlur = () => {
 };
 
 const handleSelectHistory = (key: string) => {
+  activeTags.value = [];
   searchQuery.value = key;
   onSearch();
   showDropdown.value = false;
+
+  const input = getInputElement();
+  input.focus();
+};
+
+const parseHistoryQuery = (q: string) => {
+  const parts: (
+    | { type: 'text'; value: string }
+    | { type: 'tag'; tagType: 'a' | 't'; value: string }
+  )[] = [];
+
+  const regex = /([at]):"([^"]*)"/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(q)) !== null) {
+    const textBefore = q.substring(lastIndex, match.index);
+    if (textBefore) {
+      parts.push({ type: 'text', value: textBefore });
+    }
+    parts.push({
+      type: 'tag',
+      tagType: match[1] as 'a' | 't',
+      value: match[2],
+    });
+    lastIndex = regex.lastIndex;
+  }
+
+  const textAfter = q.substring(lastIndex);
+  if (textAfter) {
+    parts.push({ type: 'text', value: textAfter });
+  }
+
+  return parts;
 };
 
 const searchHistoryOptions = computed(() => {
   const queries = forumSearchHistoryStore.searchHistory.queries || [];
-  return queries.map((query) => ({
-    key: query,
-    label: () =>
-      h(
-        'div',
-        {
-          style: {
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: '100%',
-            minWidth: '0',
-          },
-        },
-        [
-          h(
-            'span',
+  return queries.map((query) => {
+    const parts = parseHistoryQuery(query);
+    const contentNodes = parts
+      .map((part) => {
+        if (part.type === 'text') {
+          return part.value ? h('span', part.value) : null;
+        } else {
+          return h(
+            NTag,
             {
+              size: 'small',
+              type: part.tagType === 'a' ? 'info' : 'success',
+              round: true,
+              bordered: false,
               style: {
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                flex: '1',
-                marginRight: '8px',
-                minWidth: '0',
+                margin: '0 4px',
+                verticalAlign: 'middle',
+                display: 'inline-flex',
               },
             },
-            query,
-          ),
-          h(NIcon, {
-            component: CloseOutlined,
-            size: '14',
+            () => `${part.tagType === 'a' ? '作者' : '時間'}: ${part.value}`,
+          );
+        }
+      })
+      .filter(Boolean);
+
+    return {
+      key: query,
+      label: () =>
+        h(
+          'div',
+          {
             style: {
-              cursor: 'pointer',
-              flexShrink: '0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              minWidth: '0',
             },
-            onMousedown: (e: MouseEvent) => {
-              e.preventDefault(); // Prevent input from losing focus
-            },
-            onClick: (e: MouseEvent) => {
-              e.stopPropagation(); // Avoid triggering row select
-              forumSearchHistoryStore.removeHistory(query);
-            },
-          }),
-        ],
-      ),
-  }));
+          },
+          [
+            h(
+              'div',
+              {
+                style: {
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  flex: '1',
+                  marginRight: '8px',
+                  minWidth: '0',
+                },
+              },
+              contentNodes,
+            ),
+            h(NIcon, {
+              component: CloseOutlined,
+              size: '14',
+              style: {
+                cursor: 'pointer',
+                flexShrink: '0',
+              },
+              onMousedown: (e: MouseEvent) => {
+                e.preventDefault();
+              },
+              onClick: (e: MouseEvent) => {
+                e.stopPropagation();
+                forumSearchHistoryStore.removeHistory(query);
+              },
+            }),
+          ],
+        ),
+    };
+  });
 });
 
 const isCursorInAuthor = computed(() => {
@@ -550,6 +612,12 @@ const editTag = (index: number) => {
   searchInputInst.value?.focus();
 };
 
+const handleClear = () => {
+  searchQuery.value = '';
+  activeTags.value = [];
+  onSearch();
+};
+
 const searchInputInst = useTemplateRef<any>('searchInputInst');
 const handleInput = (v: string) => {
   // 1. Auto-quote and cursor positioning
@@ -588,6 +656,7 @@ const handleInput = (v: string) => {
     if (value) {
       activeTags.value.push({ type, value });
       searchQuery.value = v.replace(tokenMatch[0], ' ').trimStart();
+      searchQuery.value += ' ';
       onSearch();
     }
   }
@@ -727,6 +796,7 @@ const deleteArticle = (article: ArticleSimplified) =>
               class="search-input search-bar"
               style="flex: 1; min-width: 100px"
               @update:value="handleInput"
+              @clear="handleClear"
               @keyup.enter="onSearch"
               @keydown="handleSearchInputKeyDown"
               @focus="handleFocus"
