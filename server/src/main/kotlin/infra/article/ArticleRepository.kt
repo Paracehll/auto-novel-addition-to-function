@@ -81,26 +81,38 @@ class ArticleRepository(
     }
 
     private fun levenshteinDistance(s1: String, s2: String): Int {
-        val d = Array(s1.length + 1) { IntArray(s2.length + 1) }
-        for (i in 0..s1.length) d[i][0] = i
-        for (j in 0..s2.length) d[0][j] = j
-        for (i in 1..s1.length) {
-            for (j in 1..s2.length) {
-                val cost = if (s1[i - 1] == s2[j - 1]) 0 else 1
-                d[i][j] = minOf(
-                    d[i - 1][j] + 1,
-                    d[i][j - 1] + 1,
-                    d[i - 1][j - 1] + cost
+        if (s1 == s2) return 0
+        if (s1.isEmpty()) return s2.length
+        if (s2.isEmpty()) return s1.length
+
+        val (short, long) = if (s1.length < s2.length) s1 to s2 else s2 to s1
+
+        var prevRow = IntArray(short.length + 1) { it }
+        var currRow = IntArray(short.length + 1)
+
+        for (i in 1..long.length) {
+            currRow[0] = i
+            for (j in 1..short.length) {
+                val cost = if (long[i - 1] == short[j - 1]) 0 else 1
+                currRow[j] = minOf(
+                    currRow[j - 1] + 1,
+                    prevRow[j] + 1,
+                    prevRow[j - 1] + cost
                 )
             }
+            val temp = prevRow
+            prevRow = currRow
+            currRow = temp
         }
-        return d[s1.length][s2.length]
+        return prevRow[short.length]
     }
 
     private fun calculateSimilarity(s1: String, s2: String): Double {
-        val len = maxOf(s1.length, s2.length)
+        val s1Lower = s1.lowercase()
+        val s2Lower = s2.lowercase()
+        val len = maxOf(s1Lower.length, s2Lower.length)
         if (len == 0) return 1.0
-        return 1.0 - levenshteinDistance(s1.lowercase(), s2.lowercase()).toDouble() / len
+        return 1.0 - levenshteinDistance(s1Lower, s2Lower).toDouble() / len
     }
 
     private suspend fun mapArticlesToListItemPage(
@@ -238,11 +250,15 @@ class ArticleRepository(
                 .projection(exclude("content"))
                 .toList()
 
-            val queryItems = query!!.split("\u0000").flatMap { it.split(Regex("\\s+")) }.filter { it.isNotBlank() }
+            val queryItems = query!!.split("\u0000").flatMap { it.split(Regex("\\s+")) }.filter { it.isNotBlank() }.map { it.lowercase() }
             val sortedWithSim = allItems.map { item ->
+                val itemTitleLower = item.title.lowercase()
                 val maxSim = if (queryItems.isEmpty()) 0.0 else {
                     queryItems.maxOf { qItem ->
-                        calculateSimilarity(item.title, qItem)
+                        val len = maxOf(itemTitleLower.length, qItem.length)
+                        if (len == 0) 1.0 else {
+                            1.0 - levenshteinDistance(itemTitleLower, qItem).toDouble() / len
+                        }
                     }
                 }
                 item to maxSim
