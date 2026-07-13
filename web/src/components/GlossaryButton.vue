@@ -240,6 +240,10 @@ const handleKeyDown = (e: KeyboardEvent) => {
   if (isEditable(document.activeElement)) {
     return;
   }
+  // 如果选取了文本（例如，在表格中选取的文字），不触发全局的复制（Ctrl+C/V）快捷键
+  if (window.getSelection()?.toString()) {
+    return;
+  }
   const isCtrlOrCmd = e.ctrlKey || e.metaKey;
   if (isCtrlOrCmd) {
     if (e.key === 'c' || e.key === 'C') {
