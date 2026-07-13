@@ -47,9 +47,7 @@ const handleUpdateShow = async (value: boolean) => {
       if (window.confirm('术语表有未保存的修改，是否保存？')) {
         await handleSaveConfirm();
       } else {
-        if (window.confirm('是否确认不保存并关闭？')) {
-          handleDiscardConfirm();
-        }
+        handleDiscardConfirm();
       }
     } else {
       showGlossaryModal.value = false;
