@@ -215,7 +215,7 @@ const router = createRouter({
             {
               path: 'global-glossary',
               meta: { title: '全域术语表' },
-              component: () => import('./pages/admin/AdminGlobalGlossary.vue'),
+              component: () => import('./pages/workspace/GlobalGlossaryWorkspace.vue'),
             },
           ],
         },
