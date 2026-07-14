@@ -168,8 +168,11 @@ const deleteHistoryRecord = (targetIndex: number) => {
   if (!window.confirm('确定要彻底删除这条历史修改记录吗？此操作不可恢复。')) return;
 
   doAction(
-    GlobalGlossaryApi.deleteGlobalGlossaryRecord(selectedGlossary.value.uid, targetIndex).then(() => {
-      showHistoryModal.value = false;
+    GlobalGlossaryApi.deleteGlobalGlossaryRecord(selectedGlossary.value.uid, targetIndex).then(async () => {
+      if (selectedGlossary.value) {
+        const latest = await GlobalGlossaryApi.getGlobalGlossary(selectedGlossary.value.uid);
+        selectedGlossary.value = latest;
+      }
       loadGlossaries();
     }),
     '删除历史记录',
