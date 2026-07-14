@@ -2,6 +2,7 @@ package api
 
 import api.plugins.*
 import infra.common.GlobalGlossary
+import infra.common.GlobalGlossaryDiffItem
 import infra.common.GlobalGlossaryRepository
 import io.ktor.http.*
 import io.ktor.resources.*
@@ -12,6 +13,7 @@ import io.ktor.server.resources.put
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
 import org.koin.ktor.ext.inject
+import java.util.UUID
 
 @Resource("/global-glossary")
 class GlobalGlossaryRes {
@@ -24,7 +26,6 @@ class GlobalGlossaryRes {
 
 @Serializable
 data class GlobalGlossaryCreateBody(
-    val uid: String,
     val name: String,
     val content: Map<String, String>,
     val tag: List<String> = emptyList(),
@@ -35,6 +36,40 @@ data class GlobalGlossaryUpdateBody(
     val name: String,
     val content: Map<String, String>,
     val tag: List<String> = emptyList(),
+)
+
+@Serializable
+data class GlobalGlossaryRecordDto(
+    val date: Long,
+    val diff: Map<String, GlobalGlossaryDiffItem>,
+)
+
+@Serializable
+data class GlobalGlossaryDto(
+    val id: String,
+    val uid: String,
+    val name: String,
+    val content: Map<String, String>,
+    val used: List<String>,
+    val update: Long,
+    val tag: List<String>,
+    val record: List<GlobalGlossaryRecordDto>,
+)
+
+fun GlobalGlossary.asDto() = GlobalGlossaryDto(
+    id = id.toHexString(),
+    uid = uid,
+    name = name,
+    content = content,
+    used = used,
+    update = update.epochSeconds,
+    tag = tag,
+    record = record.map {
+        GlobalGlossaryRecordDto(
+            date = it.date.epochSeconds,
+            diff = it.diff,
+        )
+    }
 )
 
 fun Route.routeGlobalGlossary() {
@@ -83,31 +118,29 @@ fun Route.routeGlobalGlossary() {
 class GlobalGlossaryApi(
     private val repo: GlobalGlossaryRepository,
 ) {
-    suspend fun list(): List<GlobalGlossary> {
-        return repo.list()
+    suspend fun list(): List<GlobalGlossaryDto> {
+        return repo.list().map { it.asDto() }
     }
 
-    suspend fun get(uid: String): GlobalGlossary {
-        return repo.getByUid(uid) ?: throwNotFound("全域术语表不存在")
+    suspend fun get(uid: String): GlobalGlossaryDto {
+        return repo.getByUid(uid)?.asDto() ?: throwNotFound("全域术语表不存在")
     }
 
-    suspend fun create(user: User, body: GlobalGlossaryCreateBody): GlobalGlossary {
+    suspend fun create(user: User, body: GlobalGlossaryCreateBody): GlobalGlossaryDto {
         user.requireNovelAccess()
-        if (body.uid.isBlank() || body.name.isBlank()) {
-            throwBadRequest("UID 和名称不能为空")
+        if (body.name.isBlank()) {
+            throwBadRequest("名称不能为空")
         }
-        if (repo.getByUid(body.uid) != null) {
-            throwBadRequest("UID 已存在")
-        }
+        val generatedUid = UUID.randomUUID().toString()
         return repo.create(
-            uid = body.uid,
+            uid = generatedUid,
             name = body.name,
             content = body.content,
             tag = body.tag,
-        )
+        ).asDto()
     }
 
-    suspend fun update(user: User, uid: String, body: GlobalGlossaryUpdateBody): GlobalGlossary {
+    suspend fun update(user: User, uid: String, body: GlobalGlossaryUpdateBody): GlobalGlossaryDto {
         user.requireNovelAccess()
         if (body.name.isBlank()) {
             throwBadRequest("名称不能为空")
@@ -117,7 +150,7 @@ class GlobalGlossaryApi(
             name = body.name,
             content = body.content,
             tag = body.tag,
-        )
+        ).asDto()
     }
 
     suspend fun delete(user: User, uid: String) {

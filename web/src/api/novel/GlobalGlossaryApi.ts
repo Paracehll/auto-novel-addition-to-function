@@ -8,7 +8,6 @@ const getGlobalGlossary = (uid: string) =>
   client.get(`global-glossary/${uid}`).json<GlobalGlossary>();
 
 const createGlobalGlossary = (json: {
-  uid: string;
   name: string;
   content: { [key: string]: string };
   tag: string[];

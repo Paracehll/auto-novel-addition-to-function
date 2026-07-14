@@ -80,7 +80,6 @@ const saveGlossary = () => {
         tag,
       })
     : GlobalGlossaryApi.createGlobalGlossary({
-        uid: formModel.value.uid,
         name: formModel.value.name,
         content,
         tag,
@@ -117,8 +116,8 @@ const viewHistory = (gg: GlobalGlossary) => {
   showHistoryModal.value = true;
 };
 
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleString('zh-CN');
+const formatDate = (dateSeconds: number) => {
+  return new Date(dateSeconds * 1000).toLocaleString('zh-CN');
 };
 </script>
 
@@ -245,11 +244,10 @@ const formatDate = (dateStr: string) => {
       :extra-height="120"
     >
       <n-form label-placement="left" label-width="80">
-        <n-form-item label="引用ID">
+        <n-form-item v-if="isEditing" label="引用ID">
           <n-input
             v-model:value="formModel.uid"
-            placeholder="例如: arona-glossary (不可更改)"
-            :disabled="isEditing"
+            disabled
           />
         </n-form-item>
         <n-form-item label="显示名称">
