@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { h, resolveComponent } from 'vue';
-import { useMessage } from 'naive-ui';
+import { h } from 'vue';
+import { useMessage, NButton, NButtonGroup } from 'naive-ui';
 import { DeleteOutlineOutlined, EditOutlined, HistoryOutlined, AddOutlined } from '@vicons/material';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 import type { GlobalGlossary, GlobalGlossaryRecord } from '@/model/GlobalGlossary';
@@ -9,7 +9,7 @@ import { doAction } from '../util';
 import { Glossary } from '@/model/Glossary';
 
 const message = useMessage();
-const { whoami } = storeToRefs(useWhoamiStore());
+const whoamiStore = useWhoamiStore();
 
 const glossaries = ref<GlobalGlossary[]>([]);
 const loading = ref(false);
@@ -151,15 +151,12 @@ const viewUsedNovels = async (uid: string, name: string) => {
         <n-text depth="3">
           全域术语表可以被多本小说同时引用，并且独立术语表会优先覆盖全域术语表的同名项。
         </n-text>
-        <n-button
+        <c-button
           type="primary"
-          @click="openCreateModal()"
-        >
-          <template #icon>
-            <n-icon><AddOutlined /></n-icon>
-          </template>
-          新建全域术语表
-        </n-button>
+          label="新建全域术语表"
+          :icon="AddOutlined"
+          @action="openCreateModal()"
+        />
       </n-flex>
 
       <n-data-table
@@ -190,7 +187,7 @@ const viewUsedNovels = async (uid: string, name: string) => {
             render: (row: any) => {
               const count = row.used ? row.used.length : 0;
               return h(
-                resolveComponent('n-button'),
+                NButton,
                 {
                   size: 'small',
                   onClick: () => viewUsedNovels(row.uid, row.name)
@@ -209,22 +206,22 @@ const viewUsedNovels = async (uid: string, name: string) => {
             key: 'actions',
             render: (row: any) =>
               h(
-                resolveComponent('n-button-group'),
+                NButtonGroup,
                 { size: 'small' },
                 () => [
                   h(
-                    resolveComponent('n-button'),
+                    NButton,
                     { onClick: () => openEditModal(row) },
                     () => '编辑'
                   ),
                   h(
-                    resolveComponent('n-button'),
+                    NButton,
                     { onClick: () => viewHistory(row) },
                     () => '修改历史'
                   ),
-                  whoami.value.isAdmin
+                  whoamiStore.whoami.isAdmin
                     ? h(
-                        resolveComponent('n-button'),
+                        NButton,
                         { type: 'error', onClick: () => deleteGlossary(row.uid) },
                         () => '删除'
                       )
