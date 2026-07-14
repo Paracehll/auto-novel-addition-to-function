@@ -133,7 +133,7 @@ const rollbackToRecord = (targetIndex: number) => {
     const rec = records[j];
     for (const key in rec.diff) {
       const item = rec.diff[key];
-      if (item.old === null) {
+      if (item.old === null || item.old === '') {
         delete currentContent[key];
       } else {
         currentContent[key] = item.old;
@@ -228,6 +228,45 @@ const viewUsedNovels = async (uid: string, name: string) => {
     message.error(`获取引用小说列表失败: ${e.message || e}`);
   } finally {
     usedLoading.value = false;
+  }
+};
+
+// Helper functions for record tags and types
+const getRecordTags = (rec: GlobalGlossaryRecord) => {
+  const tags: { type: 'success' | 'warning' | 'error'; label: string }[] = [];
+  const items = Object.values(rec.diff);
+
+  const hasAdd = items.some((it) => it.old === null || it.old === '');
+  const hasDel = items.some((it) => it.new === null || it.new === '');
+  const hasUpdate = items.some((it) => it.old !== null && it.old !== '' && it.new !== null && it.new !== '');
+
+  if (hasAdd) tags.push({ type: 'success', label: '新增' });
+  if (hasUpdate) tags.push({ type: 'warning', label: '修改' });
+  if (hasDel) tags.push({ type: 'error', label: '删除' });
+
+  return tags;
+};
+
+const getRecordTimelineType = (rec: GlobalGlossaryRecord) => {
+  const items = Object.values(rec.diff);
+  if (items.length === 0) return 'info';
+
+  const isAllAdd = items.every((it) => it.old === null || it.old === '');
+  if (isAllAdd) return 'success';
+
+  const isAllDel = items.every((it) => it.new === null || it.new === '');
+  if (isAllDel) return 'error';
+
+  return 'warning';
+};
+
+const getDiffType = (oldVal: string | null, newVal: string | null) => {
+  if (oldVal === null || oldVal === '') {
+    return 'add';
+  } else if (newVal === null || newVal === '') {
+    return 'delete';
+  } else {
+    return 'update';
   }
 };
 </script>
@@ -367,11 +406,21 @@ const viewUsedNovels = async (uid: string, name: string) => {
             <n-timeline-item
               v-for="(rec, index) in [...selectedGlossary.record].reverse()"
               :key="index"
-              type="info"
+              :type="getRecordTimelineType(rec)"
             >
               <template #default>
                 <n-collapse :default-expanded-names="[]">
-                  <n-collapse-item :title="`修改历史 (${formatDate(rec.date)})`" :name="index.toString()">
+                  <n-collapse-item :name="index.toString()">
+                    <template #header>
+                      <n-space align="center">
+                        <n-text style="font-weight: bold">
+                          修改历史 (${formatDate(rec.date)})
+                        </n-text>
+                        <n-tag v-for="tag in getRecordTags(rec)" :key="tag.label" :type="tag.type" size="tiny" round>
+                          {{ tag.label }}
+                        </n-tag>
+                      </n-space>
+                    </template>
                     <template #header-extra>
                       <n-space style="margin-right: 8px">
                         <n-button size="tiny" type="primary" secondary @click.stop="handleRollback(selectedGlossary.record.length - 1 - index)">
@@ -394,17 +443,14 @@ const viewUsedNovels = async (uid: string, name: string) => {
                         <tr v-for="(diffItem, key) in rec.diff" :key="key">
                           <td style="font-weight: bold">{{ key }}</td>
                           <td>
-                            <template v-if="diffItem.old === null">
-                              <n-tag type="success" size="small">新增</n-tag>
-                              &nbsp;<span style="color: var(--n-text-color)">{{ diffItem.new }}</span>
+                            <template v-if="getDiffType(diffItem.old, diffItem.new) === 'add'">
+                              <span style="color: var(--n-text-color)">新增: {{ diffItem.new }}</span>
                             </template>
-                            <template v-else-if="diffItem.new === null">
-                              <n-tag type="error" size="small">删除</n-tag>
-                              &nbsp;<del style="color: var(--error-color)">{{ diffItem.old }}</del>
+                            <template v-else-if="getDiffType(diffItem.old, diffItem.new) === 'delete'">
+                              <del style="color: var(--error-color)">删除: {{ diffItem.old }}</del>
                             </template>
                             <template v-else>
-                              <n-tag type="warning" size="small">修改</n-tag>
-                              &nbsp;<span style="color: var(--n-text-color)">{{ diffItem.old }} => {{ diffItem.new }}</span>
+                              <span style="color: var(--n-text-color)">{{ diffItem.old }} => {{ diffItem.new }}</span>
                             </template>
                           </td>
                         </tr>
