@@ -163,6 +163,20 @@ const handleRollback = (targetIndex: number) => {
   );
 };
 
+const deleteHistoryRecord = (targetIndex: number) => {
+  if (!selectedGlossary.value) return;
+  if (!window.confirm('确定要彻底删除这条历史修改记录吗？此操作不可恢复。')) return;
+
+  doAction(
+    GlobalGlossaryApi.deleteGlobalGlossaryRecord(selectedGlossary.value.uid, targetIndex).then(() => {
+      showHistoryModal.value = false;
+      loadGlossaries();
+    }),
+    '删除历史记录',
+    message,
+  );
+};
+
 // Used Novels modal state (lazy loaded)
 const showUsedModal = ref(false);
 const usedLoading = ref(false);
@@ -198,7 +212,7 @@ const viewUsedNovels = async (uid: string, name: string) => {
             const parts = url.split('/');
             const novelId = parts[2];
             const novel = await WenkuNovelApi.getNovel(novelId);
-            title = novel.titleZh || url;
+            title = novel.titleZh || novel.title || url;
           }
         } catch {
           // Fallback to url if request fails
@@ -308,6 +322,7 @@ const viewUsedNovels = async (uid: string, name: string) => {
       <c-modal
         :title="isEditing ? '编辑全域术语表' : '新建全域术语表'"
         v-model:show="showEditModal"
+        :max-height-percentage="85"
         :extra-height="120"
       >
         <n-form label-placement="left" label-width="80">
@@ -341,54 +356,63 @@ const viewUsedNovels = async (uid: string, name: string) => {
       <c-modal
         title="全域术语表修改历史"
         v-model:show="showHistoryModal"
+        :max-height-percentage="85"
         :extra-height="120"
       >
         <template v-if="selectedGlossary">
-          <n-scrollbar style="max-height: 50vh">
-            <n-timeline v-if="selectedGlossary.record.length > 0">
-              <n-timeline-item
-                v-for="(rec, index) in [...selectedGlossary.record].reverse()"
-                :key="index"
-                type="info"
-                :title="`修改历史 (${formatDate(rec.date)})`"
-              >
-                <n-space justify="space-between" align="center" style="margin-top: 4px; margin-bottom: 8px">
-                  <n-text depth="3">修改词条详情：</n-text>
-                  <n-button size="tiny" type="primary" secondary @click="handleRollback(selectedGlossary.record.length - 1 - index)">
-                    回滚
-                  </n-button>
-                </n-space>
-                <n-table size="small" striped>
-                  <thead>
-                    <tr>
-                      <th>词条</th>
-                      <th>变更 (原值 => 新值)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(diffItem, key) in rec.diff" :key="key">
-                      <td style="font-weight: bold">{{ key }}</td>
-                      <td>
-                        <template v-if="diffItem.old === null">
-                          <n-tag type="success" size="small">新增</n-tag>
-                          &nbsp;{{ diffItem.new }}
-                        </template>
-                        <template v-else-if="diffItem.new === null">
-                          <n-tag type="error" size="small">删除</n-tag>
-                          &nbsp;<del>{{ diffItem.old }}</del>
-                        </template>
-                        <template v-else>
-                          <n-tag type="warning" size="small">修改</n-tag>
-                          &nbsp;{{ diffItem.old }} => {{ diffItem.new }}
-                        </template>
-                      </td>
-                    </tr>
-                  </tbody>
-                </n-table>
-              </n-timeline-item>
-            </n-timeline>
-            <n-empty v-else description="无修改记录" />
-          </n-scrollbar>
+          <n-timeline v-if="selectedGlossary.record.length > 0">
+            <n-timeline-item
+              v-for="(rec, index) in [...selectedGlossary.record].reverse()"
+              :key="index"
+              type="info"
+            >
+              <template #default>
+                <n-collapse :default-expanded-names="[]">
+                  <n-collapse-item :title="`修改历史 (${formatDate(rec.date)})`" :name="index.toString()">
+                    <template #header-extra>
+                      <n-space style="margin-right: 8px">
+                        <n-button size="tiny" type="primary" secondary @click.stop="handleRollback(selectedGlossary.record.length - 1 - index)">
+                          回滚
+                        </n-button>
+                        <n-button v-if="whoamiStore.whoami.isAdmin" size="tiny" type="error" secondary @click.stop="deleteHistoryRecord(selectedGlossary.record.length - 1 - index)">
+                          删除
+                        </n-button>
+                      </n-space>
+                    </template>
+
+                    <n-table size="small" striped style="margin-top: 8px">
+                      <thead>
+                        <tr>
+                          <th>词条</th>
+                          <th>变更 (原值 => 新值)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(diffItem, key) in rec.diff" :key="key">
+                          <td style="font-weight: bold">{{ key }}</td>
+                          <td>
+                            <template v-if="diffItem.old === null">
+                              <n-tag type="success" size="small">新增</n-tag>
+                              &nbsp;<span style="color: var(--n-text-color)">{{ diffItem.new }}</span>
+                            </template>
+                            <template v-else-if="diffItem.new === null">
+                              <n-tag type="error" size="small">删除</n-tag>
+                              &nbsp;<del style="color: var(--error-color)">{{ diffItem.old }}</del>
+                            </template>
+                            <template v-else>
+                              <n-tag type="warning" size="small">修改</n-tag>
+                              &nbsp;<span style="color: var(--n-text-color)">{{ diffItem.old }} => {{ diffItem.new }}</span>
+                            </template>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </n-table>
+                  </n-collapse-item>
+                </n-collapse>
+              </template>
+            </n-timeline-item>
+          </n-timeline>
+          <n-empty v-else description="无修改记录" />
         </template>
       </c-modal>
 
@@ -396,24 +420,24 @@ const viewUsedNovels = async (uid: string, name: string) => {
       <c-modal
         title="引用该术语表的小说列表"
         v-model:show="showUsedModal"
+        :max-height-percentage="85"
         :extra-height="120"
       >
         <n-space vertical size="medium">
+          <n-h3>{{ selectedGlossaryName }}</n-h3>
           <n-spin :show="usedLoading">
-            <n-scrollbar style="max-height: 50vh">
-              <div v-if="lazyUsedNovels.length > 0">
-                <div v-for="item in lazyUsedNovels" :key="item.url" style="margin: 8px 0; padding: 8px 0; border-bottom: 1px solid var(--border-color)">
-                  <a
-                    :href="item.url"
-                    target="_blank"
-                    style="color: var(--primary-color); text-decoration: none; font-size: 14px; font-weight: 500"
-                  >
-                    {{ item.title }}
-                  </a>
-                </div>
+            <div v-if="lazyUsedNovels.length > 0">
+              <div v-for="item in lazyUsedNovels" :key="item.url" style="margin: 8px 0; padding: 8px 0; border-bottom: 1px solid var(--border-color)">
+                <a
+                  :href="item.url"
+                  target="_blank"
+                  style="color: var(--n-text-color); text-decoration: none; font-size: 14px; font-weight: 500"
+                >
+                  {{ item.title }}
+                </a>
               </div>
-              <n-empty v-else-if="!usedLoading" description="暂无小说引用该术语表" />
-            </n-scrollbar>
+            </div>
+            <n-empty v-else-if="!usedLoading" description="暂无小说引用该术语表" />
           </n-spin>
         </n-space>
       </c-modal>

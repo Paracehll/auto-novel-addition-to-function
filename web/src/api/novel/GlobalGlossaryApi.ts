@@ -25,10 +25,14 @@ const updateGlobalGlossary = (
 const deleteGlobalGlossary = (uid: string) =>
   client.delete(`global-glossary/${uid}`);
 
+const deleteGlobalGlossaryRecord = (uid: string, index: number) =>
+  client.delete(`global-glossary/${uid}/record/${index}`);
+
 export const GlobalGlossaryApi = {
   listGlobalGlossaries,
   getGlobalGlossary,
   createGlobalGlossary,
   updateGlobalGlossary,
   deleteGlobalGlossary,
+  deleteGlobalGlossaryRecord,
 };

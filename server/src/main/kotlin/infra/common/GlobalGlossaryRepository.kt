@@ -75,6 +75,13 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         collection.deleteOne(eq(GlobalGlossary::uid.field(), uid))
     }
 
+    suspend fun updateRecords(uid: String, record: List<GlobalGlossaryRecord>) {
+        collection.updateOne(
+            eq(GlobalGlossary::uid.field(), uid),
+            set(GlobalGlossary::record.field(), record)
+        )
+    }
+
     suspend fun updateUsed(uid: String, novelUrl: String, add: Boolean) {
         val gg = getByUid(uid) ?: return
         val newUsed = if (add) {

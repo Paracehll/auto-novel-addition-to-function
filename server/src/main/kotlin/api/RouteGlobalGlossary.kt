@@ -21,7 +21,10 @@ class GlobalGlossaryRes {
     class List(val parent: GlobalGlossaryRes)
 
     @Resource("/{uid}")
-    class Id(val parent: GlobalGlossaryRes, val uid: String)
+    class Id(val parent: GlobalGlossaryRes, val uid: String) {
+        @Resource("/record/{index}")
+        class Record(val parent: Id, val index: Int)
+    }
 }
 
 @Serializable
@@ -112,6 +115,13 @@ fun Route.routeGlobalGlossary() {
                 service.delete(user, loc.uid)
             }
         }
+
+        delete<GlobalGlossaryRes.Id.Record> { loc ->
+            val user = call.user()
+            call.tryRespond {
+                service.deleteRecord(user, loc.parent.uid, loc.index)
+            }
+        }
     }
 }
 
@@ -156,5 +166,17 @@ class GlobalGlossaryApi(
     suspend fun delete(user: User, uid: String) {
         user.requireAdmin()
         repo.delete(uid)
+    }
+
+    suspend fun deleteRecord(user: User, uid: String, index: Int) {
+        user.requireAdmin()
+        val gg = repo.getByUid(uid) ?: throwNotFound("全域术语表不存在")
+        if (index in gg.record.indices) {
+            val updatedRecords = gg.record.toMutableList()
+            updatedRecords.removeAt(index)
+            repo.updateRecords(uid, updatedRecords)
+        } else {
+            throwBadRequest("无效的记录索引")
+        }
     }
 }
