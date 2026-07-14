@@ -1,0 +1,19 @@
+
+> @auto-novel/web@0.0.0 dev /app/web
+> pnpm dev:remote
+
+
+> @auto-novel/web@0.0.0 dev:remote /app/web
+> cross-env VITE_API_MODE=remote vite
+
+
+  VITE v8.0.8  ready in 1084 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+ ELIFECYCLE  Command failed with exit code 143.
+/app/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @auto-novel/web@0.0.0 dev: `pnpm dev:remote`
+Exit status 143
+URSIVE_RUN_FIRST_FAIL  @auto-novel/web@0.0.0 dev: `pnpm dev:remote`
+Exit status 143

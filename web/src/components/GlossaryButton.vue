@@ -165,67 +165,6 @@ const submitGlossary = () =>
     message,
   );
 
-const importGlossaryRaw = ref('');
-const termsToAdd = ref<[string, string]>(['', '']);
-
-const deletedTerms = ref<[string, string][]>([]);
-
-const lastDeletedTerm = computed(() => {
-  const last = deletedTerms.value[deletedTerms.value.length - 1];
-  if (last === undefined) return undefined;
-  return `${last[0]} => ${last[1]}`;
-});
-
-const clearTerm = () => {
-  glossary.value = {};
-};
-
-const undoDeleteTerm = () => {
-  if (deletedTerms.value.length === 0) return;
-  const [jp, zh] = deletedTerms.value.pop()!;
-  glossary.value[jp] = zh;
-};
-
-const deleteTerm = (jp: string) => {
-  if (jp in glossary.value) {
-    deletedTerms.value.push([jp, glossary.value[jp]]);
-    delete glossary.value[jp];
-  }
-};
-
-const addTerm = () => {
-  const [jp, zh] = termsToAdd.value;
-  if (jp && zh) {
-    glossary.value[jp.trim()] = zh.trim();
-    termsToAdd.value = ['', ''];
-  }
-};
-
-const exportGlossary = async (ev: MouseEvent) => {
-  const isSuccess = await copyToClipBoard(
-    Glossary.toText(glossary.value),
-    ev.target as HTMLElement,
-  );
-  if (isSuccess) {
-    message.success('导出成功：已复制到剪贴板');
-  } else {
-    message.success('导出失败');
-  }
-};
-
-const importGlossary = () => {
-  const importedGlossary = Glossary.fromText(importGlossaryRaw.value);
-  if (importedGlossary === undefined) {
-    message.error('导入失败：术语表格式不正确');
-  } else {
-    message.success('导入成功');
-    for (const jp in importedGlossary) {
-      const zh = importedGlossary[jp];
-      glossary.value[jp] = zh;
-    }
-  }
-};
-
 const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
   const gnid = props.gnid;
   try {
@@ -280,7 +219,7 @@ const keepLocal = (key: string) => {
 };
 
 const applyGlobal = (key: string) => {
-  deleteTerm(key);
+  delete glossary.value[key];
   message.success(`已应用全域词条 (删除独立项): ${key}`);
 };
 </script>
@@ -384,111 +323,18 @@ const applyGlobal = (key: string) => {
           </n-collapse>
         </template>
 
-        <n-input-group>
-          <n-input
-            pair
-            v-model:value="termsToAdd"
-            size="small"
-            separator="=>"
-            :placeholder="['日文', '中文']"
-            :input-props="{ spellcheck: false }"
-          />
-          <c-button
-            label="添加"
-            :round="false"
-            size="small"
-            @action="addTerm"
-          />
-        </n-input-group>
+        <independent-glossary-edit v-model="glossary" />
 
-        <n-input
-          v-model:value="importGlossaryRaw"
-          type="textarea"
-          size="small"
-          placeholder="批量导入术语表"
-          :input-props="{ spellcheck: false }"
-          :rows="1"
-        />
-
-        <n-flex align="center" :wrap="false">
-          <c-button
-            label="导出"
-            :round="false"
-            size="small"
-            @action="exportGlossary"
-          />
-          <c-button
-            label="导入"
-            :round="false"
-            size="small"
-            @action="importGlossary"
-          />
+        <n-flex align="center" :wrap="false" style="margin-top: 12px">
           <c-button
             label="下载json文件 (已合并)"
             :round="false"
             size="small"
             @action="downloadGlossaryAsJsonFile"
           />
-          <c-button
-            v-if="whoami.isAdmin"
-            secondary
-            type="error"
-            label="清空"
-            :round="false"
-            size="small"
-            @action="clearTerm"
-          />
-        </n-flex>
-        <n-flex align="center" :wrap="false">
-          <c-button
-            :disabled="deletedTerms.length === 0"
-            label="撤销删除"
-            :round="false"
-            size="small"
-            @action="undoDeleteTerm"
-          />
-          <n-text
-            v-if="lastDeletedTerm !== undefined"
-            depth="3"
-            style="font-size: 12px"
-          >
-            {{ lastDeletedTerm }}
-          </n-text>
         </n-flex>
       </n-flex>
     </template>
-
-    <n-table
-      v-if="Object.keys(glossary).length !== 0"
-      striped
-      size="small"
-      style="font-size: 12px; max-width: 400px"
-    >
-      <tr v-for="wordJp in Object.keys(glossary).reverse()" :key="wordJp">
-        <td>
-          <c-button
-            :icon="DeleteOutlineOutlined"
-            text
-            type="error"
-            size="small"
-            @action="deleteTerm(wordJp)"
-          />
-        </td>
-        <td>{{ wordJp }}</td>
-        <td nowrap="nowrap">=></td>
-        <td style="padding-right: 16px">
-          <n-input
-            v-model:value="glossary[wordJp]"
-            size="tiny"
-            placeholder="请输入中文翻译"
-            :theme-overrides="{
-              border: '0',
-              color: 'transprent',
-            }"
-          />
-        </td>
-      </tr>
-    </n-table>
 
     <template #action>
       <c-button label="提交" type="primary" @action="submitGlossary()" />
