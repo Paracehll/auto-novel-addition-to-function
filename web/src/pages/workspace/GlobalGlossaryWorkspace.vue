@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { h } from 'vue';
-import { useMessage, NButton, NButtonGroup } from 'naive-ui';
+import { useMessage, NButton, NButtonGroup, NBadge } from 'naive-ui';
 import { DeleteOutlineOutlined, EditOutlined, HistoryOutlined, AddOutlined } from '@vicons/material';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 import type { GlobalGlossary, GlobalGlossaryRecord } from '@/model/GlobalGlossary';
@@ -147,17 +147,14 @@ const viewUsedNovels = async (uid: string, name: string) => {
     <n-h1>全域术语表</n-h1>
 
     <n-space vertical size="large" style="margin-top: 16px">
-      <n-flex justify="space-between" align="center">
-        <n-text depth="3">
-          全域术语表可以被多本小说同时引用，并且独立术语表会优先覆盖全域术语表的同名项。
-        </n-text>
-        <c-button
-          type="primary"
-          label="新建全域术语表"
-          :icon="AddOutlined"
-          @action="openCreateModal()"
-        />
-      </n-flex>
+      <c-button
+        label="新建全域术语表"
+        :icon="AddOutlined"
+        @action="openCreateModal()"
+      />
+      <n-text depth="3">
+        全域术语表可以被多本小说同时引用，并且独立术语表会优先覆盖全域术语表的同名项。
+      </n-text>
 
       <n-data-table
         :columns="[
@@ -169,9 +166,9 @@ const viewUsedNovels = async (uid: string, name: string) => {
               if (!row.tag || row.tag.length === 0) return h('span', { style: { color: 'var(--text-color-3)' } }, '无');
               return h(
                 'div',
-                { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } },
+                { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', padding: '4px 0' } },
                 row.tag.map((t: string) =>
-                  h('span', { class: 'n-tag n-tag--small n-tag--info n-tag--round', style: { padding: '0 8px' } }, t)
+                  h(NBadge, { type: 'info', value: t })
                 )
               );
             }
