@@ -9,6 +9,7 @@ import type { GlobalGlossary } from '@/model/GlobalGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import { downloadFile } from '@/util';
+import OrderSort from '@/components/OrderSort.vue';
 
 const props = defineProps<{
   gnid?: GenericNovelId;
@@ -27,8 +28,10 @@ const novelKeywords = ref<string[]>([]);
 
 const showGlossaryModal = ref(false);
 
-const sortBy = ref<'default' | 'used' | 'update'>('default');
-const sortOrder = ref<'asc' | 'desc'>('desc');
+const sortState = ref({
+  value: 'default',
+  desc: true,
+});
 
 const getMatchCount = (gg: GlobalGlossary) => {
   if (!gg.tag || gg.tag.length === 0 || novelKeywords.value.length === 0) return 0;
@@ -48,13 +51,13 @@ const globalGlossariesOptions = computed(() => {
     let valA = 0;
     let valB = 0;
 
-    if (sortBy.value === 'default') {
+    if (sortState.value.value === 'default') {
       valA = getMatchCount(a);
       valB = getMatchCount(b);
-    } else if (sortBy.value === 'used') {
+    } else if (sortState.value.value === 'used') {
       valA = (a.used || []).length;
       valB = (b.used || []).length;
-    } else if (sortBy.value === 'update') {
+    } else if (sortState.value.value === 'update') {
       valA = new Date(a.update).getTime();
       valB = new Date(b.update).getTime();
     }
@@ -63,7 +66,7 @@ const globalGlossariesOptions = computed(() => {
       return a.uid.localeCompare(b.uid);
     }
 
-    if (sortOrder.value === 'desc') {
+    if (sortState.value.desc) {
       return valB - valA;
     } else {
       return valA - valB;
@@ -310,83 +313,73 @@ const applyGlobal = (key: string) => {
           </n-text>
         </template>
 
-        <!-- Global Glossary Selector -->
+        <!-- Collapsible Global Glossary Configuration and Deduplication section -->
         <template v-if="gnid && (gnid.type === 'web' || gnid.type === 'wenku')">
-          <n-text style="font-size: 12px; font-weight: bold">链接全域术语表</n-text>
+          <n-collapse style="margin: 4px 0">
+            <n-collapse-item title="配置全域术语表与去重" name="global-config">
+              <n-flex vertical size="medium">
+                <n-text style="font-size: 12px; font-weight: bold">链接全域术语表</n-text>
 
-          <!-- Sorting Controls for Select Option Dropdown -->
-          <n-space style="margin-bottom: 4px" align="center">
-            <n-text style="font-size: 11px" depth="3">排序方式：</n-text>
-            <n-select
-              v-model:value="sortBy"
-              size="tiny"
-              style="width: 105px"
-              :options="[
-                { label: '标签符合度', value: 'default' },
-                { label: '引用次数', value: 'used' },
-                { label: '更新日期', value: 'update' }
-              ]"
-            />
-            <n-button-group size="tiny">
-              <n-button :type="sortOrder === 'desc' ? 'primary' : 'default'" @click="sortOrder = 'desc'">
-                降序
-              </n-button>
-              <n-button :type="sortOrder === 'asc' ? 'primary' : 'default'" @click="sortOrder = 'asc'">
-                升序
-              </n-button>
-            </n-button-group>
-          </n-space>
-
-          <n-select
-            v-model:value="linkedGlossaries"
-            multiple
-            filterable
-            placeholder="引用全域术语表 (可输入名称检索)"
-            :options="globalGlossariesOptions"
-            size="small"
-          />
-        </template>
-
-        <!-- Deduplication UI -->
-        <template v-if="duplicates.length > 0">
-          <n-collapse style="margin: 8px 0">
-            <n-collapse-item type="warning">
-              <template #header>
-                <n-space align="center">
-                  <n-text type="warning" style="font-weight: bold">
-                    去重警告: 发现 {{ duplicates.length }} 個與全域重複的詞條
-                  </n-text>
+                <!-- Sorting Controls using OrderSort component -->
+                <n-space style="margin-bottom: 4px" align="center">
+                  <n-text style="font-size: 11px" depth="3">排序方式：</n-text>
+                  <OrderSort
+                    v-model:value="sortState"
+                    :options="[
+                      { label: '标签符合度', value: 'default' },
+                      { label: '引用次数', value: 'used' },
+                      { label: '更新日期', value: 'update' }
+                    ]"
+                  />
                 </n-space>
-              </template>
-              <n-scrollbar style="max-height: 250px">
-                <n-table size="small" striped>
-                  <thead>
-                    <tr>
-                      <th>原词</th>
-                      <th>独立术语</th>
-                      <th>全域术语</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="dup in duplicates" :key="dup.key">
-                      <td style="font-weight: bold">{{ dup.key }}</td>
-                      <td>{{ dup.localVal }}</td>
-                      <td>{{ dup.globalVal }} <br/><span style="font-size:10px; color:gray">({{ dup.globalName }})</span></td>
-                      <td>
-                        <n-space size="small">
-                          <n-button size="tiny" type="primary" secondary @click="keepLocal(dup.key)">
-                            使用独立
-                          </n-button>
-                          <n-button size="tiny" type="warning" secondary @click="applyGlobal(dup.key)">
-                            使用全域
-                          </n-button>
-                        </n-space>
-                      </td>
-                    </tr>
-                  </tbody>
-                </n-table>
-              </n-scrollbar>
+
+                <n-select
+                  v-model:value="linkedGlossaries"
+                  multiple
+                  filterable
+                  placeholder="引用全域术语表 (可输入名称检索)"
+                  :options="globalGlossariesOptions"
+                  size="small"
+                />
+
+                <!-- Deduplication UI placed inside the same collapse panel -->
+                <template v-if="duplicates.length > 0">
+                  <div style="margin-top: 12px; border: 1px solid var(--border-color); border-radius: 4px; padding: 8px">
+                    <n-text type="warning" style="font-weight: bold; font-size: 12px; display: block; margin-bottom: 6px">
+                      去重警告: 发现 {{ duplicates.length }} 個與全域重複的詞條
+                    </n-text>
+                    <n-scrollbar style="max-height: 200px">
+                      <n-table size="small" striped>
+                        <thead>
+                          <tr>
+                            <th>原词</th>
+                            <th>独立</th>
+                            <th>全域</th>
+                            <th>操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="dup in duplicates" :key="dup.key">
+                            <td style="font-weight: bold">{{ dup.key }}</td>
+                            <td>{{ dup.localVal }}</td>
+                            <td>{{ dup.globalVal }} <br/><span style="font-size:10px; color:gray">({{ dup.globalName }})</span></td>
+                            <td>
+                              <n-space size="small">
+                                <n-button size="tiny" type="primary" secondary @click="keepLocal(dup.key)">
+                                  使用独立
+                                </n-button>
+                                <n-button size="tiny" type="warning" secondary @click="applyGlobal(dup.key)">
+                                  使用全域
+                                </n-button>
+                              </n-space>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </n-table>
+                    </n-scrollbar>
+                  </div>
+                </template>
+              </n-flex>
             </n-collapse-item>
           </n-collapse>
         </template>
@@ -464,10 +457,6 @@ const applyGlobal = (key: string) => {
         </n-flex>
       </n-flex>
     </template>
-
-    <n-text style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 8px">
-      独立术语列表：
-    </n-text>
 
     <n-table
       v-if="Object.keys(glossary).length !== 0"
