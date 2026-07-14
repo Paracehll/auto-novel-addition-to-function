@@ -212,6 +212,11 @@ const router = createRouter({
               meta: { title: '小说工具箱' },
               component: () => import('./pages/workspace/Toolbox.vue'),
             },
+            {
+              path: 'global-glossary',
+              meta: { title: '全域术语表' },
+              component: () => import('./pages/admin/AdminGlobalGlossary.vue'),
+            },
           ],
         },
 
@@ -279,11 +284,6 @@ const router = createRouter({
               path: 'web-toc-merge-history',
               component: () =>
                 import('./pages/admin/AdminWebTocMergeHistory.vue'),
-            },
-            {
-              path: 'global-glossary',
-              component: () =>
-                import('./pages/admin/AdminGlobalGlossary.vue'),
             },
           ],
         },
