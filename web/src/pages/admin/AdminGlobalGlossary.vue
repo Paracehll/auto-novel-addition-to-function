@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { h } from 'vue';
-import { useMessage, useDialog } from 'naive-ui';
+import { useMessage } from 'naive-ui';
 import { DeleteOutlineOutlined, EditOutlined, HistoryOutlined, AddOutlined } from '@vicons/material';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 import type { GlobalGlossary, GlobalGlossaryRecord } from '@/model/GlobalGlossary';
@@ -9,7 +9,6 @@ import { doAction } from '../util';
 import { Glossary } from '@/model/Glossary';
 
 const message = useMessage();
-const dialog = useDialog();
 const { whoami } = storeToRefs(useWhoamiStore());
 
 const glossaries = ref<GlobalGlossary[]>([]);
@@ -98,21 +97,15 @@ const saveGlossary = () => {
 };
 
 const deleteGlossary = (uid: string) => {
-  dialog.warning({
-    title: '确认删除',
-    content: `确定要删除全域术语表 "${uid}" 吗？此操作不可恢复。`,
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: () => {
-      doAction(
-        GlobalGlossaryApi.deleteGlobalGlossary(uid).then(() => {
-          loadGlossaries();
-        }),
-        '删除全域术语表',
-        message,
-      );
-    },
-  });
+  if (window.confirm(`确定要删除全域术语表 "${uid}" 吗？此操作不可恢复。`)) {
+    doAction(
+      GlobalGlossaryApi.deleteGlobalGlossary(uid).then(() => {
+        loadGlossaries();
+      }),
+      '删除全域术语表',
+      message,
+    );
+  }
 };
 
 // History modal state
