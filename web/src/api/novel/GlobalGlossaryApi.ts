@@ -11,6 +11,7 @@ const createGlobalGlossary = (json: {
   uid: string;
   name: string;
   content: { [key: string]: string };
+  tag: string[];
 }) => client.post('global-glossary', { json }).json<GlobalGlossary>();
 
 const updateGlobalGlossary = (
@@ -18,6 +19,7 @@ const updateGlobalGlossary = (
   json: {
     name: string;
     content: { [key: string]: string };
+    tag: string[];
   },
 ) => client.put(`global-glossary/${uid}`, { json }).json<GlobalGlossary>();
 

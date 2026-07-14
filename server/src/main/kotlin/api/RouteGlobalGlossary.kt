@@ -27,12 +27,14 @@ data class GlobalGlossaryCreateBody(
     val uid: String,
     val name: String,
     val content: Map<String, String>,
+    val tag: List<String> = emptyList(),
 )
 
 @Serializable
 data class GlobalGlossaryUpdateBody(
     val name: String,
     val content: Map<String, String>,
+    val tag: List<String> = emptyList(),
 )
 
 fun Route.routeGlobalGlossary() {
@@ -101,6 +103,7 @@ class GlobalGlossaryApi(
             uid = body.uid,
             name = body.name,
             content = body.content,
+            tag = body.tag,
         )
     }
 
@@ -113,6 +116,7 @@ class GlobalGlossaryApi(
             uid = uid,
             name = body.name,
             content = body.content,
+            tag = body.tag,
         )
     }
 

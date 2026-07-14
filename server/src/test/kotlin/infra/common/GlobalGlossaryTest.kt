@@ -18,30 +18,32 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 val uid = "test-uid-123"
                 val name = "测试术语表"
                 val content = mapOf("りんご" to "苹果", "ばなな" to "香蕉")
+                val tag = listOf("abc", "886")
 
                 // Ensure it's clean before starting
                 repo.delete(uid)
 
                 // 1. Create
-                val created = repo.create(uid, name, content)
+                val created = repo.create(uid, name, content, tag)
                 created.uid shouldBe uid
                 created.name shouldBe name
                 created.content shouldBe content
-                created.ver shouldBe 1
+                created.tag shouldBe tag
                 created.record.size shouldBe 0
 
                 // 2. Read (Get)
                 val fetched = repo.getByUid(uid)
                 fetched shouldNotBe null
                 fetched!!.name shouldBe name
+                fetched.tag shouldBe tag
 
                 // 3. Update (Content and Version/Diff change)
                 val newContent = mapOf("りんご" to "林檎", "めろん" to "哈密瓜")
-                val updated = repo.update(uid, name, newContent)
-                updated.ver shouldBe 2
+                val newTag = listOf("abc", "123")
+                val updated = repo.update(uid, name, newContent, newTag)
+                updated.tag shouldBe newTag
                 updated.record.size shouldBe 1
                 val record = updated.record[0]
-                record.ver shouldBe 1
                 record.diff["りんご"]?.old shouldBe "苹果"
                 record.diff["りんご"]?.new shouldBe "林檎"
                 record.diff["ばなな"]?.old shouldBe "香蕉"

@@ -37,6 +37,7 @@ const formModel = ref({
   uid: '',
   name: '',
   contentRaw: '',
+  tagRaw: '',
 });
 
 const openCreateModal = () => {
@@ -45,6 +46,7 @@ const openCreateModal = () => {
     uid: '',
     name: '',
     contentRaw: '',
+    tagRaw: '',
   };
   showEditModal.value = true;
 };
@@ -55,6 +57,7 @@ const openEditModal = (gg: GlobalGlossary) => {
     uid: gg.uid,
     name: gg.name,
     contentRaw: Glossary.toText(gg.content),
+    tagRaw: (gg.tag || []).join(', '),
   };
   showEditModal.value = true;
 };
@@ -66,15 +69,22 @@ const saveGlossary = () => {
     return;
   }
 
+  const tag = formModel.value.tagRaw
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+
   const action = isEditing.value
     ? GlobalGlossaryApi.updateGlobalGlossary(formModel.value.uid, {
         name: formModel.value.name,
         content,
+        tag,
       })
     : GlobalGlossaryApi.createGlobalGlossary({
         uid: formModel.value.uid,
         name: formModel.value.name,
         content,
+        tag,
       });
 
   doAction(
@@ -123,7 +133,7 @@ const formatDate = (dateStr: string) => {
   <n-space vertical size="large">
     <n-flex justify="space-between" align="center">
       <n-text depth="3">
-        全域术语表可以被多本小说同时引用，并且独立术语表会优先覆盖全域术语表的同名项。
+        全域术语表可以被多本小说同时引用，並且独立术语表会优先覆盖全域术语表的同名项。
       </n-text>
       <c-button
         type="primary"
@@ -143,9 +153,23 @@ const formatDate = (dateStr: string) => {
           render: (row: any) => Object.keys(row.content).length,
         },
         {
-          title: '版本',
-          key: 'ver',
-          render: (row: any) => `v${row.ver}`,
+          title: '标签',
+          key: 'tag',
+          render: (row: any) => {
+            if (!row.tag || row.tag.length === 0) return '无';
+            return h(
+              'div',
+              { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } },
+              row.tag.map((t: string) =>
+                h('span', { class: 'n-tag n-tag--small n-tag--info' }, t)
+              )
+            );
+          }
+        },
+        {
+          title: '更新日期',
+          key: 'update',
+          render: (row: any) => formatDate(row.update),
         },
         {
           title: '引用小說網址',
@@ -241,6 +265,12 @@ const formatDate = (dateStr: string) => {
             placeholder="例如: 蔚蓝档案全域术语表"
           />
         </n-form-item>
+        <n-form-item label="标签(tags)">
+          <n-input
+            v-model:value="formModel.tagRaw"
+            placeholder="例如: 蔚蓝档案, 青春, 二次元 (逗号分隔)"
+          />
+        </n-form-item>
         <n-form-item label="术语内容">
           <n-input
             v-model:value="formModel.contentRaw"
@@ -266,10 +296,10 @@ const formatDate = (dateStr: string) => {
         <n-scrollbar style="max-height: 50vh">
           <n-timeline v-if="selectedGlossary.record.length > 0">
             <n-timeline-item
-              v-for="rec in [...selectedGlossary.record].reverse()"
-              :key="rec.ver"
+              v-for="(rec, index) in [...selectedGlossary.record].reverse()"
+              :key="index"
               type="info"
-              :title="`版本 v${rec.ver} (${formatDate(rec.date)})`"
+              :title="`修改历史 (${formatDate(rec.date)})`"
             >
               <n-table size="small" striped style="margin-top: 8px">
                 <thead>

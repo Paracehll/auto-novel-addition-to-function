@@ -15,7 +15,6 @@ data class GlobalGlossaryDiffItem(
 @Serializable
 data class GlobalGlossaryRecord(
     @Contextual val date: Instant,
-    val ver: Int,
     val diff: Map<String, GlobalGlossaryDiffItem>,
 )
 
@@ -26,6 +25,7 @@ data class GlobalGlossary(
     val name: String,
     val content: Map<String, String>,
     val used: List<String> = emptyList(),
-    val ver: Int = 1,
+    @Contextual val update: Instant,
+    val tag: List<String> = emptyList(),
     val record: List<GlobalGlossaryRecord> = emptyList(),
 )

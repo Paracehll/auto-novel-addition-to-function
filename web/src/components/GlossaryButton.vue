@@ -23,15 +23,63 @@ const { whoami } = storeToRefs(whoamiStore);
 const glossary = ref<Glossary>({});
 const linkedGlossaries = ref<string[]>([]);
 const allGlobalGlossaries = ref<GlobalGlossary[]>([]);
+const novelKeywords = ref<string[]>([]);
 
 const showGlossaryModal = ref(false);
 
-const globalGlossariesOptions = computed(() =>
-  allGlobalGlossaries.value.map((gg) => ({
-    label: `${gg.name} (${gg.uid}) [${Object.keys(gg.content).length} 词条]`,
-    value: gg.uid,
-  })),
-);
+const sortBy = ref<'default' | 'used' | 'update'>('default');
+const sortOrder = ref<'asc' | 'desc'>('desc');
+
+const getMatchCount = (gg: GlobalGlossary) => {
+  if (!gg.tag || gg.tag.length === 0 || novelKeywords.value.length === 0) return 0;
+  const ggTags = new Set(gg.tag);
+  let count = 0;
+  for (const k of novelKeywords.value) {
+    if (ggTags.has(k)) {
+      count++;
+    }
+  }
+  return count;
+};
+
+const globalGlossariesOptions = computed(() => {
+  const sorted = [...allGlobalGlossaries.value];
+  sorted.sort((a, b) => {
+    let valA = 0;
+    let valB = 0;
+
+    if (sortBy.value === 'default') {
+      valA = getMatchCount(a);
+      valB = getMatchCount(b);
+    } else if (sortBy.value === 'used') {
+      valA = (a.used || []).length;
+      valB = (b.used || []).length;
+    } else if (sortBy.value === 'update') {
+      valA = new Date(a.update).getTime();
+      valB = new Date(b.update).getTime();
+    }
+
+    if (valA === valB) {
+      return a.uid.localeCompare(b.uid);
+    }
+
+    if (sortOrder.value === 'desc') {
+      return valB - valA;
+    } else {
+      return valA - valB;
+    }
+  });
+
+  return sorted.map((gg) => {
+    const matchCount = getMatchCount(gg);
+    const usedCount = (gg.used || []).length;
+    const matchLabel = matchCount > 0 ? ` (匹配标签数: ${matchCount})` : '';
+    return {
+      label: `${gg.name} (${gg.uid}) [${Object.keys(gg.content).length} 词条] [引用: ${usedCount}次]${matchLabel}`,
+      value: gg.uid,
+    };
+  });
+});
 
 // Fetch global glossaries and linked glossaries
 const fetchData = async () => {
@@ -42,9 +90,11 @@ const fetchData = async () => {
       if (gnid.type === 'web') {
         const novel = await WebNovelApi.getNovel(gnid.providerId, gnid.novelId);
         linkedGlossaries.value = novel.linkedGlossaries || [];
+        novelKeywords.value = novel.keywords || [];
       } else if (gnid.type === 'wenku') {
         const novel = await WenkuNovelApi.getNovel(gnid.novelId);
         linkedGlossaries.value = novel.linkedGlossaries || [];
+        novelKeywords.value = novel.keywords || [];
       }
     }
   } catch (e: any) {
@@ -223,12 +273,10 @@ const duplicates = computed(() => {
 });
 
 const keepLocal = (key: string) => {
-  // Use independent, do nothing as local overrides global anyway
   message.info(`已保留独立词条: ${key}`);
 };
 
 const applyGlobal = (key: string) => {
-  // Use global, remove from independent/local
   deleteTerm(key);
   message.success(`已应用全域词条 (删除独立项): ${key}`);
 };
@@ -265,10 +313,35 @@ const applyGlobal = (key: string) => {
         <!-- Global Glossary Selector -->
         <template v-if="gnid && (gnid.type === 'web' || gnid.type === 'wenku')">
           <n-text style="font-size: 12px; font-weight: bold">链接全域术语表</n-text>
+
+          <!-- Sorting Controls for Select Option Dropdown -->
+          <n-space style="margin-bottom: 4px" align="center">
+            <n-text style="font-size: 11px" depth="3">排序方式：</n-text>
+            <n-select
+              v-model:value="sortBy"
+              size="tiny"
+              style="width: 105px"
+              :options="[
+                { label: '标签符合度', value: 'default' },
+                { label: '引用次数', value: 'used' },
+                { label: '更新日期', value: 'update' }
+              ]"
+            />
+            <n-button-group size="tiny">
+              <n-button :type="sortOrder === 'desc' ? 'primary' : 'default'" @click="sortOrder = 'desc'">
+                降序
+              </n-button>
+              <n-button :type="sortOrder === 'asc' ? 'primary' : 'default'" @click="sortOrder = 'asc'">
+                升序
+              </n-button>
+            </n-button-group>
+          </n-space>
+
           <n-select
             v-model:value="linkedGlossaries"
             multiple
-            placeholder="引用全域术语表 (可多选)"
+            filterable
+            placeholder="引用全域术语表 (可输入名称检索)"
             :options="globalGlossariesOptions"
             size="small"
           />

@@ -23,7 +23,7 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         return collection.find(eq(GlobalGlossary::uid.field(), uid)).firstOrNull()
     }
 
-    suspend fun create(uid: String, name: String, content: Map<String, String>): GlobalGlossary {
+    suspend fun create(uid: String, name: String, content: Map<String, String>, tag: List<String> = emptyList()): GlobalGlossary {
         val existing = getByUid(uid)
         if (existing != null) {
             throw IllegalArgumentException("UID already exists")
@@ -34,22 +34,21 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
             name = name,
             content = content,
             used = emptyList(),
-            ver = 1,
+            update = Clock.System.now(),
+            tag = tag,
             record = emptyList()
         )
         collection.insertOne(gg)
         return gg
     }
 
-    suspend fun update(uid: String, name: String, content: Map<String, String>, used: List<String>? = null): GlobalGlossary {
+    suspend fun update(uid: String, name: String, content: Map<String, String>, tag: List<String>? = null, used: List<String>? = null): GlobalGlossary {
         val old = getByUid(uid) ?: throw NoSuchElementException("Global glossary not found")
         val isContentChanged = old.content != content
-        val newVer = if (isContentChanged) old.ver + 1 else old.ver
         val newRecord = if (isContentChanged) {
             val diff = computeGlossaryDiff(old.content, content)
             val recordItem = GlobalGlossaryRecord(
                 date = Clock.System.now(),
-                ver = old.ver,
                 diff = diff
             )
             old.record + recordItem
@@ -63,7 +62,8 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
             name = name,
             content = content,
             used = used ?: old.used,
-            ver = newVer,
+            update = Clock.System.now(),
+            tag = tag ?: old.tag,
             record = newRecord
         )
 

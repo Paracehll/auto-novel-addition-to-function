@@ -7,7 +7,6 @@ export interface GlobalGlossaryDiffItem {
 
 export interface GlobalGlossaryRecord {
   date: string;
-  ver: number;
   diff: { [key: string]: GlobalGlossaryDiffItem };
 }
 
@@ -17,6 +16,7 @@ export interface GlobalGlossary {
   name: string;
   content: Glossary;
   used: string[];
-  ver: number;
+  update: string;
+  tag: string[];
   record: GlobalGlossaryRecord[];
 }
