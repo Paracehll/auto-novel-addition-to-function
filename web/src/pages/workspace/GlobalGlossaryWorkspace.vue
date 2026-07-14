@@ -7,7 +7,7 @@ import { WebNovelApi } from '@/api/novel/WebNovelApi';
 import { WenkuNovelApi } from '@/api/novel/WenkuNovelApi';
 import type { GlobalGlossary, GlobalGlossaryRecord } from '@/model/GlobalGlossary';
 import { useWhoamiStore } from '@/stores';
-import { doAction } from '../util';
+import { doAction, copyToClipBoard } from '../util';
 import { Glossary } from '@/model/Glossary';
 
 const message = useMessage();
@@ -37,8 +37,18 @@ const isEditing = ref(false);
 const formModel = ref({
   uid: '',
   name: '',
-  contentRaw: '',
+  content: {} as Glossary,
   tagRaw: '',
+});
+
+const termsToAdd = ref<[string, string]>(['', '']);
+const importGlossaryRaw = ref('');
+const deletedTerms = ref<[string, string][]>([]);
+
+const lastDeletedTerm = computed(() => {
+  const last = deletedTerms.value[deletedTerms.value.length - 1];
+  if (last === undefined) return undefined;
+  return `${last[0]} => ${last[1]}`;
 });
 
 const openCreateModal = () => {
@@ -46,9 +56,12 @@ const openCreateModal = () => {
   formModel.value = {
     uid: '',
     name: '',
-    contentRaw: '',
+    content: {},
     tagRaw: '',
   };
+  termsToAdd.value = ['', ''];
+  importGlossaryRaw.value = '';
+  deletedTerms.value = [];
   showEditModal.value = true;
 };
 
@@ -57,19 +70,67 @@ const openEditModal = (gg: GlobalGlossary) => {
   formModel.value = {
     uid: gg.uid,
     name: gg.name,
-    contentRaw: Glossary.toText(gg.content),
+    content: { ...gg.content },
     tagRaw: (gg.tag || []).join(', '),
   };
+  termsToAdd.value = ['', ''];
+  importGlossaryRaw.value = '';
+  deletedTerms.value = [];
   showEditModal.value = true;
 };
 
-const saveGlossary = () => {
-  const content = Glossary.fromText(formModel.value.contentRaw);
-  if (content === undefined) {
-    message.error('术语表格式不正确，每行应为: 日文 => 中文');
-    return;
+// Term operations matching GlossaryButton.vue
+const addTerm = () => {
+  const [jp, zh] = termsToAdd.value;
+  if (jp && zh) {
+    formModel.value.content[jp.trim()] = zh.trim();
+    termsToAdd.value = ['', ''];
   }
+};
 
+const deleteTerm = (jp: string) => {
+  if (jp in formModel.value.content) {
+    deletedTerms.value.push([jp, formModel.value.content[jp]]);
+    delete formModel.value.content[jp];
+  }
+};
+
+const undoDeleteTerm = () => {
+  if (deletedTerms.value.length === 0) return;
+  const [jp, zh] = deletedTerms.value.pop()!;
+  formModel.value.content[jp] = zh;
+};
+
+const clearTerm = () => {
+  formModel.value.content = {};
+};
+
+const importGlossary = () => {
+  const importedGlossary = Glossary.fromText(importGlossaryRaw.value);
+  if (importedGlossary === undefined) {
+    message.error('导入失败：术语表格式不正确');
+  } else {
+    message.success('导入成功');
+    for (const jp in importedGlossary) {
+      const zh = importedGlossary[jp];
+      formModel.value.content[jp] = zh;
+    }
+  }
+};
+
+const exportGlossary = async (ev: MouseEvent) => {
+  const isSuccess = await copyToClipBoard(
+    Glossary.toText(formModel.value.content),
+    ev.target as HTMLElement,
+  );
+  if (isSuccess) {
+    message.success('导出成功：已复制到剪贴板');
+  } else {
+    message.success('导出失败');
+  }
+};
+
+const saveGlossary = () => {
   const tag = formModel.value.tagRaw
     .split(',')
     .map((t) => t.trim())
@@ -78,12 +139,12 @@ const saveGlossary = () => {
   const action = isEditing.value
     ? GlobalGlossaryApi.updateGlobalGlossary(formModel.value.uid, {
         name: formModel.value.name,
-        content,
+        content: formModel.value.content,
         tag,
       })
     : GlobalGlossaryApi.createGlobalGlossary({
         name: formModel.value.name,
-        content,
+        content: formModel.value.content,
         tag,
       });
 
@@ -236,9 +297,9 @@ const getRecordTags = (rec: GlobalGlossaryRecord) => {
   const tags: { type: 'success' | 'warning' | 'error'; label: string }[] = [];
   const items = Object.values(rec.diff);
 
-  const hasAdd = items.some((it) => it.old === null || it.old === '');
+  const hasAdd = items.some((it) => it.old === null || it.old === '' || it.old.trim() === '');
   const hasDel = items.some((it) => it.new === null || it.new === '');
-  const hasUpdate = items.some((it) => it.old !== null && it.old !== '' && it.new !== null && it.new !== '');
+  const hasUpdate = items.some((it) => it.old !== null && it.old !== '' && it.old.trim() !== '' && it.new !== null && it.new !== '');
 
   if (hasAdd) tags.push({ type: 'success', label: '新增' });
   if (hasUpdate) tags.push({ type: 'warning', label: '修改' });
@@ -251,7 +312,7 @@ const getRecordTimelineType = (rec: GlobalGlossaryRecord) => {
   const items = Object.values(rec.diff);
   if (items.length === 0) return 'info';
 
-  const isAllAdd = items.every((it) => it.old === null || it.old === '');
+  const isAllAdd = items.every((it) => it.old === null || it.old === '' || it.old.trim() === '');
   if (isAllAdd) return 'success';
 
   const isAllDel = items.every((it) => it.new === null || it.new === '');
@@ -261,7 +322,7 @@ const getRecordTimelineType = (rec: GlobalGlossaryRecord) => {
 };
 
 const getDiffType = (oldVal: string | null, newVal: string | null) => {
-  if (oldVal === null || oldVal === '') {
+  if (oldVal === null || oldVal.trim() === '') {
     return 'add';
   } else if (newVal === null || newVal === '') {
     return 'delete';
@@ -360,35 +421,134 @@ const getDiffType = (oldVal: string | null, newVal: string | null) => {
         :loading="loading"
       />
 
-      <!-- Edit Modal -->
+      <!-- Edit Modal (With rich inline terminology editing like GlossaryButton.vue) -->
       <c-modal
         :title="isEditing ? '编辑全域术语表' : '新建全域术语表'"
         v-model:show="showEditModal"
         :max-height-percentage="85"
         :extra-height="120"
       >
-        <n-form label-placement="left" label-width="80">
-          <n-form-item label="名称">
+        <n-flex vertical size="large" style="margin-bottom: 24px">
+          <!-- Terms Editor Header Actions -->
+          <n-input-group>
             <n-input
-              v-model:value="formModel.name"
-              placeholder="例如: 蔚蓝档案全域术语表"
+              pair
+              v-model:value="termsToAdd"
+              size="small"
+              separator="=>"
+              :placeholder="['日文', '中文']"
+              :input-props="{ spellcheck: false }"
             />
-          </n-form-item>
-          <n-form-item label="标签(tags)">
-            <n-input
-              v-model:value="formModel.tagRaw"
-              placeholder="例如: 蔚蓝档案, 青春, 二次元 (逗号分隔)"
+            <c-button
+              label="添加"
+              :round="false"
+              size="small"
+              @action="addTerm"
             />
-          </n-form-item>
-          <n-form-item label="术语内容">
-            <n-input
-              v-model:value="formModel.contentRaw"
-              type="textarea"
-              :rows="12"
-              placeholder="格式: 日文 => 中文，每行一个词条。&#10;例如:&#10;先生 => 老师&#10;生徒 => 学生"
+          </n-input-group>
+
+          <n-input
+            v-model:value="importGlossaryRaw"
+            type="textarea"
+            size="small"
+            placeholder="批量导入术语表"
+            :input-props="{ spellcheck: false }"
+            :rows="1"
+          />
+
+          <n-flex align="center" :wrap="false">
+            <c-button
+              label="导出"
+              :round="false"
+              size="small"
+              @action="exportGlossary"
             />
-          </n-form-item>
-        </n-form>
+            <c-button
+              label="导入"
+              :round="false"
+              size="small"
+              @action="importGlossary"
+            />
+            <c-button
+              secondary
+              type="error"
+              label="清空"
+              :round="false"
+              size="small"
+              @action="clearTerm"
+            />
+          </n-flex>
+
+          <n-flex align="center" :wrap="false">
+            <c-button
+              :disabled="deletedTerms.length === 0"
+              label="撤销删除"
+              :round="false"
+              size="small"
+              @action="undoDeleteTerm"
+            />
+            <n-text
+              v-if="lastDeletedTerm !== undefined"
+              depth="3"
+              style="font-size: 12px"
+            >
+              {{ lastDeletedTerm }}
+            </n-text>
+          </n-flex>
+
+          <!-- Interactive Terms List Table -->
+          <n-scrollbar style="max-height: 250px; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px">
+            <n-table
+              v-if="Object.keys(formModel.content).length !== 0"
+              striped
+              size="small"
+              style="font-size: 12px"
+            >
+              <tr v-for="wordJp in Object.keys(formModel.content).reverse()" :key="wordJp">
+                <td>
+                  <c-button
+                    :icon="DeleteOutlineOutlined"
+                    text
+                    type="error"
+                    size="small"
+                    @action="deleteTerm(wordJp)"
+                  />
+                </td>
+                <td>{{ wordJp }}</td>
+                <td nowrap="nowrap">=></td>
+                <td style="padding-right: 16px">
+                  <n-input
+                    v-model:value="formModel.content[wordJp]"
+                    size="tiny"
+                    placeholder="请输入中文翻译"
+                    :theme-overrides="{
+                      border: '0',
+                      color: 'transparent',
+                    }"
+                  />
+                </td>
+              </tr>
+            </n-table>
+            <n-empty v-else description="暂无术语词条，请添加" style="padding: 16px" />
+          </n-scrollbar>
+
+          <!-- Form Details Placed BELOW the Terms Content -->
+          <n-form label-placement="left" label-width="80" style="margin-top: 16px; border-top: 1px dashed var(--border-color); padding-top: 16px">
+            <n-form-item label="名称">
+              <n-input
+                v-model:value="formModel.name"
+                placeholder="例如: 蔚蓝档案全域术语表"
+              />
+            </n-form-item>
+            <n-form-item label="标签(tags)">
+              <n-input
+                v-model:value="formModel.tagRaw"
+                placeholder="例如: 蔚蓝档案, 青春, 二次元 (逗号分隔)"
+              />
+            </n-form-item>
+          </n-form>
+        </n-flex>
+
         <template #action>
           <c-button label="提交" type="primary" @action="saveGlossary()" />
         </template>
@@ -413,12 +573,12 @@ const getDiffType = (oldVal: string | null, newVal: string | null) => {
                   <n-collapse-item :name="index.toString()">
                     <template #header>
                       <n-space align="center">
-                        <n-text style="font-weight: bold">
-                          修改历史 (${formatDate(rec.date)})
-                        </n-text>
                         <n-tag v-for="tag in getRecordTags(rec)" :key="tag.label" :type="tag.type" size="tiny" round>
                           {{ tag.label }}
                         </n-tag>
+                        <n-text style="font-weight: bold">
+                          修改了 {{ Object.keys(rec.diff).length }} 行 — {{ formatDate(rec.date) }}
+                        </n-text>
                       </n-space>
                     </template>
                     <template #header-extra>
