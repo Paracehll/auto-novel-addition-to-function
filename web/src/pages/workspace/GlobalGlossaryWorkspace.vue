@@ -1,11 +1,25 @@
 <script lang="ts" setup>
 import { h } from 'vue';
-import { useMessage, NButton, NButtonGroup, NTag, useThemeVars } from 'naive-ui';
-import { DeleteOutlineOutlined, EditOutlined, HistoryOutlined, AddOutlined } from '@vicons/material';
+import {
+  useMessage,
+  NButton,
+  NButtonGroup,
+  NTag,
+  useThemeVars,
+} from 'naive-ui';
+import {
+  DeleteOutlineOutlined,
+  EditOutlined,
+  HistoryOutlined,
+  AddOutlined,
+} from '@vicons/material';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 import { WebNovelApi } from '@/api/novel/WebNovelApi';
 import { WenkuNovelApi } from '@/api/novel/WenkuNovelApi';
-import type { GlobalGlossary, GlobalGlossaryRecord } from '@/model/GlobalGlossary';
+import type {
+  GlobalGlossary,
+  GlobalGlossaryRecord,
+} from '@/model/GlobalGlossary';
 import { useWhoamiStore } from '@/stores';
 import { doAction, copyToClipBoard } from '../util';
 import { Glossary } from '@/model/Glossary';
@@ -140,7 +154,12 @@ const rollbackToRecord = (targetIndex: number) => {
 
 const handleRollback = (targetIndex: number) => {
   if (!selectedGlossary.value) return;
-  if (!window.confirm('确定要将术语表还原到该历史状态吗？这将生成一条新的修改记录。')) return;
+  if (
+    !window.confirm(
+      '确定要将术语表还原到该历史状态吗？这将生成一条新的修改记录。',
+    )
+  )
+    return;
 
   const rolledBackContent = rollbackToRecord(targetIndex);
 
@@ -160,12 +179,18 @@ const handleRollback = (targetIndex: number) => {
 
 const deleteHistoryRecord = (targetIndex: number) => {
   if (!selectedGlossary.value) return;
-  if (!window.confirm('确定要彻底删除这条历史修改记录吗？此操作不可恢复。')) return;
+  if (!window.confirm('确定要彻底删除这条历史修改记录吗？此操作不可恢复。'))
+    return;
 
   doAction(
-    GlobalGlossaryApi.deleteGlobalGlossaryRecord(selectedGlossary.value.uid, targetIndex).then(async () => {
+    GlobalGlossaryApi.deleteGlobalGlossaryRecord(
+      selectedGlossary.value.uid,
+      targetIndex,
+    ).then(async () => {
       if (selectedGlossary.value) {
-        const latest = await GlobalGlossaryApi.getGlobalGlossary(selectedGlossary.value.uid);
+        const latest = await GlobalGlossaryApi.getGlobalGlossary(
+          selectedGlossary.value.uid,
+        );
         selectedGlossary.value = latest;
       }
       loadGlossaries();
@@ -216,7 +241,7 @@ const viewUsedNovels = async (uid: string, name: string) => {
           // Fallback to url if request fails
         }
         return { url, title };
-      })
+      }),
     );
     lazyUsedNovels.value = fetchedNovels;
   } catch (e: any) {
@@ -239,7 +264,10 @@ const getRecordTimelineType = (rec: GlobalGlossaryRecord) => {
   return 'warning';
 };
 
-const getDiffType = (oldVal: string | null | undefined, newVal: string | null | undefined) => {
+const getDiffType = (
+  oldVal: string | null | undefined,
+  newVal: string | null | undefined,
+) => {
   if (!oldVal || oldVal.trim() === '') {
     return 'add';
   } else if (!newVal || newVal.trim() === '') {
@@ -295,23 +323,40 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
             title: '标签',
             key: 'tag',
             render: (row: any) => {
-              if (!row.tag || row.tag.length === 0) return h('span', { style: { color: 'var(--text-color-3)' } }, '无');
+              if (!row.tag || row.tag.length === 0)
+                return h(
+                  'span',
+                  { style: { color: 'var(--text-color-3)' } },
+                  '无',
+                );
               return h(
                 'div',
-                { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', padding: '4px 0' } },
+                {
+                  style: {
+                    display: 'flex',
+                    gap: '6px',
+                    flexWrap: 'wrap',
+                    padding: '4px 0',
+                  },
+                },
                 row.tag.map((t: string) =>
-                  h(NTag, { type: 'info', size: 'small', round: true }, () => t)
-                )
+                  h(
+                    NTag,
+                    { type: 'info', size: 'small', round: true },
+                    () => t,
+                  ),
+                ),
               );
-            }
+            },
           },
           {
             title: '词条数量',
             key: 'termsCount',
-            render: (row: any) => h('span', {}, Object.keys(row.content).length),
+            render: (row: any) =>
+              h('span', {}, Object.keys(row.content).length),
           },
           {
-            title: '引用小說網址',
+            title: '引用',
             key: 'used',
             render: (row: any) => {
               const count = row.used ? row.used.length : 0;
@@ -319,11 +364,11 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                 NButton,
                 {
                   size: 'small',
-                  onClick: () => viewUsedNovels(row.uid, row.name)
+                  onClick: () => viewUsedNovels(row.uid, row.name),
                 },
-                () => `查看 (${count})`
+                () => `查看 (${count})`,
               );
-            }
+            },
           },
           {
             title: '更新日期',
@@ -334,28 +379,30 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
             title: '操作',
             key: 'actions',
             render: (row: any) =>
-              h(
-                NButtonGroup,
-                { size: 'small' },
-                () => [
+              h(NButtonGroup, { size: 'small' }, () =>
+                [
                   h(
                     NButton,
                     { onClick: () => openEditModal(row) },
-                    () => '编辑'
+                    () => '编辑',
                   ),
                   h(
                     NButton,
                     { onClick: () => viewHistory(row) },
-                    () => '修改历史'
+                    () => '修改历史',
                   ),
                   whoamiStore.whoami.isAdmin
                     ? h(
                         NButton,
-                        { type: 'error', ghost: true, onClick: () => deleteGlossary(row.uid) },
-                        () => '删除'
+                        {
+                          type: 'error',
+                          ghost: true,
+                          onClick: () => deleteGlossary(row.uid),
+                        },
+                        () => '删除',
                       )
                     : null,
-                ].filter(Boolean)
+                ].filter(Boolean),
               ),
           },
         ]"
@@ -370,22 +417,30 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
         :max-height-percentage="85"
         :extra-height="120"
       >
-        <n-flex vertical size="large" style="margin-bottom: 24px">
+        <n-flex vertical size="large" style="margin-bottom: 24px; width: 80%">
           <!-- IndependentGlossaryEdit component handles terms editing -->
           <independent-glossary-edit v-model="formModel.content" />
 
           <!-- Form Details Placed BELOW the Terms Content -->
-          <n-form label-placement="left" label-width="80" style="margin-top: 16px; border-top: 1px dashed var(--border-color); padding-top: 16px">
+          <n-form
+            label-placement="left"
+            label-width="80"
+            style="
+              margin-top: 16px;
+              border-top: 1px dashed var(--border-color);
+              padding-top: 16px;
+            "
+          >
             <n-form-item label="名称">
               <n-input
                 v-model:value="formModel.name"
                 placeholder="例如: 蔚蓝档案全域术语表"
               />
             </n-form-item>
-            <n-form-item label="标签(tags)">
+            <n-form-item label="标签">
               <n-input
                 v-model:value="formModel.tagRaw"
-                placeholder="例如: 蔚蓝档案, 青春, 二次元 (逗号分隔)"
+                placeholder="逗号分隔: ブルーアーカイブ, 曇りせ, TS"
               />
             </n-form-item>
           </n-form>
@@ -404,11 +459,18 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
         :extra-height="120"
       >
         <template v-if="selectedGlossary">
-          <div v-if="selectedGlossary.record.length > 0" style="padding-left: 36px; margin-right: 12px; margin-bottom: 8px">
-            <n-table size="small" :bordered="false" style="table-layout: fixed; width: 100%">
+          <div
+            v-if="selectedGlossary.record.length > 0"
+            style="margin-bottom: 16px"
+          >
+            <n-table
+              size="small"
+              :bordered="false"
+              style="table-layout: fixed; width: 100%"
+            >
               <thead>
                 <tr>
-                  <th style="width: 80px">类型</th>
+                  <th style="width: 80px; padding-left: 36px">类型</th>
                   <th style="width: 150px">词条</th>
                   <th>变更</th>
                 </tr>
@@ -427,10 +489,22 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                   <n-collapse-item :name="index.toString()">
                     <template #header>
                       <n-space align="center">
-                        <span v-if="getAddCount(rec) > 0" :style="{ color: themeVars.successColor, fontWeight: 'bold' }">
+                        <span
+                          v-if="getAddCount(rec) > 0"
+                          :style="{
+                            color: themeVars.successColor,
+                            fontWeight: 'bold',
+                          }"
+                        >
                           +{{ getAddCount(rec) }}
                         </span>
-                        <span v-if="getDelCount(rec) > 0" :style="{ color: themeVars.errorColor, fontWeight: 'bold' }">
+                        <span
+                          v-if="getDelCount(rec) > 0"
+                          :style="{
+                            color: themeVars.errorColor,
+                            fontWeight: 'bold',
+                          }"
+                        >
                           -{{ getDelCount(rec) }}
                         </span>
                         <n-text depth="3">
@@ -439,40 +513,100 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                       </n-space>
                     </template>
                     <template #header-extra>
-                      <n-space style="margin-right: 8px">
-                        <n-button size="tiny" type="primary" secondary @click.stop="handleRollback(selectedGlossary.record.length - 1 - index)">
-                          回滚
-                        </n-button>
-                        <n-button v-if="whoamiStore.whoami.isAdmin" size="tiny" type="error" secondary @click.stop="deleteHistoryRecord(selectedGlossary.record.length - 1 - index)">
-                          删除
-                        </n-button>
-                      </n-space>
+                      <n-button
+                        size="tiny"
+                        type="primary"
+                        secondary
+                        @click.stop="
+                          handleRollback(
+                            selectedGlossary.record.length - 1 - index,
+                          )
+                        "
+                      >
+                        回滚
+                      </n-button>
+                      <n-button
+                        v-if="whoamiStore.whoami.isAdmin"
+                        size="tiny"
+                        type="error"
+                        secondary
+                        @click.stop="
+                          deleteHistoryRecord(
+                            selectedGlossary.record.length - 1 - index,
+                          )
+                        "
+                      >
+                        删除
+                      </n-button>
                     </template>
 
-                    <n-table size="small" striped style="margin-top: 8px; table-layout: fixed; width: 100%">
+                    <n-table
+                      size="small"
+                      striped
+                      style="table-layout: fixed; width: 100%"
+                    >
                       <tbody>
                         <tr v-for="(diffItem, key) in rec.diff" :key="key">
                           <td style="width: 80px">
-                            <n-tag v-if="getDiffType(diffItem.old, diffItem.new) === 'add'" type="success" size="small" :round="false">
+                            <n-tag
+                              v-if="
+                                getDiffType(diffItem.old, diffItem.new) ===
+                                'add'
+                              "
+                              type="success"
+                              size="small"
+                              :round="false"
+                            >
                               新增
                             </n-tag>
-                            <n-tag v-else-if="getDiffType(diffItem.old, diffItem.new) === 'delete'" type="error" size="small" :round="false">
+                            <n-tag
+                              v-else-if="
+                                getDiffType(diffItem.old, diffItem.new) ===
+                                'delete'
+                              "
+                              type="error"
+                              size="small"
+                              :round="false"
+                            >
                               删除
                             </n-tag>
-                            <n-tag v-else type="warning" size="small" :round="false">
+                            <n-tag
+                              v-else
+                              type="warning"
+                              size="small"
+                              :round="false"
+                            >
                               修改
                             </n-tag>
                           </td>
-                          <td style="font-weight: bold; width: 150px">{{ key }}</td>
+                          <td style="font-weight: bold; width: 150px">
+                            {{ key }}
+                          </td>
                           <td>
-                            <template v-if="getDiffType(diffItem.old, diffItem.new) === 'add'">
-                              <span style="color: var(--n-text-color)">{{ diffItem.new }}</span>
+                            <template
+                              v-if="
+                                getDiffType(diffItem.old, diffItem.new) ===
+                                'add'
+                              "
+                            >
+                              <span style="color: var(--n-text-color)">
+                                {{ diffItem.new }}
+                              </span>
                             </template>
-                            <template v-else-if="getDiffType(diffItem.old, diffItem.new) === 'delete'">
-                              <del style="color: var(--error-color)">{{ diffItem.old }}</del>
+                            <template
+                              v-else-if="
+                                getDiffType(diffItem.old, diffItem.new) ===
+                                'delete'
+                              "
+                            >
+                              <del style="color: var(--error-color)">
+                                {{ diffItem.old }}
+                              </del>
                             </template>
                             <template v-else>
-                              <span style="color: var(--n-text-color)">{{ diffItem.old }} => {{ diffItem.new }}</span>
+                              <span style="color: var(--n-text-color)">
+                                {{ diffItem.old }} => {{ diffItem.new }}
+                              </span>
                             </template>
                           </td>
                         </tr>
@@ -495,20 +629,35 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
         :extra-height="120"
       >
         <n-space vertical size="medium">
-          <n-h3>{{ selectedGlossaryName }}</n-h3>
           <n-spin :show="usedLoading">
             <div v-if="lazyUsedNovels.length > 0">
-              <div v-for="item in lazyUsedNovels" :key="item.url" style="margin: 8px 0; padding: 8px 0; border-bottom: 1px solid var(--border-color)">
+              <div
+                v-for="item in lazyUsedNovels"
+                :key="item.url"
+                style="
+                  margin: 8px 0;
+                  padding: 8px 0;
+                  border-bottom: 1px solid var(--border-color);
+                "
+              >
                 <a
                   :href="item.url"
                   target="_blank"
-                  style="color: var(--n-text-color); text-decoration: none; font-size: 14px; font-weight: 500"
+                  style="
+                    color: var(--n-text-color);
+                    text-decoration: none;
+                    font-size: 14px;
+                    font-weight: 500;
+                  "
                 >
                   {{ item.title }}
                 </a>
               </div>
             </div>
-            <n-empty v-else-if="!usedLoading" description="暂无小说引用该术语表" />
+            <n-empty
+              v-else-if="!usedLoading"
+              description="暂无小说引用该术语表"
+            />
           </n-spin>
         </n-space>
       </c-modal>

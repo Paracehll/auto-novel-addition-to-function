@@ -34,7 +34,8 @@ const sortState = ref({
 });
 
 const getMatchCount = (gg: GlobalGlossary) => {
-  if (!gg.tag || gg.tag.length === 0 || novelKeywords.value.length === 0) return 0;
+  if (!gg.tag || gg.tag.length === 0 || novelKeywords.value.length === 0)
+    return 0;
   const ggTags = new Set(gg.tag);
   let count = 0;
   for (const k of novelKeywords.value) {
@@ -131,14 +132,10 @@ const updateGlossary = async () => {
   const linkedList = toRaw(linkedGlossaries.value);
 
   if (gnid.type === 'web') {
-    await WebNovelApi.updateGlossary(
-      gnid.providerId,
-      gnid.novelId,
-      {
-        glossary: glossaryValue,
-        linkedGlossaries: linkedList,
-      },
-    );
+    await WebNovelApi.updateGlossary(gnid.providerId, gnid.novelId, {
+      glossary: glossaryValue,
+      linkedGlossaries: linkedList,
+    });
   } else if (gnid.type === 'wenku') {
     await WenkuNovelApi.updateGlossary(gnid.novelId, {
       glossary: glossaryValue,
@@ -171,7 +168,10 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
     let mergedGlossary: Glossary = { ...glossary.value };
     if (gnid !== undefined) {
       if (gnid.type === 'web') {
-        mergedGlossary = await WebNovelApi.getGlossary(gnid.providerId, gnid.novelId);
+        mergedGlossary = await WebNovelApi.getGlossary(
+          gnid.providerId,
+          gnid.novelId,
+        );
       } else if (gnid.type === 'wenku') {
         mergedGlossary = await WenkuNovelApi.getGlossary(gnid.novelId);
       }
@@ -257,7 +257,7 @@ const applyGlobal = (key: string) => {
           <n-collapse style="margin: 4px 0">
             <n-collapse-item title="配置全域术语表与去重" name="global-config">
               <n-flex vertical size="medium">
-                <n-text style="font-size: 12px; font-weight: bold">链接全域术语表</n-text>
+                <!-- <n-text style="font-size: 12px; font-weight: bold">链接全域术语表</n-text> -->
 
                 <!-- Sorting Controls using OrderSort component -->
                 <n-space style="margin-bottom: 4px" align="center">
@@ -267,7 +267,7 @@ const applyGlobal = (key: string) => {
                     :options="[
                       { label: '标签符合度', value: 'default' },
                       { label: '引用次数', value: 'used' },
-                      { label: '更新日期', value: 'update' }
+                      { label: '更新日期', value: 'update' },
                     ]"
                   />
                 </n-space>
@@ -283,8 +283,23 @@ const applyGlobal = (key: string) => {
 
                 <!-- Deduplication UI placed inside the same collapse panel -->
                 <template v-if="duplicates.length > 0">
-                  <div style="margin-top: 12px; border: 1px solid var(--border-color); border-radius: 4px; padding: 8px">
-                    <n-text type="warning" style="font-weight: bold; font-size: 12px; display: block; margin-bottom: 6px">
+                  <div
+                    style="
+                      margin-top: 12px;
+                      border: 1px solid var(--border-color);
+                      border-radius: 4px;
+                      padding: 8px;
+                    "
+                  >
+                    <n-text
+                      type="warning"
+                      style="
+                        font-weight: bold;
+                        font-size: 12px;
+                        display: block;
+                        margin-bottom: 6px;
+                      "
+                    >
                       去重警告: 发现 {{ duplicates.length }} 個與全域重複的詞條
                     </n-text>
                     <n-scrollbar style="max-height: 200px">
@@ -301,13 +316,29 @@ const applyGlobal = (key: string) => {
                           <tr v-for="dup in duplicates" :key="dup.key">
                             <td style="font-weight: bold">{{ dup.key }}</td>
                             <td>{{ dup.localVal }}</td>
-                            <td>{{ dup.globalVal }} <br/><span style="font-size:10px; color:gray">({{ dup.globalName }})</span></td>
+                            <td>
+                              {{ dup.globalVal }}
+                              <br />
+                              <span style="font-size: 10px; color: gray">
+                                ({{ dup.globalName }})
+                              </span>
+                            </td>
                             <td>
                               <n-space size="small">
-                                <n-button size="tiny" type="primary" secondary @click="keepLocal(dup.key)">
+                                <n-button
+                                  size="tiny"
+                                  type="primary"
+                                  secondary
+                                  @click="keepLocal(dup.key)"
+                                >
                                   使用独立
                                 </n-button>
-                                <n-button size="tiny" type="warning" secondary @click="applyGlobal(dup.key)">
+                                <n-button
+                                  size="tiny"
+                                  type="warning"
+                                  secondary
+                                  @click="applyGlobal(dup.key)"
+                                >
                                   使用全域
                                 </n-button>
                               </n-space>
