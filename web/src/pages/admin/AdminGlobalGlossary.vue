@@ -96,7 +96,7 @@ const saveGlossary = () => {
 };
 
 const deleteGlossary = (uid: string) => {
-  if (window.confirm(`确定要删除全域术语表 "${uid}" 吗？此操作不可恢复。`)) {
+  if (window.confirm(`确定要删除全域术语表吗？此操作不可恢复。`)) {
     doAction(
       GlobalGlossaryApi.deleteGlobalGlossary(uid).then(() => {
         loadGlossaries();
@@ -119,42 +119,81 @@ const viewHistory = (gg: GlobalGlossary) => {
 const formatDate = (dateSeconds: number) => {
   return new Date(dateSeconds * 1000).toLocaleString('zh-CN');
 };
+
+// Used Novels modal state (lazy loaded)
+const showUsedModal = ref(false);
+const usedLoading = ref(false);
+const selectedGlossaryName = ref('');
+const lazyUsedUrls = ref<string[]>([]);
+
+const viewUsedNovels = async (uid: string, name: string) => {
+  selectedGlossaryName.value = name;
+  lazyUsedUrls.value = [];
+  showUsedModal.value = true;
+  usedLoading.value = true;
+  try {
+    const detail = await GlobalGlossaryApi.getGlobalGlossary(uid);
+    lazyUsedUrls.value = detail.used || [];
+  } catch (e: any) {
+    message.error(`获取引用小说列表失败: ${e.message || e}`);
+  } finally {
+    usedLoading.value = false;
+  }
+};
 </script>
 
 <template>
-  <n-space vertical size="large">
+  <n-space vertical size="large" style="padding: 16px">
     <n-flex justify="space-between" align="center">
       <n-text depth="3">
-        全域术语表可以被多本小说同时引用，並且独立术语表会优先覆盖全域术语表的同名项。
+        全域术语表可以被多本小说同时引用，并且独立术语表会优先覆盖全域术语表的同名项。
       </n-text>
-      <c-button
+      <n-button
         type="primary"
-        label="新建全域术语表"
-        :icon="AddOutlined"
-        @action="openCreateModal()"
-      />
+        @click="openCreateModal()"
+      >
+        <template #icon>
+          <n-icon><AddOutlined /></n-icon>
+        </template>
+        新建全域术语表
+      </n-button>
     </n-flex>
 
     <n-data-table
       :columns="[
-        { title: '引用ID (UID)', key: 'uid' },
-        { title: '显示名称', key: 'name' },
-        {
-          title: '词条数量',
-          key: 'termsCount',
-          render: (row: any) => Object.keys(row.content).length,
-        },
+        { title: '名称', key: 'name' },
         {
           title: '标签',
           key: 'tag',
           render: (row: any) => {
-            if (!row.tag || row.tag.length === 0) return '无';
+            if (!row.tag || row.tag.length === 0) return h('span', { style: { color: 'var(--text-color-3)' } }, '无');
             return h(
               'div',
               { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } },
               row.tag.map((t: string) =>
-                h('span', { class: 'n-tag n-tag--small n-tag--info' }, t)
+                h('span', { class: 'n-tag n-tag--small n-tag--info n-tag--round', style: { padding: '0 8px' } }, t)
               )
+            );
+          }
+        },
+        {
+          title: '词条数量',
+          key: 'termsCount',
+          render: (row: any) => h('span', {}, Object.keys(row.content).length),
+        },
+        {
+          title: '引用小說網址',
+          key: 'used',
+          render: (row: any) => {
+            const count = row.used ? row.used.length : 0;
+            return h(
+              'button',
+              {
+                class: 'n-button n-button--small n-button--default n-button--secondary',
+                style: { cursor: 'pointer' },
+                onClick: () => viewUsedNovels(row.uid, row.name)
+              },
+              `查看 (${count})`
             );
           }
         },
@@ -164,41 +203,12 @@ const formatDate = (dateSeconds: number) => {
           render: (row: any) => formatDate(row.update),
         },
         {
-          title: '引用小說網址',
-          key: 'used',
-          render: (row: any) => {
-            if (row.used.length === 0) {
-              return '暂无引用';
-            }
-            return h(
-              'div',
-              row.used.map((url: string) =>
-                h(
-                  'div',
-                  { style: { margin: '2px 0' } },
-                  [
-                    h(
-                      'a',
-                      {
-                        href: url,
-                        target: '_blank',
-                        style: { color: 'var(--primary-color)', textDecoration: 'none' }
-                      },
-                      url
-                    )
-                  ]
-                )
-              )
-            );
-          }
-        },
-        {
           title: '操作',
           key: 'actions',
           render: (row: any) =>
             h(
               'div',
-              { style: { display: 'flex', gap: '8px' } },
+              { class: 'n-button-group n-button-group--small' },
               [
                 h(
                   'button',
@@ -244,13 +254,7 @@ const formatDate = (dateSeconds: number) => {
       :extra-height="120"
     >
       <n-form label-placement="left" label-width="80">
-        <n-form-item v-if="isEditing" label="引用ID">
-          <n-input
-            v-model:value="formModel.uid"
-            disabled
-          />
-        </n-form-item>
-        <n-form-item label="显示名称">
+        <n-form-item label="名称">
           <n-input
             v-model:value="formModel.name"
             placeholder="例如: 蔚蓝档案全域术语表"
@@ -283,7 +287,7 @@ const formatDate = (dateSeconds: number) => {
       :extra-height="120"
     >
       <template v-if="selectedGlossary">
-        <n-h3>{{ selectedGlossary.name }} ({{ selectedGlossary.uid }})</n-h3>
+        <n-h3>{{ selectedGlossary.name }}</n-h3>
         <n-scrollbar style="max-height: 50vh">
           <n-timeline v-if="selectedGlossary.record.length > 0">
             <n-timeline-item
@@ -324,6 +328,33 @@ const formatDate = (dateSeconds: number) => {
           <n-empty v-else description="无修改记录" />
         </n-scrollbar>
       </template>
+    </c-modal>
+
+    <!-- Used Novels Modal (Lazy loaded) -->
+    <c-modal
+      title="引用该术语表的小说列表"
+      v-model:show="showUsedModal"
+      :extra-height="120"
+    >
+      <n-space vertical size="medium">
+        <n-h3>{{ selectedGlossaryName }}</n-h3>
+        <n-spin :show="usedLoading">
+          <n-scrollbar style="max-height: 50vh">
+            <div v-if="lazyUsedUrls.length > 0">
+              <div v-for="url in lazyUsedUrls" :key="url" style="margin: 8px 0; padding: 4px; border-bottom: 1px solid var(--border-color)">
+                <a
+                  :href="url"
+                  target="_blank"
+                  style="color: var(--primary-color); text-decoration: none; font-size: 14px"
+                >
+                  {{ url }}
+                </a>
+              </div>
+            </div>
+            <n-empty v-else-if="!usedLoading" description="暂无小说引用该术语表" />
+          </n-scrollbar>
+        </n-spin>
+      </n-space>
     </c-modal>
   </n-space>
 </template>
