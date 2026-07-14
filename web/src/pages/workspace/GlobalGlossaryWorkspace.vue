@@ -1,8 +1,10 @@
 <script lang="ts" setup>
 import { h } from 'vue';
-import { useMessage, NButton, NButtonGroup, NBadge } from 'naive-ui';
+import { useMessage, NButton, NButtonGroup, NTag } from 'naive-ui';
 import { DeleteOutlineOutlined, EditOutlined, HistoryOutlined, AddOutlined } from '@vicons/material';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
+import { WebNovelApi } from '@/api/novel/WebNovelApi';
+import { WenkuNovelApi } from '@/api/novel/WenkuNovelApi';
 import type { GlobalGlossary, GlobalGlossaryRecord } from '@/model/GlobalGlossary';
 import { useWhoamiStore } from '@/stores';
 import { doAction } from '../util';
@@ -120,20 +122,91 @@ const formatDate = (dateSeconds: number) => {
   return new Date(dateSeconds * 1000).toLocaleString('zh-CN');
 };
 
+// Rollback Logic
+const rollbackToRecord = (targetIndex: number) => {
+  if (!selectedGlossary.value) return {};
+  const currentContent = { ...selectedGlossary.value.content };
+  const records = selectedGlossary.value.record;
+
+  // We need to apply diffs in reverse order from the last record down to (and including) targetIndex + 1
+  for (let j = records.length - 1; j > targetIndex; j--) {
+    const rec = records[j];
+    for (const key in rec.diff) {
+      const item = rec.diff[key];
+      if (item.old === null) {
+        delete currentContent[key];
+      } else {
+        currentContent[key] = item.old;
+      }
+    }
+  }
+  return currentContent;
+};
+
+const handleRollback = (targetIndex: number) => {
+  if (!selectedGlossary.value) return;
+  if (!window.confirm('确定要将术语表还原到该历史状态吗？这将生成一条新的修改记录。')) return;
+
+  const rolledBackContent = rollbackToRecord(targetIndex);
+
+  doAction(
+    GlobalGlossaryApi.updateGlobalGlossary(selectedGlossary.value.uid, {
+      name: selectedGlossary.value.name,
+      content: rolledBackContent,
+      tag: selectedGlossary.value.tag,
+    }).then(() => {
+      showHistoryModal.value = false;
+      loadGlossaries();
+    }),
+    '回滚全域术语表',
+    message,
+  );
+};
+
 // Used Novels modal state (lazy loaded)
 const showUsedModal = ref(false);
 const usedLoading = ref(false);
 const selectedGlossaryName = ref('');
-const lazyUsedUrls = ref<string[]>([]);
+
+interface UsedNovelItem {
+  url: string;
+  title: string;
+}
+const lazyUsedNovels = ref<UsedNovelItem[]>([]);
 
 const viewUsedNovels = async (uid: string, name: string) => {
   selectedGlossaryName.value = name;
-  lazyUsedUrls.value = [];
+  lazyUsedNovels.value = [];
   showUsedModal.value = true;
   usedLoading.value = true;
   try {
     const detail = await GlobalGlossaryApi.getGlobalGlossary(uid);
-    lazyUsedUrls.value = detail.used || [];
+    const urls = detail.used || [];
+
+    // Fetch titles in parallel
+    const fetchedNovels = await Promise.all(
+      urls.map(async (url) => {
+        let title = url;
+        try {
+          if (url.startsWith('/novel/')) {
+            const parts = url.split('/');
+            const providerId = parts[2];
+            const novelId = parts[3];
+            const novel = await WebNovelApi.getNovel(providerId, novelId);
+            title = novel.titleZh || novel.titleJp || url;
+          } else if (url.startsWith('/wenku/')) {
+            const parts = url.split('/');
+            const novelId = parts[2];
+            const novel = await WenkuNovelApi.getNovel(novelId);
+            title = novel.titleZh || url;
+          }
+        } catch {
+          // Fallback to url if request fails
+        }
+        return { url, title };
+      })
+    );
+    lazyUsedNovels.value = fetchedNovels;
   } catch (e: any) {
     message.error(`获取引用小说列表失败: ${e.message || e}`);
   } finally {
@@ -166,9 +239,9 @@ const viewUsedNovels = async (uid: string, name: string) => {
               if (!row.tag || row.tag.length === 0) return h('span', { style: { color: 'var(--text-color-3)' } }, '无');
               return h(
                 'div',
-                { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', padding: '4px 0' } },
+                { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', padding: '4px 0' } },
                 row.tag.map((t: string) =>
-                  h(NBadge, { type: 'info', value: t })
+                  h(NTag, { type: 'info', size: 'small', round: true }, () => t)
                 )
               );
             }
@@ -271,7 +344,6 @@ const viewUsedNovels = async (uid: string, name: string) => {
         :extra-height="120"
       >
         <template v-if="selectedGlossary">
-          <n-h3>{{ selectedGlossary.name }}</n-h3>
           <n-scrollbar style="max-height: 50vh">
             <n-timeline v-if="selectedGlossary.record.length > 0">
               <n-timeline-item
@@ -280,7 +352,13 @@ const viewUsedNovels = async (uid: string, name: string) => {
                 type="info"
                 :title="`修改历史 (${formatDate(rec.date)})`"
               >
-                <n-table size="small" striped style="margin-top: 8px">
+                <n-space justify="space-between" align="center" style="margin-top: 4px; margin-bottom: 8px">
+                  <n-text depth="3">修改词条详情：</n-text>
+                  <n-button size="tiny" type="primary" secondary @click="handleRollback(selectedGlossary.record.length - 1 - index)">
+                    回滚
+                  </n-button>
+                </n-space>
+                <n-table size="small" striped>
                   <thead>
                     <tr>
                       <th>词条</th>
@@ -321,17 +399,16 @@ const viewUsedNovels = async (uid: string, name: string) => {
         :extra-height="120"
       >
         <n-space vertical size="medium">
-          <n-h3>{{ selectedGlossaryName }}</n-h3>
           <n-spin :show="usedLoading">
             <n-scrollbar style="max-height: 50vh">
-              <div v-if="lazyUsedUrls.length > 0">
-                <div v-for="url in lazyUsedUrls" :key="url" style="margin: 8px 0; padding: 4px; border-bottom: 1px solid var(--border-color)">
+              <div v-if="lazyUsedNovels.length > 0">
+                <div v-for="item in lazyUsedNovels" :key="item.url" style="margin: 8px 0; padding: 8px 0; border-bottom: 1px solid var(--border-color)">
                   <a
-                    :href="url"
+                    :href="item.url"
                     target="_blank"
-                    style="color: var(--primary-color); text-decoration: none; font-size: 14px"
+                    style="color: var(--primary-color); text-decoration: none; font-size: 14px; font-weight: 500"
                   >
-                    {{ url }}
+                    {{ item.title }}
                   </a>
                 </div>
               </div>
