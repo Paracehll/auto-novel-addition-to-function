@@ -411,6 +411,7 @@ class WebNovelMetadataRepository(
         providerId: String,
         novelId: String,
         glossary: Map<String, String>,
+        linkedGlossaries: List<String>,
     ) {
         webNovelMetadataCollection
             .updateOne(
@@ -418,6 +419,7 @@ class WebNovelMetadataRepository(
                 combine(
                     set(WebNovel::glossaryUuid.field(), UUID.randomUUID().toString()),
                     set(WebNovel::glossary.field(), glossary),
+                    set(WebNovel::linkedGlossaries.field(), linkedGlossaries),
                 ),
             )
     }

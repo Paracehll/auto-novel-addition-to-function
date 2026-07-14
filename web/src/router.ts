@@ -280,6 +280,11 @@ const router = createRouter({
               component: () =>
                 import('./pages/admin/AdminWebTocMergeHistory.vue'),
             },
+            {
+              path: 'global-glossary',
+              component: () =>
+                import('./pages/admin/AdminGlobalGlossary.vue'),
+            },
           ],
         },
 

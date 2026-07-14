@@ -1,9 +1,11 @@
 <script lang="ts" setup>
-import { DeleteOutlineOutlined } from '@vicons/material';
+import { DeleteOutlineOutlined, HelpOutlineOutlined } from '@vicons/material';
 
 import { WebNovelApi, WenkuNovelApi } from '@/api';
+import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 import { GenericNovelId } from '@/model/Common';
 import { Glossary } from '@/model/Glossary';
+import type { GlobalGlossary } from '@/model/GlobalGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import { downloadFile } from '@/util';
@@ -19,12 +21,41 @@ const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
 
 const glossary = ref<Glossary>({});
+const linkedGlossaries = ref<string[]>([]);
+const allGlobalGlossaries = ref<GlobalGlossary[]>([]);
 
 const showGlossaryModal = ref(false);
 
-const toggleGlossaryModal = () => {
+const globalGlossariesOptions = computed(() =>
+  allGlobalGlossaries.value.map((gg) => ({
+    label: `${gg.name} (${gg.uid}) [${Object.keys(gg.content).length} 词条]`,
+    value: gg.uid,
+  })),
+);
+
+// Fetch global glossaries and linked glossaries
+const fetchData = async () => {
+  try {
+    allGlobalGlossaries.value = await GlobalGlossaryApi.listGlobalGlossaries();
+    const gnid = props.gnid;
+    if (gnid !== undefined) {
+      if (gnid.type === 'web') {
+        const novel = await WebNovelApi.getNovel(gnid.providerId, gnid.novelId);
+        linkedGlossaries.value = novel.linkedGlossaries || [];
+      } else if (gnid.type === 'wenku') {
+        const novel = await WenkuNovelApi.getNovel(gnid.novelId);
+        linkedGlossaries.value = novel.linkedGlossaries || [];
+      }
+    }
+  } catch (e: any) {
+    message.error(`获取全域术语表配置失败: ${e.message || e}`);
+  }
+};
+
+const toggleGlossaryModal = async () => {
   if (showGlossaryModal.value === false) {
     glossary.value = { ...props.value };
+    await fetchData();
   }
   showGlossaryModal.value = !showGlossaryModal.value;
 };
@@ -44,14 +75,22 @@ const updateGlossary = async () => {
     return;
   }
   const glossaryValue = toRaw(glossary.value);
+  const linkedList = toRaw(linkedGlossaries.value);
+
   if (gnid.type === 'web') {
     await WebNovelApi.updateGlossary(
       gnid.providerId,
       gnid.novelId,
-      glossaryValue,
+      {
+        glossary: glossaryValue,
+        linkedGlossaries: linkedList,
+      },
     );
   } else if (gnid.type === 'wenku') {
-    await WenkuNovelApi.updateGlossary(gnid.novelId, glossaryValue);
+    await WenkuNovelApi.updateGlossary(gnid.novelId, {
+      glossary: glossaryValue,
+      linkedGlossaries: linkedList,
+    });
   } else {
     const repo = await useLocalVolumeStore();
     await repo.updateGlossary(gnid.volumeId, glossaryValue);
@@ -61,7 +100,7 @@ const updateGlossary = async () => {
 const submitGlossary = () =>
   doAction(
     updateGlossary().then(() => {
-      // 触发组件外的术语表本体更新。有点傻，但够用。
+      // 触发组件外的术语表本体更新。
       for (const key in props.value) {
         delete props.value[key];
       }
@@ -135,12 +174,63 @@ const importGlossary = () => {
 };
 
 const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
-  downloadFile(
-    `${gnidHint.value ?? 'glossary'}.json`,
-    new Blob([Glossary.toJson(glossary.value)], {
-      type: 'text/plain',
-    }),
-  );
+  const gnid = props.gnid;
+  try {
+    let mergedGlossary: Glossary = { ...glossary.value };
+    if (gnid !== undefined) {
+      if (gnid.type === 'web') {
+        mergedGlossary = await WebNovelApi.getGlossary(gnid.providerId, gnid.novelId);
+      } else if (gnid.type === 'wenku') {
+        mergedGlossary = await WenkuNovelApi.getGlossary(gnid.novelId);
+      }
+    }
+    downloadFile(
+      `${gnidHint.value ?? 'glossary'}.json`,
+      new Blob([Glossary.toJson(mergedGlossary)], {
+        type: 'text/plain',
+      }),
+    );
+  } catch (e: any) {
+    message.error(`下载合并术语表失败: ${e.message || e}`);
+  }
+};
+
+// Deduplication Logic
+const duplicates = computed(() => {
+  const dupes: {
+    key: string;
+    localVal: string;
+    globalVal: string;
+    globalName: string;
+  }[] = [];
+
+  const localKeys = Object.keys(glossary.value);
+  for (const k of localKeys) {
+    for (const guid of linkedGlossaries.value) {
+      const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
+      if (gg && gg.content[k] !== undefined) {
+        dupes.push({
+          key: k,
+          localVal: glossary.value[k],
+          globalVal: gg.content[k],
+          globalName: gg.name,
+        });
+        break;
+      }
+    }
+  }
+  return dupes;
+});
+
+const keepLocal = (key: string) => {
+  // Use independent, do nothing as local overrides global anyway
+  message.info(`已保留独立词条: ${key}`);
+};
+
+const applyGlobal = (key: string) => {
+  // Use global, remove from independent/local
+  deleteTerm(key);
+  message.success(`已应用全域词条 (删除独立项): ${key}`);
 };
 </script>
 
@@ -170,6 +260,62 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
             <c-a to="/forum/660ab4da55001f583649a621">术语表使用指南</c-a>
             ，不要滥用术语表。
           </n-text>
+        </template>
+
+        <!-- Global Glossary Selector -->
+        <template v-if="gnid && (gnid.type === 'web' || gnid.type === 'wenku')">
+          <n-text style="font-size: 12px; font-weight: bold">链接全域术语表</n-text>
+          <n-select
+            v-model:value="linkedGlossaries"
+            multiple
+            placeholder="引用全域术语表 (可多选)"
+            :options="globalGlossariesOptions"
+            size="small"
+          />
+        </template>
+
+        <!-- Deduplication UI -->
+        <template v-if="duplicates.length > 0">
+          <n-collapse style="margin: 8px 0">
+            <n-collapse-item type="warning">
+              <template #header>
+                <n-space align="center">
+                  <n-text type="warning" style="font-weight: bold">
+                    去重警告: 发现 {{ duplicates.length }} 個與全域重複的詞條
+                  </n-text>
+                </n-space>
+              </template>
+              <n-scrollbar style="max-height: 250px">
+                <n-table size="small" striped>
+                  <thead>
+                    <tr>
+                      <th>原词</th>
+                      <th>独立术语</th>
+                      <th>全域术语</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="dup in duplicates" :key="dup.key">
+                      <td style="font-weight: bold">{{ dup.key }}</td>
+                      <td>{{ dup.localVal }}</td>
+                      <td>{{ dup.globalVal }} <br/><span style="font-size:10px; color:gray">({{ dup.globalName }})</span></td>
+                      <td>
+                        <n-space size="small">
+                          <n-button size="tiny" type="primary" secondary @click="keepLocal(dup.key)">
+                            使用独立
+                          </n-button>
+                          <n-button size="tiny" type="warning" secondary @click="applyGlobal(dup.key)">
+                            使用全域
+                          </n-button>
+                        </n-space>
+                      </td>
+                    </tr>
+                  </tbody>
+                </n-table>
+              </n-scrollbar>
+            </n-collapse-item>
+          </n-collapse>
         </template>
 
         <n-input-group>
@@ -212,7 +358,7 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
             @action="importGlossary"
           />
           <c-button
-            label="下载json文件"
+            label="下载json文件 (已合并)"
             :round="false"
             size="small"
             @action="downloadGlossaryAsJsonFile"
@@ -245,6 +391,10 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
         </n-flex>
       </n-flex>
     </template>
+
+    <n-text style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 8px">
+      独立术语列表：
+    </n-text>
 
     <n-table
       v-if="Object.keys(glossary).length !== 0"

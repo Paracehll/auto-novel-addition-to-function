@@ -1,0 +1,33 @@
+import type { GlobalGlossary } from '@/model/GlobalGlossary';
+import { client } from './client';
+
+const listGlobalGlossaries = () =>
+  client.get('global-glossary').json<GlobalGlossary[]>();
+
+const getGlobalGlossary = (uid: string) =>
+  client.get(`global-glossary/${uid}`).json<GlobalGlossary>();
+
+const createGlobalGlossary = (json: {
+  uid: string;
+  name: string;
+  content: { [key: string]: string };
+}) => client.post('global-glossary', { json }).json<GlobalGlossary>();
+
+const updateGlobalGlossary = (
+  uid: string,
+  json: {
+    name: string;
+    content: { [key: string]: string };
+  },
+) => client.put(`global-glossary/${uid}`, { json }).json<GlobalGlossary>();
+
+const deleteGlobalGlossary = (uid: string) =>
+  client.delete(`global-glossary/${uid}`);
+
+export const GlobalGlossaryApi = {
+  listGlobalGlossaries,
+  getGlobalGlossary,
+  createGlobalGlossary,
+  updateGlobalGlossary,
+  deleteGlobalGlossary,
+};

@@ -185,13 +185,15 @@ class WenkuNovelMetadataRepository(
     suspend fun updateGlossary(
         novelId: String,
         glossary: Map<String, String>,
+        linkedGlossaries: List<String>,
     ) {
         wenkuNovelMetadataCollection
             .updateOne(
                 WenkuNovel.byId(novelId),
                 combine(
-                    set(WebNovel::glossaryUuid.field(), UUID.randomUUID().toString()),
-                    set(WebNovel::glossary.field(), glossary)
+                    set(WenkuNovel::glossaryUuid.field(), UUID.randomUUID().toString()),
+                    set(WenkuNovel::glossary.field(), glossary),
+                    set(WenkuNovel::linkedGlossaries.field(), linkedGlossaries)
                 ),
             )
     }

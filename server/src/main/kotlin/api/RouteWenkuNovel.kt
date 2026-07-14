@@ -1,10 +1,7 @@
 package api
 
 import api.plugins.*
-import infra.common.NovelFileMode
-import infra.common.NovelFileTranslationsMode
-import infra.common.Page
-import infra.common.TranslatorId
+import infra.common.*
 import infra.oplog.Operation
 import infra.oplog.OperationHistoryRepository
 import infra.wenku.*
@@ -121,11 +118,24 @@ fun Route.routeWenkuNovel() {
             }
         }
 
+        get<WenkuNovelRes.Id.Glossary> { loc ->
+            call.tryRespond {
+                service.getMergedGlossary(
+                    novelId = loc.parent.novelId,
+                )
+            }
+        }
+
         put<WenkuNovelRes.Id.Glossary> { loc ->
             val user = call.user()
-            val body = call.receive<Map<String, String>>()
+            val body = call.receive<GlossaryUpdatePayload>()
             call.tryRespond {
-                service.updateGlossary(user = user, novelId = loc.parent.novelId, glossary = body)
+                service.updateGlossary(
+                    user = user,
+                    novelId = loc.parent.novelId,
+                    glossary = body.glossary,
+                    linkedGlossaries = body.linkedGlossaries,
+                )
             }
         }
 
@@ -249,6 +259,7 @@ private fun validateVolumeId(volumeId: String, strictMode: Boolean = false) {
 }
 
 class WenkuNovelApi(
+    private val globalGlossaryRepo: GlobalGlossaryRepository,
     private val metadataRepo: WenkuNovelMetadataRepository,
     private val volumeRepo: WenkuNovelVolumeRepository,
     private val favoredRepo: WenkuNovelFavoredRepository,
@@ -289,6 +300,7 @@ class WenkuNovelApi(
         val level: WenkuNovelLevel,
         val introduction: String,
         val glossary: Map<String, String>,
+        val linkedGlossaries: List<String> = emptyList(),
         val webIds: List<String>,
         val volumes: List<WenkuNovelVolume>,
         val visited: Long,
@@ -330,6 +342,7 @@ class WenkuNovelApi(
             webIds = metadata.webIds,
             volumes = metadata.volumes,
             glossary = metadata.glossary,
+            linkedGlossaries = metadata.linkedGlossaries,
             visited = metadata.visited,
             favored = null,
             volumeZh = volumes.zh,
@@ -453,15 +466,30 @@ class WenkuNovelApi(
         user: User,
         novelId: String,
         glossary: Map<String, String>,
+        linkedGlossaries: List<String>,
     ) {
         user.requireNovelAccess()
         val novel = metadataRepo.get(novelId)
             ?: throwNovelNotFound()
-        if (glossary == novel.glossary)
+        if (glossary == novel.glossary && linkedGlossaries == novel.linkedGlossaries)
             throwBadRequest("术语表没有改变")
+
+        val novelUrl = "/wenku/$novelId"
+        val oldLinked = novel.linkedGlossaries
+        val removed = oldLinked - linkedGlossaries.toSet()
+        val added = linkedGlossaries - oldLinked.toSet()
+
+        for (uid in removed) {
+            globalGlossaryRepo.updateUsed(uid, novelUrl, false)
+        }
+        for (uid in added) {
+            globalGlossaryRepo.updateUsed(uid, novelUrl, true)
+        }
+
         metadataRepo.updateGlossary(
             novelId = novelId,
             glossary = glossary,
+            linkedGlossaries = linkedGlossaries,
         )
         operationHistoryRepo.create(
             operator = ObjectId(user.id),
@@ -471,6 +499,21 @@ class WenkuNovelApi(
                 new = glossary,
             )
         )
+    }
+
+    suspend fun getMergedGlossary(
+        novelId: String,
+    ): Map<String, String> {
+        val novel = metadataRepo.get(novelId) ?: throwNovelNotFound()
+        val merged = mutableMapOf<String, String>()
+        for (uid in novel.linkedGlossaries) {
+            val gg = globalGlossaryRepo.getByUid(uid)
+            if (gg != null) {
+                merged.putAll(gg.content)
+            }
+        }
+        merged.putAll(novel.glossary)
+        return merged
     }
 
     private suspend fun validateNovelId(novelId: String) {
@@ -564,6 +607,7 @@ class WenkuNovelApi(
 }
 
 class WenkuNovelTranslateV2Api(
+    private val globalGlossaryRepo: GlobalGlossaryRepository,
     private val metadataRepo: WenkuNovelMetadataRepository,
     private val volumeRepo: WenkuNovelVolumeRepository,
 ) {
@@ -652,11 +696,12 @@ class WenkuNovelTranslateV2Api(
             chapterGlossary?.uuid ?: "no glossary"
         }
 
+        val mergedGlossary = getMergedGlossaryMap(novel.glossary, novel.linkedGlossaries)
         return ChapterTranslateTaskDto(
             paragraphJp = chapter,
             oldParagraphZh = oldTranslation.takeIf { !sakuraOutdated },
             glossaryId = novel.glossaryUuid ?: "no glossary",
-            glossary = novel.glossary,
+            glossary = mergedGlossary,
             oldGlossaryId = oldGlossaryId,
             oldGlossary = chapterGlossary?.glossary ?: emptyMap(),
         )
@@ -698,16 +743,32 @@ class WenkuNovelTranslateV2Api(
             chapterId = chapterId,
             lines = paragraphsZh,
         )
+        val mergedGlossary = getMergedGlossaryMap(novel.glossary, novel.linkedGlossaries)
         volume.setChapterGlossary(
             translatorId = translatorId,
             chapterId = chapterId,
             glossaryUuid = glossaryId,
-            glossary = novel.glossary,
+            glossary = mergedGlossary,
             sakuraVersion = sakuraVersion?.takeIf { translatorId == TranslatorId.Sakura }
         )
 
         return volume.listTranslation(
             translatorId = translatorId,
         ).size
+    }
+
+    private suspend fun getMergedGlossaryMap(
+        localGlossary: Map<String, String>,
+        linkedGlossaries: List<String>,
+    ): Map<String, String> {
+        val merged = mutableMapOf<String, String>()
+        for (uid in linkedGlossaries) {
+            val gg = globalGlossaryRepo.getByUid(uid)
+            if (gg != null) {
+                merged.putAll(gg.content)
+            }
+        }
+        merged.putAll(localGlossary)
+        return merged
     }
 }

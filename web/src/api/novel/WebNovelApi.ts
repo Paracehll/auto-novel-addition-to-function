@@ -135,8 +135,11 @@ const updateNovelWenkuId = (
 const updateGlossary = (
   providerId: string,
   novelId: string,
-  json: { [key: string]: string },
+  json: { glossary: { [key: string]: string }; linkedGlossaries: string[] },
 ) => client.put(`novel/${providerId}/${novelId}/glossary`, { json });
+
+const getGlossary = (providerId: string, novelId: string) =>
+  client.get(`novel/${providerId}/${novelId}/glossary`).json<{ [key: string]: string }>();
 
 // Translate
 const createTranslationApi = (
@@ -248,6 +251,7 @@ export const WebNovelApi = {
   updateNovelTranslation,
   updateNovelWenkuId,
   updateGlossary,
+  getGlossary,
 
   createTranslationApi,
 
