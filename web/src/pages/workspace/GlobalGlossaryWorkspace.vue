@@ -297,9 +297,9 @@ const getRecordTags = (rec: GlobalGlossaryRecord) => {
   const tags: { type: 'success' | 'warning' | 'error'; label: string }[] = [];
   const items = Object.values(rec.diff);
 
-  const hasAdd = items.some((it) => it.old === null || it.old === '' || it.old.trim() === '');
-  const hasDel = items.some((it) => it.new === null || it.new === '');
-  const hasUpdate = items.some((it) => it.old !== null && it.old !== '' && it.old.trim() !== '' && it.new !== null && it.new !== '');
+  const hasAdd = items.some((it) => !it.old || it.old.trim() === '');
+  const hasDel = items.some((it) => !it.new || it.new.trim() === '');
+  const hasUpdate = items.some((it) => it.old && it.old.trim() !== '' && it.new && it.new.trim() !== '');
 
   if (hasAdd) tags.push({ type: 'success', label: '新增' });
   if (hasUpdate) tags.push({ type: 'warning', label: '修改' });
@@ -312,19 +312,19 @@ const getRecordTimelineType = (rec: GlobalGlossaryRecord) => {
   const items = Object.values(rec.diff);
   if (items.length === 0) return 'info';
 
-  const isAllAdd = items.every((it) => it.old === null || it.old === '' || it.old.trim() === '');
+  const isAllAdd = items.every((it) => !it.old || it.old.trim() === '');
   if (isAllAdd) return 'success';
 
-  const isAllDel = items.every((it) => it.new === null || it.new === '');
+  const isAllDel = items.every((it) => !it.new || it.new.trim() === '');
   if (isAllDel) return 'error';
 
   return 'warning';
 };
 
-const getDiffType = (oldVal: string | null, newVal: string | null) => {
-  if (oldVal === null || oldVal.trim() === '') {
+const getDiffType = (oldVal: string | null | undefined, newVal: string | null | undefined) => {
+  if (!oldVal || oldVal.trim() === '') {
     return 'add';
-  } else if (newVal === null || newVal === '') {
+  } else if (!newVal || newVal.trim() === '') {
     return 'delete';
   } else {
     return 'update';
