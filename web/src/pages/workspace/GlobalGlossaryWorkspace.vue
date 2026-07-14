@@ -222,7 +222,7 @@ const viewUsedNovels = async (uid: string, name: string) => {
                   whoamiStore.whoami.isAdmin
                     ? h(
                         NButton,
-                        { type: 'error', onClick: () => deleteGlossary(row.uid) },
+                        { type: 'error', ghost: true, onClick: () => deleteGlossary(row.uid) },
                         () => '删除'
                       )
                     : null,
