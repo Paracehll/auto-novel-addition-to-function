@@ -5,6 +5,7 @@ import { DeleteOutlineOutlined } from '@vicons/material';
 import { useWhoamiStore } from '@/stores';
 import { Glossary } from '@/model/Glossary';
 import { copyToClipBoard } from '@/pages/util';
+import { downloadFile } from '@/util';
 
 const glossary = defineModel<Glossary>({ required: true });
 
@@ -88,6 +89,15 @@ const exportGlossary = async (ev: MouseEvent) => {
     message.success('导出失败');
   }
 };
+
+const downloadGlossaryAsJson = () => {
+  downloadFile(
+    'glossary.json',
+    new Blob([Glossary.toJson(glossary.value)], {
+      type: 'text/plain',
+    }),
+  );
+};
 </script>
 
 <template>
@@ -131,6 +141,12 @@ const exportGlossary = async (ev: MouseEvent) => {
         :round="false"
         size="small"
         @action="importGlossary"
+      />
+      <c-button
+        label="下载JSON文件"
+        :round="false"
+        size="small"
+        @action="downloadGlossaryAsJson"
       />
       <c-button
         v-if="whoamiStore.whoami.isAdmin"

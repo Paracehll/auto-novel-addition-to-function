@@ -8,7 +8,6 @@ import { Glossary } from '@/model/Glossary';
 import type { GlobalGlossary } from '@/model/GlobalGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
-import { downloadFile } from '@/util';
 import OrderSort from '@/components/OrderSort.vue';
 
 const props = defineProps<{
@@ -79,10 +78,16 @@ const globalGlossariesOptions = computed(() => {
     const usedCount = (gg.used || []).length;
     const matchLabel = matchCount > 0 ? ` (匹配标签数: ${matchCount})` : '';
     return {
-      label: `${gg.name} (${gg.uid}) [${Object.keys(gg.content).length} 词条] [引用: ${usedCount}次]${matchLabel}`,
+      label: `${gg.name} [${Object.keys(gg.content).length} 词条] [引用: ${usedCount}次]${matchLabel}`,
       value: gg.uid,
     };
   });
+});
+
+const activeGlobalGlossaries = computed(() => {
+  return allGlobalGlossaries.value.filter((gg) =>
+    linkedGlossaries.value.includes(gg.uid),
+  );
 });
 
 // Fetch global glossaries and linked glossaries
@@ -106,9 +111,37 @@ const fetchData = async () => {
   }
 };
 
+const skippedKeys = ref<Set<string>>(new Set());
+
+const loadSkippedKeys = () => {
+  if (props.gnid) {
+    const key = `skipped-duplicates:${GenericNovelId.toString(props.gnid)}`;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      try {
+        skippedKeys.value = new Set(JSON.parse(stored));
+      } catch {
+        skippedKeys.value = new Set();
+      }
+    } else {
+      skippedKeys.value = new Set();
+    }
+  } else {
+    skippedKeys.value = new Set();
+  }
+};
+
+const saveSkippedKeys = () => {
+  if (props.gnid) {
+    const key = `skipped-duplicates:${GenericNovelId.toString(props.gnid)}`;
+    localStorage.setItem(key, JSON.stringify(Array.from(skippedKeys.value)));
+  }
+};
+
 const toggleGlossaryModal = async () => {
   if (showGlossaryModal.value === false) {
     glossary.value = { ...props.value };
+    loadSkippedKeys();
     await fetchData();
   }
   showGlossaryModal.value = !showGlossaryModal.value;
@@ -162,31 +195,6 @@ const submitGlossary = () =>
     message,
   );
 
-const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
-  const gnid = props.gnid;
-  try {
-    let mergedGlossary: Glossary = { ...glossary.value };
-    if (gnid !== undefined) {
-      if (gnid.type === 'web') {
-        mergedGlossary = await WebNovelApi.getGlossary(
-          gnid.providerId,
-          gnid.novelId,
-        );
-      } else if (gnid.type === 'wenku') {
-        mergedGlossary = await WenkuNovelApi.getGlossary(gnid.novelId);
-      }
-    }
-    downloadFile(
-      `${gnidHint.value ?? 'glossary'}.json`,
-      new Blob([Glossary.toJson(mergedGlossary)], {
-        type: 'text/plain',
-      }),
-    );
-  } catch (e: any) {
-    message.error(`下载合并术语表失败: ${e.message || e}`);
-  }
-};
-
 // Deduplication Logic
 const duplicates = computed(() => {
   const dupes: {
@@ -198,6 +206,9 @@ const duplicates = computed(() => {
 
   const localKeys = Object.keys(glossary.value);
   for (const k of localKeys) {
+    if (skippedKeys.value.has(k)) {
+      continue;
+    }
     for (const guid of linkedGlossaries.value) {
       const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
       if (gg && gg.content[k] !== undefined) {
@@ -214,8 +225,43 @@ const duplicates = computed(() => {
   return dupes;
 });
 
+const skippedDuplicates = computed(() => {
+  const dupes: {
+    key: string;
+    localVal: string;
+    globalVal: string;
+    globalName: string;
+  }[] = [];
+
+  for (const k of Array.from(skippedKeys.value)) {
+    if (glossary.value[k] !== undefined) {
+      for (const guid of linkedGlossaries.value) {
+        const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
+        if (gg && gg.content[k] !== undefined) {
+          dupes.push({
+            key: k,
+            localVal: glossary.value[k],
+            globalVal: gg.content[k],
+            globalName: gg.name,
+          });
+          break;
+        }
+      }
+    }
+  }
+  return dupes;
+});
+
 const keepLocal = (key: string) => {
-  message.info(`已保留独立词条: ${key}`);
+  skippedKeys.value.add(key);
+  saveSkippedKeys();
+  message.info(`已保留独立词条并且对去重跳过: ${key}`);
+};
+
+const revokeKeepLocal = (key: string) => {
+  skippedKeys.value.delete(key);
+  saveSkippedKeys();
+  message.info(`已撤销跳过: ${key}`);
 };
 
 const applyGlobal = (key: string) => {
@@ -255,7 +301,7 @@ const applyGlobal = (key: string) => {
         <!-- Collapsible Global Glossary Configuration and Deduplication section -->
         <template v-if="gnid && (gnid.type === 'web' || gnid.type === 'wenku')">
           <n-collapse style="margin: 4px 0">
-            <n-collapse-item title="配置全域术语表与去重" name="global-config">
+            <n-collapse-item title="全域术语表" name="global-config">
               <n-flex vertical size="medium">
                 <!-- <n-text style="font-size: 12px; font-weight: bold">链接全域术语表</n-text> -->
 
@@ -280,6 +326,41 @@ const applyGlobal = (key: string) => {
                   :options="globalGlossariesOptions"
                   size="small"
                 />
+
+                <!-- Active Linked Global Glossaries Content Tables -->
+                <template v-if="activeGlobalGlossaries.length > 0">
+                  <div
+                    v-for="gg in activeGlobalGlossaries"
+                    :key="gg.uid"
+                    style="
+                      margin-top: 12px;
+                      border: 1px solid var(--border-color);
+                      border-radius: 4px;
+                      padding: 8px;
+                    "
+                  >
+                    <n-text style="font-weight: bold; font-size: 12px; display: block; margin-bottom: 6px">
+                      {{ gg.name }} (共 {{ Object.keys(gg.content).length }} 个词条)
+                    </n-text>
+                    <n-scrollbar v-if="Object.keys(gg.content).length > 0" style="max-height: 150px">
+                      <n-table size="small" striped style="font-size: 12px">
+                        <thead>
+                          <tr>
+                            <th>原词</th>
+                            <th>翻译</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(zh, jp) in gg.content" :key="jp">
+                            <td style="font-weight: bold">{{ jp }}</td>
+                            <td>{{ zh }}</td>
+                          </tr>
+                        </tbody>
+                      </n-table>
+                    </n-scrollbar>
+                    <n-empty v-else description="暂无词条" style="padding: 8px" />
+                  </div>
+                </template>
 
                 <!-- Deduplication UI placed inside the same collapse panel -->
                 <template v-if="duplicates.length > 0">
@@ -349,21 +430,71 @@ const applyGlobal = (key: string) => {
                     </n-scrollbar>
                   </div>
                 </template>
+
+                <!-- Skipped Deduplication UI placed inside the same collapse panel -->
+                <template v-if="skippedDuplicates.length > 0">
+                  <div
+                    style="
+                      margin-top: 12px;
+                      border: 1px dashed var(--border-color);
+                      border-radius: 4px;
+                      padding: 8px;
+                    "
+                  >
+                    <n-text
+                      depth="3"
+                      style="
+                        font-weight: bold;
+                        font-size: 12px;
+                        display: block;
+                        margin-bottom: 6px;
+                      "
+                    >
+                      已跳过的去重词条 ({{ skippedDuplicates.length }}):
+                    </n-text>
+                    <n-scrollbar style="max-height: 150px">
+                      <n-table size="small" striped>
+                        <thead>
+                          <tr>
+                            <th>原词</th>
+                            <th>独立</th>
+                            <th>全域</th>
+                            <th>操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="dup in skippedDuplicates" :key="dup.key">
+                            <td style="font-weight: bold">{{ dup.key }}</td>
+                            <td>{{ dup.localVal }}</td>
+                            <td>
+                              {{ dup.globalVal }}
+                              <br />
+                              <span style="font-size: 10px; color: gray">
+                                ({{ dup.globalName }})
+                              </span>
+                            </td>
+                            <td>
+                              <n-button
+                                size="tiny"
+                                type="warning"
+                                secondary
+                                @click="revokeKeepLocal(dup.key)"
+                              >
+                                撤销跳过
+                              </n-button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </n-table>
+                    </n-scrollbar>
+                  </div>
+                </template>
               </n-flex>
             </n-collapse-item>
           </n-collapse>
         </template>
 
-        <independent-glossary-edit v-model="glossary" />
-
-        <n-flex align="center" :wrap="false" style="margin-top: 12px">
-          <c-button
-            label="下载json文件 (已合并)"
-            :round="false"
-            size="small"
-            @action="downloadGlossaryAsJsonFile"
-          />
-        </n-flex>
+        <indie-glossary-edit v-model="glossary" />
       </n-flex>
     </template>
 

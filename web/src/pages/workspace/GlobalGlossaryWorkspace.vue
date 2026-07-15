@@ -418,8 +418,8 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
         :extra-height="120"
       >
         <n-flex vertical size="large" style="margin-bottom: 24px; width: 80%">
-          <!-- IndependentGlossaryEdit component handles terms editing -->
-          <independent-glossary-edit v-model="formModel.content" />
+          <!-- IndieGlossaryEdit component handles terms editing -->
+          <indie-glossary-edit v-model="formModel.content" />
 
           <!-- Form Details Placed BELOW the Terms Content -->
           <n-form
