@@ -1,5 +1,9 @@
 <script lang="ts" setup>
-import { DeleteOutlineOutlined, HelpOutlineOutlined } from '@vicons/material';
+import {
+  FileDownloadOutlined,
+  ContentCopyOutlined,
+  DownloadOutlined,
+} from '@vicons/material';
 import { isEqual } from 'lodash-es';
 
 import { WebNovelApi, WenkuNovelApi } from '@/api';
@@ -11,6 +15,7 @@ import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import OrderSort from '@/components/OrderSort.vue';
 import { downloadFile } from '@/util';
+import naive from 'naive-ui';
 
 const props = defineProps<{
   gnid?: GenericNovelId;
@@ -211,7 +216,10 @@ const handleUpdateShow = async (value: boolean) => {
   if (value === false) {
     const hasChanges =
       !isEqual(toRaw(glossary.value), toRaw(originalGlossary.value)) ||
-      !isEqual(toRaw(linkedGlossaries.value), toRaw(originalLinkedGlossaries.value));
+      !isEqual(
+        toRaw(linkedGlossaries.value),
+        toRaw(originalLinkedGlossaries.value),
+      );
     if (hasChanges) {
       if (window.confirm('术语表有未保存的修改，是否保存？')) {
         await handleSaveConfirm();
@@ -353,7 +361,9 @@ const applyAllLocal = () => {
   }
   skippedKeys.value = new Set(skippedKeys.value);
   saveSkippedKeys();
-  message.success(`已全部保留独立词条并且对去重跳过: 共 ${currentDupes.length} 个`);
+  message.success(
+    `已全部保留独立词条并且对去重跳过: 共 ${currentDupes.length} 个`,
+  );
 };
 
 const applyAllGlobal = () => {
@@ -362,7 +372,9 @@ const applyAllGlobal = () => {
   for (const dup of currentDupes) {
     delete glossary.value[dup.key];
   }
-  message.success(`已全部应用全域词条 (删除了 ${currentDupes.length} 个独立项)`);
+  message.success(
+    `已全部应用全域词条 (删除了 ${currentDupes.length} 个独立项)`,
+  );
 };
 
 const downloadMergedJson = () => {
@@ -405,6 +417,8 @@ const exportMerged = async (ev?: MouseEvent) => {
 };
 
 const importGlobalToLocal = () => {
+  if (!window.confirm) return;
+
   let count = 0;
   for (const guid of linkedGlossaries.value) {
     const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
@@ -531,15 +545,19 @@ const importGlobalToLocal = () => {
                 <!-- Deduplication UI placed inside the same collapse panel -->
                 <template v-if="duplicates.length > 0">
                   <div style="margin-top: 12px">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <div
+                      style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 8px;
+                      "
+                    >
                       <n-text
                         type="warning"
-                        style="
-                          font-weight: bold;
-                          font-size: 12px;
-                        "
+                        style="font-weight: bold; font-size: 12px"
                       >
-                        去重警告: 发现 {{ duplicates.length }} 個與全域重複
+                        发现 {{ duplicates.length }} 個與全域重複
                       </n-text>
                       <n-space size="small">
                         <n-button
@@ -560,6 +578,18 @@ const importGlobalToLocal = () => {
                         </n-button>
                       </n-space>
                     </div>
+
+                    <n-table size="small" striped style="font-size: 12px">
+                      <thead>
+                        <tr>
+                          <th>原词</th>
+                          <th>独立</th>
+                          <th>全域</th>
+                          <th>使用</th>
+                        </tr>
+                      </thead>
+                    </n-table>
+
                     <n-scrollbar
                       style="
                         max-height: 200px;
@@ -567,15 +597,7 @@ const importGlobalToLocal = () => {
                         border-radius: 4px;
                       "
                     >
-                      <n-table class="dupes-table" size="small" striped style="font-size: 12px">
-                        <thead>
-                          <tr>
-                            <th>原词</th>
-                            <th>独立</th>
-                            <th>全域</th>
-                            <th>使用</th>
-                          </tr>
-                        </thead>
+                      <n-table size="small" striped style="font-size: 12px">
                         <tbody>
                           <tr v-for="dup in duplicates" :key="dup.key">
                             <td style="font-weight: bold">{{ dup.key }}</td>
@@ -614,6 +636,7 @@ const importGlobalToLocal = () => {
                   </div>
                 </template>
               </n-flex>
+              <n-divider />
             </n-collapse-item>
           </n-collapse>
         </template>
@@ -624,7 +647,8 @@ const importGlobalToLocal = () => {
         >
           <template #extra-edit-actions>
             <c-button
-              label="导入全域"
+              :icon="DownloadOutlined"
+              label="合併全域"
               :round="false"
               size="small"
               @action="importGlobalToLocal"
@@ -637,26 +661,19 @@ const importGlobalToLocal = () => {
     <template #action>
       <n-space justify="space-between" style="width: 100%">
         <n-space>
-          <c-button label="导出合并" @action="exportMerged" />
-          <c-button label="下载合并JSON" @action="downloadMergedJson()" />
+          <c-button
+            label="导出合并"
+            :icon="ContentCopyOutlined"
+            @action="exportMerged"
+          />
+          <c-button
+            label="合并JSON"
+            :icon="FileDownloadOutlined"
+            @action="downloadMergedJson()"
+          />
         </n-space>
         <c-button label="提交" type="primary" @action="submitGlossary()" />
       </n-space>
     </template>
   </c-modal>
 </template>
-
-<style scoped>
-.dupes-table :deep(thead th) {
-  position: sticky;
-  top: 0;
-  background-color: var(--card-color, #fff);
-  z-index: 10;
-  box-shadow: inset 0 -1px 0 var(--border-color);
-}
-
-.dupes-table :deep(th),
-.dupes-table :deep(td) {
-  padding: 4px 6px !important;
-}
-</style>

@@ -223,7 +223,7 @@ const revokeSkip = (jp: string) => {
           @action="importGlossary"
         />
         <c-button
-          label="下载JSON"
+          label="JSON"
           :icon="FileDownloadOutlined"
           :round="false"
           size="small"
