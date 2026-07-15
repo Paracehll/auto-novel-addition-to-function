@@ -28,6 +28,11 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         if (existing != null) {
             throw IllegalArgumentException("UID already exists")
         }
+        val diff = computeGlossaryDiff(emptyMap(), content)
+        val initialRecord = GlobalGlossaryRecord(
+            date = Clock.System.now(),
+            diff = diff
+        )
         val gg = GlobalGlossary(
             id = ObjectId(),
             uid = uid,
@@ -36,7 +41,7 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
             used = emptyList(),
             update = Clock.System.now(),
             tag = tag,
-            record = emptyList()
+            record = listOf(initialRecord)
         )
         collection.insertOne(gg)
         return gg

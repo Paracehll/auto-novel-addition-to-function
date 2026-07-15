@@ -13,7 +13,7 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
     private val repo by inject<GlobalGlossaryRepository>()
 
     init {
-        describe("全域术语表 Global Glossary 测试") {
+        describe("GlobalGlossary") {
             it("完整 CUID 與版本/Diff/Used 更新驗證") {
                 val uid = "test-uid-123"
                 val name = "测试术语表"
@@ -29,7 +29,12 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 created.name shouldBe name
                 created.content shouldBe content
                 created.tag shouldBe tag
-                created.record.size shouldBe 0
+                created.record.size shouldBe 1
+                val initialRecord = created.record[0]
+                initialRecord.diff["りんご"]?.old shouldBe null
+                initialRecord.diff["りんご"]?.new shouldBe "苹果"
+                initialRecord.diff["ばなな"]?.old shouldBe null
+                initialRecord.diff["ばなな"]?.new shouldBe "香蕉"
 
                 // 2. Read (Get)
                 val fetched = repo.getByUid(uid)
@@ -42,8 +47,8 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 val newTag = listOf("abc", "123")
                 val updated = repo.update(uid, name, newContent, newTag)
                 updated.tag shouldBe newTag
-                updated.record.size shouldBe 1
-                val record = updated.record[0]
+                updated.record.size shouldBe 2
+                val record = updated.record[1]
                 record.diff["りんご"]?.old shouldBe "苹果"
                 record.diff["りんご"]?.new shouldBe "林檎"
                 record.diff["ばなな"]?.old shouldBe "香蕉"
