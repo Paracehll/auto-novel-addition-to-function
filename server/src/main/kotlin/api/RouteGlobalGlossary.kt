@@ -53,21 +53,23 @@ data class GlobalGlossaryDto(
     val uid: String,
     val name: String,
     val content: Map<String, String>,
+    val termsCount: Int,
     val used: List<String>,
     val update: Long,
     val tag: List<String>,
     val record: List<GlobalGlossaryRecordDto>,
 )
 
-fun GlobalGlossary.asDto() = GlobalGlossaryDto(
+fun GlobalGlossary.asDto(excludeDetails: Boolean = false) = GlobalGlossaryDto(
     id = id.toHexString(),
     uid = uid,
     name = name,
-    content = content,
+    content = if (excludeDetails) emptyMap() else content,
+    termsCount = if (termsCount > 0) termsCount else content.size,
     used = used,
     update = update.epochSeconds,
     tag = tag,
-    record = record.map {
+    record = if (excludeDetails) emptyList() else record.map {
         GlobalGlossaryRecordDto(
             date = it.date.epochSeconds,
             diff = it.diff,
@@ -129,7 +131,7 @@ class GlobalGlossaryApi(
     private val repo: GlobalGlossaryRepository,
 ) {
     suspend fun list(): List<GlobalGlossaryDto> {
-        return repo.list().map { it.asDto() }
+        return repo.list().map { it.asDto(excludeDetails = true) }
     }
 
     suspend fun get(uid: String): GlobalGlossaryDto {

@@ -15,6 +15,7 @@ export interface GlobalGlossary {
   uid: string;
   name: string;
   content: Glossary;
+  termsCount?: number;
   used: string[];
   update: number;
   tag: string[];
