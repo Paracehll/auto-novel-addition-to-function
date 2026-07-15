@@ -23,6 +23,7 @@ import type {
 import { useWhoamiStore } from '@/stores';
 import { doAction, copyToClipBoard } from '../util';
 import { Glossary } from '@/model/Glossary';
+import { isEqual } from 'lodash-es';
 
 const message = useMessage();
 const whoamiStore = useWhoamiStore();
@@ -56,6 +57,8 @@ const formModel = ref({
   tagRaw: '',
 });
 
+const originalFormModel = ref<any>(null);
+
 const openCreateModal = () => {
   isEditing.value = false;
   formModel.value = {
@@ -64,6 +67,7 @@ const openCreateModal = () => {
     content: {},
     tagRaw: '',
   };
+  originalFormModel.value = JSON.parse(JSON.stringify(formModel.value));
   showEditModal.value = true;
 };
 
@@ -75,7 +79,25 @@ const openEditModal = (gg: GlobalGlossary) => {
     content: { ...gg.content },
     tagRaw: (gg.tag || []).join(', '),
   };
+  originalFormModel.value = JSON.parse(JSON.stringify(formModel.value));
   showEditModal.value = true;
+};
+
+const handleUpdateShow = async (value: boolean) => {
+  if (value === false) {
+    const hasChanges = !isEqual(toRaw(formModel.value), originalFormModel.value);
+    if (hasChanges) {
+      if (window.confirm('术语表有未保存的修改，是否保存？')) {
+        await saveGlossary();
+      } else {
+        showEditModal.value = false;
+      }
+    } else {
+      showEditModal.value = false;
+    }
+  } else {
+    showEditModal.value = true;
+  }
 };
 
 const saveGlossary = () => {
@@ -96,7 +118,7 @@ const saveGlossary = () => {
         tag,
       });
 
-  doAction(
+  return doAction(
     action.then(() => {
       showEditModal.value = false;
       loadGlossaries();
@@ -413,7 +435,8 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
       <!-- Edit Modal (With rich inline terminology editing like GlossaryButton.vue) -->
       <c-modal
         :title="isEditing ? '编辑全域术语表' : '新建全域术语表'"
-        v-model:show="showEditModal"
+        :show="showEditModal"
+        @update:show="handleUpdateShow"
         :max-height-percentage="85"
         :extra-height="120"
       >

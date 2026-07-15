@@ -1,7 +1,14 @@
 <script lang="ts" setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useMessage } from 'naive-ui';
-import { DeleteOutlineOutlined, RefreshOutlined } from '@vicons/material';
+import {
+  DeleteOutlineOutlined,
+  RefreshOutlined,
+  ContentCopyOutlined,
+  DownloadOutlined,
+  ContentPasteOutlined,
+  FileDownloadOutlined,
+} from '@vicons/material';
 import { useWhoamiStore } from '@/stores';
 import { Glossary } from '@/model/Glossary';
 import { copyToClipBoard } from '@/pages/util';
@@ -85,10 +92,10 @@ const importGlossary = () => {
   }
 };
 
-const exportGlossary = async (ev: MouseEvent) => {
+const exportGlossary = async (ev?: MouseEvent) => {
   const isSuccess = await copyToClipBoard(
     Glossary.toText(glossary.value),
-    ev.target as HTMLElement,
+    ev?.target as HTMLElement,
   );
   if (isSuccess) {
     message.success('导出成功：已复制到剪贴板');
@@ -105,6 +112,76 @@ const downloadGlossaryAsJson = () => {
     }),
   );
 };
+
+const importGlossaryFromClipboard = async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    let isValid = false;
+    try {
+      JSON.parse(text);
+      isValid = true;
+    } catch {
+      // If not JSON, check if it's the valid human-readable glossary format
+      const imported = Glossary.fromText(text);
+      if (imported !== undefined) {
+        isValid = true;
+      }
+    }
+
+    if (!isValid) {
+      message.error('检测到剪贴簿内容不是 JSON 格式');
+      return;
+    }
+
+    importGlossaryRaw.value = text;
+    message.success('从剪贴簿导入成功');
+  } catch (err: any) {
+    message.error('无法读取剪贴簿: ' + (err?.message ?? err));
+  }
+};
+
+const isEditable = (el: Element | null): boolean => {
+  if (!el) return false;
+  const tagName = el.tagName.toUpperCase();
+  if (tagName === 'INPUT' || tagName === 'TEXTAREA') {
+    return true;
+  }
+  if (
+    el.hasAttribute('contenteditable') &&
+    el.getAttribute('contenteditable') !== 'false'
+  ) {
+    return true;
+  }
+  return false;
+};
+
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (isEditable(document.activeElement)) {
+    return;
+  }
+  // 如果选取了文本（例如，在表格中选取的文字），不触发全局的复制（Ctrl+C/V）快捷键
+  if (window.getSelection()?.toString()) {
+    return;
+  }
+  const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+  if (isCtrlOrCmd) {
+    if (e.key === 'c' || e.key === 'C') {
+      e.preventDefault();
+      exportGlossary();
+    } else if (e.key === 'v' || e.key === 'V') {
+      e.preventDefault();
+      importGlossaryFromClipboard();
+    }
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
+});
 
 const revokeSkip = (jp: string) => {
   skippedKeys.value.delete(jp);
@@ -136,35 +213,54 @@ const revokeSkip = (jp: string) => {
       :rows="1"
     />
 
-    <n-flex align="center" :wrap="false">
-      <c-button
-        label="导出"
-        :round="false"
-        size="small"
-        @action="exportGlossary"
-      />
-      <c-button
-        label="导入"
-        :round="false"
-        size="small"
-        @action="importGlossary"
-      />
-      <c-button
-        label="下载JSON文件"
-        :round="false"
-        size="small"
-        @action="downloadGlossaryAsJson"
-      />
-      <c-button
-        v-if="whoamiStore.whoami.isAdmin"
-        secondary
-        type="error"
-        label="清空"
-        :round="false"
-        size="small"
-        @action="clearTerm"
-      />
-    </n-flex>
+    <c-action-wrapper align="center" title="编辑区">
+      <n-flex align="center" :wrap="false">
+        <c-button
+          label="导入"
+          :icon="DownloadOutlined"
+          :round="false"
+          size="small"
+          @action="importGlossary"
+        />
+        <c-button
+          label="下载JSON"
+          :icon="FileDownloadOutlined"
+          :round="false"
+          size="small"
+          @action="downloadGlossaryAsJson"
+        />
+        <c-button
+          v-if="whoamiStore.whoami.isAdmin"
+          secondary
+          type="error"
+          label="清空"
+          :icon="DeleteOutlineOutlined"
+          :round="false"
+          size="small"
+          @action="clearTerm"
+        />
+      </n-flex>
+    </c-action-wrapper>
+
+    <c-action-wrapper align="center" title="剪贴簿">
+      <n-flex align="center" :wrap="false">
+        <c-button
+          label="导出"
+          :icon="ContentCopyOutlined"
+          :round="false"
+          size="small"
+          @action="exportGlossary"
+        />
+        <c-button
+          class="clipboard-import-btn"
+          label="剪贴"
+          :icon="ContentPasteOutlined"
+          :round="false"
+          size="small"
+          @action="importGlossaryFromClipboard"
+        />
+      </n-flex>
+    </c-action-wrapper>
 
     <n-flex align="center" :wrap="false">
       <c-button
