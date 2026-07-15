@@ -127,13 +127,16 @@ const skippedKeys = ref<Set<string>>(new Set());
 const getGnidStorageKeys = () => {
   const gnid = props.gnid;
   if (!gnid) return null;
-  const source = gnid.type;
+  let source = '';
   let id = '';
   if (gnid.type === 'web') {
-    id = `${gnid.providerId}/${gnid.novelId}`;
+    source = gnid.providerId;
+    id = gnid.novelId;
   } else if (gnid.type === 'wenku') {
+    source = 'wenku';
     id = gnid.novelId;
   } else {
+    source = 'local';
     id = gnid.volumeId;
   }
   return { source, id };
