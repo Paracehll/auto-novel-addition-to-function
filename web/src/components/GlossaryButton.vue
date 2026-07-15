@@ -91,7 +91,9 @@ const activeGlobalGlossaries = computed(() => {
 });
 
 const expandedActiveGlossaries = ref<string[]>([]);
-const handleExpandedNamesChange = (names: string | number | (string | number)[]) => {
+const handleExpandedNamesChange = (
+  names: string | number | (string | number)[],
+) => {
   if (Array.isArray(names)) {
     expandedActiveGlossaries.value = names.map(String);
   } else if (names !== null && names !== undefined) {
@@ -274,9 +276,13 @@ const duplicates = computed(() => {
   return dupes;
 });
 
-watch(skippedKeys, () => {
-  saveSkippedKeys();
-}, { deep: true });
+watch(
+  skippedKeys,
+  () => {
+    saveSkippedKeys();
+  },
+  { deep: true },
+);
 
 const keepLocal = (key: string) => {
   skippedKeys.value.add(key);
@@ -350,49 +356,59 @@ const applyGlobal = (key: string) => {
 
                 <!-- Active Linked Global Glossaries Content Tables -->
                 <template v-if="activeGlobalGlossaries.length > 0">
-                  <div style="margin-top: 12px">
-                    <n-collapse @update:expanded-names="handleExpandedNamesChange">
-                      <n-collapse-item
-                        v-for="gg in activeGlobalGlossaries"
-                        :key="gg.uid"
-                        :title="`${gg.name} (共 ${Object.keys(gg.content).length} 个词条)`"
-                        :name="gg.uid"
-                        style="
-                          border: 1px solid var(--border-color);
-                          border-radius: 4px;
-                          padding: 8px;
-                          margin-bottom: 8px;
-                        "
+                  <n-collapse
+                    @update:expanded-names="handleExpandedNamesChange"
+                  >
+                    <n-collapse-item
+                      v-for="gg in activeGlobalGlossaries"
+                      :key="gg.uid"
+                      :title="`${gg.name} (共 ${Object.keys(gg.content).length} 个词条)`"
+                      :name="gg.uid"
+                      style="
+                        border: 1px solid var(--border-color);
+                        border-radius: 4px;
+                        padding: 8px;
+                        margin-left: 8px;
+                        /* margin-bottom: 8px; */
+                      "
+                    >
+                      <template
+                        v-if="expandedActiveGlossaries.includes(gg.uid)"
                       >
-                        <template v-if="expandedActiveGlossaries.includes(gg.uid)">
-                          <n-scrollbar v-if="Object.keys(gg.content).length > 0" style="max-height: 150px; margin-top: 8px">
-                            <n-table size="small" striped style="font-size: 12px">
-                              <thead>
-                                <tr>
-                                  <th>原词</th>
-                                  <th>翻译</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr v-for="(zh, jp) in gg.content" :key="jp">
-                                  <td style="font-weight: bold">{{ jp }}</td>
-                                  <td>{{ zh }}</td>
-                                </tr>
-                              </tbody>
-                            </n-table>
-                          </n-scrollbar>
-                          <n-empty v-else description="暂无词条" style="padding: 8px" />
-                        </template>
-                      </n-collapse-item>
-                    </n-collapse>
-                  </div>
+                        <n-scrollbar
+                          v-if="Object.keys(gg.content).length > 0"
+                          style="max-height: 150px"
+                        >
+                          <n-table size="small" striped style="font-size: 12px">
+                            <thead>
+                              <tr>
+                                <th>原词</th>
+                                <th>翻译</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr v-for="(zh, jp) in gg.content" :key="jp">
+                                <td style="font-weight: bold">{{ jp }}</td>
+                                <td>{{ zh }}</td>
+                              </tr>
+                            </tbody>
+                          </n-table>
+                        </n-scrollbar>
+                        <n-empty
+                          v-else
+                          description="暂无词条"
+                          style="padding: 8px"
+                        />
+                      </template>
+                    </n-collapse-item>
+                  </n-collapse>
                 </template>
 
                 <!-- Deduplication UI placed inside the same collapse panel -->
                 <template v-if="duplicates.length > 0">
                   <div
                     style="
-                      margin-top: 12px;
+                      margin-top: 6px;
                       border: 1px solid var(--border-color);
                       border-radius: 4px;
                       padding: 8px;
@@ -404,7 +420,7 @@ const applyGlobal = (key: string) => {
                         font-weight: bold;
                         font-size: 12px;
                         display: block;
-                        margin-bottom: 6px;
+                        /* margin-bottom: 6px; */
                       "
                     >
                       去重警告: 发现 {{ duplicates.length }} 個與全域重複的詞條
@@ -456,13 +472,15 @@ const applyGlobal = (key: string) => {
                     </n-scrollbar>
                   </div>
                 </template>
-
               </n-flex>
             </n-collapse-item>
           </n-collapse>
         </template>
 
-        <indie-glossary-edit v-model="glossary" v-model:skippedKeys="skippedKeys" />
+        <indie-glossary-edit
+          v-model="glossary"
+          v-model:skippedKeys="skippedKeys"
+        />
       </n-flex>
     </template>
 

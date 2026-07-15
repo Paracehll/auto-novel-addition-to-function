@@ -8,7 +8,9 @@ import { copyToClipBoard } from '@/pages/util';
 import { downloadFile } from '@/util';
 
 const glossary = defineModel<Glossary>({ required: true });
-const skippedKeys = defineModel<Set<string>>('skippedKeys', { default: () => new Set() });
+const skippedKeys = defineModel<Set<string>>('skippedKeys', {
+  default: () => new Set(),
+});
 
 const message = useMessage();
 const whoamiStore = useWhoamiStore();
@@ -28,9 +30,13 @@ const limit = ref(50);
 const displayedKeys = computed(() => jpKeys.value.slice(0, limit.value));
 
 // Reset limit when glossary changes
-watch(() => glossary.value, () => {
-  limit.value = 50;
-}, { deep: false });
+watch(
+  () => glossary.value,
+  () => {
+    limit.value = 50;
+  },
+  { deep: false },
+);
 
 const handleScroll = (e: Event) => {
   const target = e.target as HTMLElement;
@@ -118,12 +124,7 @@ const revokeSkip = (jp: string) => {
         :placeholder="['日文', '中文']"
         :input-props="{ spellcheck: false }"
       />
-      <c-button
-        label="添加"
-        :round="false"
-        size="small"
-        @action="addTerm"
-      />
+      <c-button label="添加" :round="false" size="small" @action="addTerm" />
     </n-input-group>
 
     <n-input
@@ -185,7 +186,12 @@ const revokeSkip = (jp: string) => {
     <!-- Interactive Terms List Table with Dynamic Loading -->
     <n-scrollbar
       @scroll="handleScroll"
-      style="max-height: 250px; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px"
+      style="
+        max-height: 250px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 4px;
+      "
     >
       <n-table
         v-if="jpKeys.length !== 0"
@@ -206,40 +212,46 @@ const revokeSkip = (jp: string) => {
           <td>{{ wordJp }}</td>
           <td nowrap="nowrap">=></td>
           <td style="padding-right: 16px">
-            <n-input
-              v-model:value="glossary[wordJp]"
-              size="tiny"
-              placeholder="请输入中文翻译"
-              :theme-overrides="{
-                border: '0',
-                color: 'transparent',
-              }"
-            >
-              <template #suffix v-if="skippedKeys.has(wordJp)">
-                <n-tooltip trigger="hover">
-                  <template #trigger>
-                    <n-button
-                      size="tiny"
-                      quaternary
-                      circle
-                      style="padding: 0; width: 18px; height: 18px"
-                      @click="revokeSkip(wordJp)"
-                    >
-                      <template #icon>
-                        <n-icon :component="RefreshOutlined" />
-                      </template>
-                    </n-button>
-                  </template>
-                  撤销去重跳过
-                </n-tooltip>
-              </template>
-            </n-input>
+            <div style="display: flex; align-items: center; gap: 4px">
+              <n-input
+                v-model:value="glossary[wordJp]"
+                size="tiny"
+                placeholder="请输入中文翻译"
+                :theme-overrides="{
+                  border: '0',
+                  color: 'transparent',
+                }"
+              />
+              <n-tooltip trigger="hover" v-if="skippedKeys.has(wordJp)">
+                <template #trigger>
+                  <n-button
+                    size="tiny"
+                    quaternary
+                    circle
+                    style="padding: 0; width: 18px; height: 18px"
+                    @click="revokeSkip(wordJp)"
+                  >
+                    <template #icon>
+                      <n-icon :component="RefreshOutlined" />
+                    </template>
+                  </n-button>
+                </template>
+                撤销去重跳过
+              </n-tooltip>
+            </div>
           </td>
         </tr>
       </n-table>
-      <n-empty v-else description="暂无术语词条，请添加" style="padding: 16px" />
+      <n-empty
+        v-else
+        description="暂无术语词条，请添加"
+        style="padding: 16px"
+      />
 
-      <div v-if="limit < jpKeys.length" style="text-align: center; padding: 8px">
+      <div
+        v-if="limit < jpKeys.length"
+        style="text-align: center; padding: 8px"
+      >
         <n-button size="tiny" text @click="limit += 100">
           加载更多 (已显示 {{ limit }} / 共 {{ jpKeys.length }})
         </n-button>
