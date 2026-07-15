@@ -18,7 +18,7 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
 
     suspend fun list(): List<GlobalGlossary> {
         return collection.find()
-            .projection(exclude(GlobalGlossary::content.field(), GlobalGlossary::record.field()))
+            .projection(exclude(GlobalGlossary::record.field()))
             .toList()
     }
 
