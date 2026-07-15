@@ -77,9 +77,9 @@ const globalGlossariesOptions = computed(() => {
   return sorted.map((gg) => {
     const matchCount = getMatchCount(gg);
     const usedCount = (gg.used || []).length;
-    const matchLabel = matchCount > 0 ? ` (匹配标签数: ${matchCount})` : '';
+    const matchLabel = matchCount > 0 ? ` (匹配标签: ${matchCount})` : '';
     return {
-      label: `${gg.name} [${Object.keys(gg.content).length} 词条] [引用: ${usedCount}次]${matchLabel}`,
+      label: `${gg.name} [ ${Object.keys(gg.content).length} ] [引用: ${usedCount}次]${matchLabel}`,
       value: gg.uid,
     };
   });
@@ -368,7 +368,7 @@ const downloadMergedJson = () => {
                   v-model:value="linkedGlossaries"
                   multiple
                   filterable
-                  placeholder="引用全域术语表 (可输入名称检索)"
+                  placeholder="引用全域术语表 (输入名称检索)"
                   :options="globalGlossariesOptions"
                   size="small"
                 />
@@ -435,7 +435,7 @@ const downloadMergedJson = () => {
                         margin-bottom: 6px;
                       "
                     >
-                      去重警告: 发现 {{ duplicates.length }} 個與全域重複的詞條
+                      去重警告: 发现 {{ duplicates.length }} 個與全域重複
                     </n-text>
                     <n-scrollbar
                       style="
