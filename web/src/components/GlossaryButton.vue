@@ -90,6 +90,17 @@ const activeGlobalGlossaries = computed(() => {
   );
 });
 
+const expandedActiveGlossaries = ref<string[]>([]);
+const handleExpandedNamesChange = (names: string | number | (string | number)[]) => {
+  if (Array.isArray(names)) {
+    expandedActiveGlossaries.value = names.map(String);
+  } else if (names !== null && names !== undefined) {
+    expandedActiveGlossaries.value = [String(names)];
+  } else {
+    expandedActiveGlossaries.value = [];
+  }
+};
+
 // Fetch global glossaries and linked glossaries
 const fetchData = async () => {
   try {
@@ -113,29 +124,64 @@ const fetchData = async () => {
 
 const skippedKeys = ref<Set<string>>(new Set());
 
-const loadSkippedKeys = () => {
-  if (props.gnid) {
-    const key = `skipped-duplicates:${GenericNovelId.toString(props.gnid)}`;
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      try {
-        skippedKeys.value = new Set(JSON.parse(stored));
-      } catch {
-        skippedKeys.value = new Set();
-      }
-    } else {
-      skippedKeys.value = new Set();
-    }
+const getGnidStorageKeys = () => {
+  const gnid = props.gnid;
+  if (!gnid) return null;
+  const source = gnid.type;
+  let id = '';
+  if (gnid.type === 'web') {
+    id = `${gnid.providerId}/${gnid.novelId}`;
+  } else if (gnid.type === 'wenku') {
+    id = gnid.novelId;
   } else {
-    skippedKeys.value = new Set();
+    id = gnid.volumeId;
   }
+  return { source, id };
+};
+
+const loadSkippedKeys = () => {
+  const keys = getGnidStorageKeys();
+  if (!keys) {
+    skippedKeys.value = new Set();
+    return;
+  }
+  const { source, id } = keys;
+  const stored = localStorage.getItem('skipped-duplicates');
+  if (stored) {
+    try {
+      const data = JSON.parse(stored);
+      if (data && data[source] && data[source][id]) {
+        skippedKeys.value = new Set(data[source][id]);
+        return;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  skippedKeys.value = new Set();
 };
 
 const saveSkippedKeys = () => {
-  if (props.gnid) {
-    const key = `skipped-duplicates:${GenericNovelId.toString(props.gnid)}`;
-    localStorage.setItem(key, JSON.stringify(Array.from(skippedKeys.value)));
+  const keys = getGnidStorageKeys();
+  if (!keys) return;
+  const { source, id } = keys;
+  const stored = localStorage.getItem('skipped-duplicates');
+  let data: any = {};
+  if (stored) {
+    try {
+      data = JSON.parse(stored);
+      if (typeof data !== 'object' || data === null) {
+        data = {};
+      }
+    } catch {
+      data = {};
+    }
   }
+  if (!data[source]) {
+    data[source] = {};
+  }
+  data[source][id] = Array.from(skippedKeys.value);
+  localStorage.setItem('skipped-duplicates', JSON.stringify(data));
 };
 
 const toggleGlossaryModal = async () => {
@@ -329,36 +375,41 @@ const applyGlobal = (key: string) => {
 
                 <!-- Active Linked Global Glossaries Content Tables -->
                 <template v-if="activeGlobalGlossaries.length > 0">
-                  <div
-                    v-for="gg in activeGlobalGlossaries"
-                    :key="gg.uid"
-                    style="
-                      margin-top: 12px;
-                      border: 1px solid var(--border-color);
-                      border-radius: 4px;
-                      padding: 8px;
-                    "
-                  >
-                    <n-text style="font-weight: bold; font-size: 12px; display: block; margin-bottom: 6px">
-                      {{ gg.name }} (共 {{ Object.keys(gg.content).length }} 个词条)
-                    </n-text>
-                    <n-scrollbar v-if="Object.keys(gg.content).length > 0" style="max-height: 150px">
-                      <n-table size="small" striped style="font-size: 12px">
-                        <thead>
-                          <tr>
-                            <th>原词</th>
-                            <th>翻译</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr v-for="(zh, jp) in gg.content" :key="jp">
-                            <td style="font-weight: bold">{{ jp }}</td>
-                            <td>{{ zh }}</td>
-                          </tr>
-                        </tbody>
-                      </n-table>
-                    </n-scrollbar>
-                    <n-empty v-else description="暂无词条" style="padding: 8px" />
+                  <div style="margin-top: 12px">
+                    <n-collapse @update:expanded-names="handleExpandedNamesChange">
+                      <n-collapse-item
+                        v-for="gg in activeGlobalGlossaries"
+                        :key="gg.uid"
+                        :title="`${gg.name} (共 ${Object.keys(gg.content).length} 个词条)`"
+                        :name="gg.uid"
+                        style="
+                          border: 1px solid var(--border-color);
+                          border-radius: 4px;
+                          padding: 8px;
+                          margin-bottom: 8px;
+                        "
+                      >
+                        <template v-if="expandedActiveGlossaries.includes(gg.uid)">
+                          <n-scrollbar v-if="Object.keys(gg.content).length > 0" style="max-height: 150px; margin-top: 8px">
+                            <n-table size="small" striped style="font-size: 12px">
+                              <thead>
+                                <tr>
+                                  <th>原词</th>
+                                  <th>翻译</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr v-for="(zh, jp) in gg.content" :key="jp">
+                                  <td style="font-weight: bold">{{ jp }}</td>
+                                  <td>{{ zh }}</td>
+                                </tr>
+                              </tbody>
+                            </n-table>
+                          </n-scrollbar>
+                          <n-empty v-else description="暂无词条" style="padding: 8px" />
+                        </template>
+                      </n-collapse-item>
+                    </n-collapse>
                   </div>
                 </template>
 
