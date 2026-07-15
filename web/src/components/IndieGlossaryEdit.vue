@@ -1,13 +1,14 @@
 <script lang="ts" setup>
 import { ref, computed, watch } from 'vue';
 import { useMessage } from 'naive-ui';
-import { DeleteOutlineOutlined } from '@vicons/material';
+import { DeleteOutlineOutlined, RefreshOutlined } from '@vicons/material';
 import { useWhoamiStore } from '@/stores';
 import { Glossary } from '@/model/Glossary';
 import { copyToClipBoard } from '@/pages/util';
 import { downloadFile } from '@/util';
 
 const glossary = defineModel<Glossary>({ required: true });
+const skippedKeys = defineModel<Set<string>>('skippedKeys', { default: () => new Set() });
 
 const message = useMessage();
 const whoamiStore = useWhoamiStore();
@@ -97,6 +98,11 @@ const downloadGlossaryAsJson = () => {
       type: 'text/plain',
     }),
   );
+};
+
+const revokeSkip = (jp: string) => {
+  skippedKeys.value.delete(jp);
+  skippedKeys.value = new Set(skippedKeys.value);
 };
 </script>
 
@@ -208,7 +214,26 @@ const downloadGlossaryAsJson = () => {
                 border: '0',
                 color: 'transparent',
               }"
-            />
+            >
+              <template #suffix v-if="skippedKeys.has(wordJp)">
+                <n-tooltip trigger="hover">
+                  <template #trigger>
+                    <n-button
+                      size="tiny"
+                      quaternary
+                      circle
+                      style="padding: 0; width: 18px; height: 18px"
+                      @click="revokeSkip(wordJp)"
+                    >
+                      <template #icon>
+                        <n-icon :component="RefreshOutlined" />
+                      </template>
+                    </n-button>
+                  </template>
+                  撤销去重跳过
+                </n-tooltip>
+              </template>
+            </n-input>
           </td>
         </tr>
       </n-table>

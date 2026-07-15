@@ -274,43 +274,15 @@ const duplicates = computed(() => {
   return dupes;
 });
 
-const skippedDuplicates = computed(() => {
-  const dupes: {
-    key: string;
-    localVal: string;
-    globalVal: string;
-    globalName: string;
-  }[] = [];
-
-  for (const k of Array.from(skippedKeys.value)) {
-    if (glossary.value[k] !== undefined) {
-      for (const guid of linkedGlossaries.value) {
-        const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
-        if (gg && gg.content[k] !== undefined) {
-          dupes.push({
-            key: k,
-            localVal: glossary.value[k],
-            globalVal: gg.content[k],
-            globalName: gg.name,
-          });
-          break;
-        }
-      }
-    }
-  }
-  return dupes;
-});
+watch(skippedKeys, () => {
+  saveSkippedKeys();
+}, { deep: true });
 
 const keepLocal = (key: string) => {
   skippedKeys.value.add(key);
+  skippedKeys.value = new Set(skippedKeys.value);
   saveSkippedKeys();
   message.info(`已保留独立词条并且对去重跳过: ${key}`);
-};
-
-const revokeKeepLocal = (key: string) => {
-  skippedKeys.value.delete(key);
-  saveSkippedKeys();
-  message.info(`已撤销跳过: ${key}`);
 };
 
 const applyGlobal = (key: string) => {
@@ -485,70 +457,12 @@ const applyGlobal = (key: string) => {
                   </div>
                 </template>
 
-                <!-- Skipped Deduplication UI placed inside the same collapse panel -->
-                <template v-if="skippedDuplicates.length > 0">
-                  <div
-                    style="
-                      margin-top: 12px;
-                      border: 1px dashed var(--border-color);
-                      border-radius: 4px;
-                      padding: 8px;
-                    "
-                  >
-                    <n-text
-                      depth="3"
-                      style="
-                        font-weight: bold;
-                        font-size: 12px;
-                        display: block;
-                        margin-bottom: 6px;
-                      "
-                    >
-                      已跳过的去重词条 ({{ skippedDuplicates.length }}):
-                    </n-text>
-                    <n-scrollbar style="max-height: 150px">
-                      <n-table size="small" striped>
-                        <thead>
-                          <tr>
-                            <th>原词</th>
-                            <th>独立</th>
-                            <th>全域</th>
-                            <th>操作</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr v-for="dup in skippedDuplicates" :key="dup.key">
-                            <td style="font-weight: bold">{{ dup.key }}</td>
-                            <td>{{ dup.localVal }}</td>
-                            <td>
-                              {{ dup.globalVal }}
-                              <br />
-                              <span style="font-size: 10px; color: gray">
-                                ({{ dup.globalName }})
-                              </span>
-                            </td>
-                            <td>
-                              <n-button
-                                size="tiny"
-                                type="warning"
-                                secondary
-                                @click="revokeKeepLocal(dup.key)"
-                              >
-                                撤销跳过
-                              </n-button>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </n-table>
-                    </n-scrollbar>
-                  </div>
-                </template>
               </n-flex>
             </n-collapse-item>
           </n-collapse>
         </template>
 
-        <indie-glossary-edit v-model="glossary" />
+        <indie-glossary-edit v-model="glossary" v-model:skippedKeys="skippedKeys" />
       </n-flex>
     </template>
 
