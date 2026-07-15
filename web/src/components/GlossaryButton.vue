@@ -362,6 +362,27 @@ const downloadMergedJson = () => {
     }),
   );
 };
+
+const exportMerged = async (ev?: MouseEvent) => {
+  const merged: Glossary = {};
+  for (const guid of linkedGlossaries.value) {
+    const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
+    if (gg) {
+      Object.assign(merged, gg.content);
+    }
+  }
+  Object.assign(merged, glossary.value);
+
+  const isSuccess = await copyToClipBoard(
+    Glossary.toText(merged),
+    ev?.target as HTMLElement,
+  );
+  if (isSuccess) {
+    message.success('导出合并成功：已复制到剪贴板');
+  } else {
+    message.success('导出合并失败');
+  }
+};
 </script>
 
 <template>
@@ -554,7 +575,10 @@ const downloadMergedJson = () => {
 
     <template #action>
       <n-space justify="space-between" style="width: 100%">
-        <c-button label="下载合并JSON" @action="downloadMergedJson()" />
+        <n-space>
+          <c-button label="导出合并" @action="exportMerged" />
+          <c-button label="下载合并JSON" @action="downloadMergedJson()" />
+        </n-space>
         <c-button label="提交" type="primary" @action="submitGlossary()" />
       </n-space>
     </template>
