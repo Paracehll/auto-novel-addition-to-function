@@ -9,6 +9,7 @@ import type { GlobalGlossary } from '@/model/GlobalGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import OrderSort from '@/components/OrderSort.vue';
+import { downloadFile } from '@/util';
 
 const props = defineProps<{
   gnid?: GenericNovelId;
@@ -295,6 +296,24 @@ const applyGlobal = (key: string) => {
   delete glossary.value[key];
   message.success(`已应用全域词条 (删除独立项): ${key}`);
 };
+
+const downloadMergedJson = () => {
+  const merged: Glossary = {};
+  for (const guid of linkedGlossaries.value) {
+    const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
+    if (gg) {
+      Object.assign(merged, gg.content);
+    }
+  }
+  Object.assign(merged, glossary.value);
+
+  downloadFile(
+    'glossary-merged.json',
+    new Blob([Glossary.toJson(merged)], {
+      type: 'text/plain',
+    }),
+  );
+};
 </script>
 
 <template>
@@ -406,27 +425,27 @@ const applyGlobal = (key: string) => {
 
                 <!-- Deduplication UI placed inside the same collapse panel -->
                 <template v-if="duplicates.length > 0">
-                  <div
-                    style="
-                      margin-top: 6px;
-                      border: 1px solid var(--border-color);
-                      border-radius: 4px;
-                      padding: 8px;
-                    "
-                  >
+                  <div style="margin-top: 12px">
                     <n-text
                       type="warning"
                       style="
                         font-weight: bold;
                         font-size: 12px;
                         display: block;
-                        /* margin-bottom: 6px; */
+                        margin-bottom: 6px;
                       "
                     >
                       去重警告: 发现 {{ duplicates.length }} 個與全域重複的詞條
                     </n-text>
-                    <n-scrollbar style="max-height: 200px">
-                      <n-table size="small" striped>
+                    <n-scrollbar
+                      style="
+                        max-height: 200px;
+                        border: 1px solid var(--border-color);
+                        border-radius: 4px;
+                        padding: 4px;
+                      "
+                    >
+                      <n-table size="small" striped style="font-size: 12px">
                         <thead>
                           <tr>
                             <th>原词</th>
@@ -441,10 +460,10 @@ const applyGlobal = (key: string) => {
                             <td>{{ dup.localVal }}</td>
                             <td>
                               {{ dup.globalVal }}
-                              <br />
+                              <!-- <br />
                               <span style="font-size: 10px; color: gray">
                                 ({{ dup.globalName }})
-                              </span>
+                              </span> -->
                             </td>
                             <td>
                               <n-space size="small">
@@ -485,7 +504,10 @@ const applyGlobal = (key: string) => {
     </template>
 
     <template #action>
-      <c-button label="提交" type="primary" @action="submitGlossary()" />
+      <n-space justify="space-between" style="width: 100%">
+        <c-button label="下载合并JSON" @action="downloadMergedJson()" />
+        <c-button label="提交" type="primary" @action="submitGlossary()" />
+      </n-space>
     </template>
   </c-modal>
 </template>
