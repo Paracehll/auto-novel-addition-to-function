@@ -21,6 +21,7 @@ export interface WenkuNovelDto {
   webIds: string[];
   volumes: WenkuVolumeDto[];
   glossary: { [key: string]: string };
+  linkedGlossaries?: string[];
   visited: number;
   favored?: string;
   volumeZh: string[];

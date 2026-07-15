@@ -133,6 +133,10 @@ const menuOptions = computed<MenuOption[]>(() => {
           key: '/workspace/toolbox',
         },
         {
+          label: renderLabel('全域术语表', '/workspace/global-glossary'),
+          key: '/workspace/global-glossary',
+        },
+        {
           label: renderLabel('GPT工作区', '/workspace/gpt'),
           key: '/workspace/gpt',
         },

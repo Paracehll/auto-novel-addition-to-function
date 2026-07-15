@@ -212,6 +212,12 @@ const router = createRouter({
               meta: { title: '小说工具箱' },
               component: () => import('./pages/workspace/Toolbox.vue'),
             },
+            {
+              path: 'global-glossary',
+              meta: { title: '全域术语表' },
+              component: () =>
+                import('./pages/workspace/GlobalGlossaryWorkspace.vue'),
+            },
           ],
         },
 

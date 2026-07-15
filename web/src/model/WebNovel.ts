@@ -39,6 +39,7 @@ export interface WebNovelDto {
   introductionJp: string;
   introductionZh?: string;
   glossary: { [key: string]: string };
+  linkedGlossaries?: string[];
   toc: WebNovelTocItemDto[];
   visited: number;
   syncAt: number;

@@ -91,6 +91,7 @@ class MongoClient(host: String, port: Int?) {
 }
 
 object MongoCollectionNames {
+    const val GLOBAL_GLOSSARY = "global-glossary"
     const val ARTICLE = "article"
     const val COMMENT = "comment-alt"
     const val OPERATION_HISTORY = "operation-history"
