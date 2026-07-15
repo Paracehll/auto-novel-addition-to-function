@@ -179,6 +179,7 @@ export interface ReaderSetting {
   enableClickAnimition: boolean;
   indentSize?: number;
   enableSourceLabel: boolean;
+  collapseIllustrationByDefault: boolean;
   //
   fontWeight: number;
   fontSize: number;
@@ -204,6 +205,7 @@ export namespace ReaderSetting {
     pageTurnMode: 'page',
     enableClickAnimition: true,
     enableSourceLabel: false,
+    collapseIllustrationByDefault: false,
     //
     fontWeight: 400,
     fontSize: 14,
@@ -257,6 +259,9 @@ export namespace ReaderSetting {
       setting.translations,
       defaultTranslationPriority,
     );
+    if (setting.collapseIllustrationByDefault === undefined) {
+      setting.collapseIllustrationByDefault = false;
+    }
   };
 
   export const modeOptions = [

@@ -6,6 +6,7 @@ import type { ReaderChapter } from '../ReaderStore';
 import { useReaderSettingStore } from '@/stores';
 import { buildParagraphs } from './BuildParagraphs';
 import { WebUtil } from '@/util/web';
+import { ImageOutlined } from '@vicons/material';
 
 const props = defineProps<{
   gnid: GenericNovelId;
@@ -54,6 +55,21 @@ const chapterHref = computed(() => {
     return '/workspace';
   }
 });
+
+const collapsedState = ref<Record<string, boolean>>({});
+
+const isImageCollapsed = (index: number) => {
+  const key = `${props.chapterId}_${index}`;
+  if (collapsedState.value[key] !== undefined) {
+    return collapsedState.value[key];
+  }
+  return readerSetting.value.collapseIllustrationByDefault;
+};
+
+const setImageCollapsed = (index: number, val: boolean) => {
+  const key = `${props.chapterId}_${index}`;
+  collapsedState.value[key] = val;
+};
 </script>
 
 <template>
@@ -86,13 +102,41 @@ const chapterHref = computed(() => {
           </span>
         </n-p>
         <br v-else-if="!p" />
-        <img
-          v-else
-          :src="p.imageUrl"
-          :alt="p.imageUrl"
-          style="max-width: 100%; object-fit: scale-down"
-          loading="lazy"
-        />
+        <div v-else class="illustration-wrapper">
+          <div v-if="isImageCollapsed(index)" class="collapsed-placeholder">
+            <n-button
+              @click="setImageCollapsed(index, false)"
+              size="small"
+              secondary
+              type="primary"
+              class="expand-btn"
+            >
+              <template #icon>
+                <n-icon><ImageOutlined /></n-icon>
+              </template>
+              展开插图
+            </n-button>
+          </div>
+          <div v-else class="expanded-illustration">
+            <div class="illustration-actions">
+              <n-button
+                @click="setImageCollapsed(index, true)"
+                size="tiny"
+                quaternary
+                depth="3"
+                class="collapse-btn"
+              >
+                收起插图
+              </n-button>
+            </div>
+            <img
+              :src="p.imageUrl"
+              :alt="p.imageUrl"
+              style="max-width: 100%; object-fit: scale-down"
+              loading="lazy"
+            />
+          </div>
+        </div>
       </template>
     </div>
   </div>
@@ -112,6 +156,36 @@ const chapterHref = computed(() => {
 }
 .chapter-content {
   min-height: 65vh;
+}
+.illustration-wrapper {
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.collapsed-placeholder {
+  padding: 24px;
+  border: 1px dashed rgba(128, 128, 128, 0.3);
+  border-radius: 8px;
+  background-color: rgba(128, 128, 128, 0.05);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+.expanded-illustration {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.illustration-actions {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
 }
 .chapter-content p {
   color: v-bind('fontColor');
