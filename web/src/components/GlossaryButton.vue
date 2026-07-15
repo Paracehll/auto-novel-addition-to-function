@@ -451,7 +451,7 @@ const downloadMergedJson = () => {
                             <th>原词</th>
                             <th>独立</th>
                             <th>全域</th>
-                            <th>操作</th>
+                            <th>使用</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -473,7 +473,7 @@ const downloadMergedJson = () => {
                                   secondary
                                   @click="keepLocal(dup.key)"
                                 >
-                                  使用独立
+                                  独立
                                 </n-button>
                                 <n-button
                                   size="tiny"
@@ -481,7 +481,7 @@ const downloadMergedJson = () => {
                                   secondary
                                   @click="applyGlobal(dup.key)"
                                 >
-                                  使用全域
+                                  全域
                                 </n-button>
                               </n-space>
                             </td>
