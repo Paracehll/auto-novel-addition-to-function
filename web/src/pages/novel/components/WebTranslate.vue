@@ -51,15 +51,19 @@ const startTranslateTask = (translatorId: 'youdao') =>
   );
 
 const importToWorkspace = async () => {
-  const blob = await ky.get(files.value.jp.url).blob();
-  const file = new File([blob], files.value.jp.filename);
+  try {
+    const blob = await ky.get(files.value.jp.url).blob();
+    const file = new File([blob], files.value.jp.filename);
 
-  const repo = await useLocalVolumeStore();
-  await repo
-    .createVolume(file, 'default')
-    .then(() => repo.updateGlossary(file.name, toRaw(props.glossary)))
-    .then(() => message.success('导入成功'))
-    .catch((error) => message.error(`导入失败:${error}`));
+    const mergedGlossary = await WebNovelApi.getGlossary(providerId, novelId);
+
+    const repo = await useLocalVolumeStore();
+    await repo.createVolume(file, 'default');
+    await repo.updateGlossary(file.name, mergedGlossary);
+    message.success('导入成功');
+  } catch (error) {
+    message.error(`导入失败:${error}`);
+  }
 };
 
 const files = computed(() => {
