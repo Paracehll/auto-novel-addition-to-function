@@ -1,6 +1,7 @@
 package infra.common
 
 import com.mongodb.client.model.Filters.eq
+import com.mongodb.client.model.Projections.exclude
 import com.mongodb.client.model.Updates.set
 import infra.MongoClient
 import infra.MongoCollectionNames
@@ -16,7 +17,9 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
     )
 
     suspend fun list(): List<GlobalGlossary> {
-        return collection.find().toList()
+        return collection.find()
+            .projection(exclude(GlobalGlossary::record.field()))
+            .toList()
     }
 
     suspend fun getByUid(uid: String): GlobalGlossary? {
@@ -38,6 +41,7 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
             uid = uid,
             name = name,
             content = content,
+            termsCount = content.size,
             used = emptyList(),
             update = Clock.System.now(),
             tag = tag,
@@ -66,6 +70,7 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
             uid = old.uid,
             name = name,
             content = content,
+            termsCount = content.size,
             used = used ?: old.used,
             update = Clock.System.now(),
             tag = tag ?: old.tag,

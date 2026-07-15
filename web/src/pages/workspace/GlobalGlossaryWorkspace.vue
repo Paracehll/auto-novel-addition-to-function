@@ -71,16 +71,21 @@ const openCreateModal = () => {
   showEditModal.value = true;
 };
 
-const openEditModal = (gg: GlobalGlossary) => {
+const openEditModal = async (gg: GlobalGlossary) => {
   isEditing.value = true;
-  formModel.value = {
-    uid: gg.uid,
-    name: gg.name,
-    content: { ...gg.content },
-    tagRaw: (gg.tag || []).join(', '),
-  };
-  originalFormModel.value = JSON.parse(JSON.stringify(formModel.value));
-  showEditModal.value = true;
+  try {
+    const fullGg = await GlobalGlossaryApi.getGlobalGlossary(gg.uid);
+    formModel.value = {
+      uid: fullGg.uid,
+      name: fullGg.name,
+      content: { ...fullGg.content },
+      tagRaw: (fullGg.tag || []).join(', '),
+    };
+    originalFormModel.value = JSON.parse(JSON.stringify(formModel.value));
+    showEditModal.value = true;
+  } catch (e: any) {
+    message.error(`获取术语表详情失败: ${e.message || e}`);
+  }
 };
 
 const handleUpdateShow = async (value: boolean) => {
@@ -147,9 +152,13 @@ const deleteGlossary = (uid: string) => {
 const showHistoryModal = ref(false);
 const selectedGlossary = ref<GlobalGlossary | null>(null);
 
-const viewHistory = (gg: GlobalGlossary) => {
-  selectedGlossary.value = gg;
-  showHistoryModal.value = true;
+const viewHistory = async (gg: GlobalGlossary) => {
+  try {
+    selectedGlossary.value = await GlobalGlossaryApi.getGlobalGlossary(gg.uid);
+    showHistoryModal.value = true;
+  } catch (e: any) {
+    message.error(`获取修改历史失败: ${e.message || e}`);
+  }
 };
 
 const formatDate = (dateSeconds: number) => {
@@ -378,7 +387,7 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
             title: '词条数量',
             key: 'termsCount',
             render: (row: any) =>
-              h('span', {}, Object.keys(row.content).length),
+              h('span', {}, row.termsCount ?? 0),
           },
           {
             title: '引用',

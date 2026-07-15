@@ -87,16 +87,37 @@ const globalGlossariesOptions = computed(() => {
     const usedCount = (gg.used || []).length;
     const matchLabel = matchCount > 0 ? ` (匹配标签: ${matchCount})` : '';
     return {
-      label: `${gg.name} [ ${Object.keys(gg.content).length} ] [引用: ${usedCount}次]${matchLabel}`,
+      label: `${gg.name} [ ${gg.termsCount ?? 0} ] [引用: ${usedCount}次]${matchLabel}`,
       value: gg.uid,
     };
   });
 });
 
+const activeGlossariesMap = ref<Record<string, GlobalGlossary>>({});
+
+watch(
+  linkedGlossaries,
+  async (newVal) => {
+    for (const uid of newVal) {
+      if (!activeGlossariesMap.value[uid]) {
+        try {
+          const gg = await GlobalGlossaryApi.getGlobalGlossary(uid);
+          activeGlossariesMap.value = {
+            ...activeGlossariesMap.value,
+            [uid]: gg,
+          };
+        } catch (e: any) {
+          message.error(`加载全域术语表[${uid}]详情失败: ${e.message || e}`);
+        }
+      }
+    }
+  },
+  { immediate: true, deep: true },
+);
+
 const activeGlobalGlossaries = computed(() => {
-  const map = new Map(allGlobalGlossaries.value.map((gg) => [gg.uid, gg]));
   return linkedGlossaries.value
-    .map((uid) => map.get(uid))
+    .map((uid) => activeGlossariesMap.value[uid])
     .filter((gg): gg is GlobalGlossary => gg !== undefined);
 });
 
@@ -345,7 +366,7 @@ const duplicates = computed(() => {
     // Search backwards (from last to first) because later loaded glossaries overwrite earlier ones.
     for (let i = linkedGlossaries.value.length - 1; i >= 0; i--) {
       const guid = linkedGlossaries.value[i];
-      const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
+      const gg = activeGlossariesMap.value[guid];
       if (gg && gg.content[k] !== undefined) {
         dupes.push({
           key: k,
@@ -407,7 +428,7 @@ const applyAllGlobal = () => {
 const downloadMergedJson = () => {
   const merged: Glossary = {};
   for (const guid of linkedGlossaries.value) {
-    const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
+    const gg = activeGlossariesMap.value[guid];
     if (gg) {
       Object.assign(merged, gg.content);
     }
@@ -425,7 +446,7 @@ const downloadMergedJson = () => {
 const exportMerged = async (ev?: MouseEvent) => {
   const merged: Glossary = {};
   for (const guid of linkedGlossaries.value) {
-    const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
+    const gg = activeGlossariesMap.value[guid];
     if (gg) {
       Object.assign(merged, gg.content);
     }
@@ -448,7 +469,7 @@ const importGlobalToLocal = () => {
 
   let count = 0;
   for (const guid of linkedGlossaries.value) {
-    const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
+    const gg = activeGlossariesMap.value[guid];
     if (gg) {
       for (const jp in gg.content) {
         glossary.value[jp] = gg.content[jp];
