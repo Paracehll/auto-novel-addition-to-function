@@ -3,6 +3,8 @@ import {
   FileDownloadOutlined,
   ContentCopyOutlined,
   DownloadOutlined,
+  ArrowUpwardOutlined,
+  ArrowDownwardOutlined,
 } from '@vicons/material';
 import { isEqual } from 'lodash-es';
 
@@ -92,10 +94,33 @@ const globalGlossariesOptions = computed(() => {
 });
 
 const activeGlobalGlossaries = computed(() => {
-  return allGlobalGlossaries.value.filter((gg) =>
-    linkedGlossaries.value.includes(gg.uid),
-  );
+  const map = new Map(allGlobalGlossaries.value.map((gg) => [gg.uid, gg]));
+  return linkedGlossaries.value
+    .map((uid) => map.get(uid))
+    .filter((gg): gg is GlobalGlossary => gg !== undefined);
 });
+
+const moveGlossaryUp = (uid: string) => {
+  const idx = linkedGlossaries.value.indexOf(uid);
+  if (idx > 0) {
+    const arr = [...linkedGlossaries.value];
+    const temp = arr[idx];
+    arr[idx] = arr[idx - 1];
+    arr[idx - 1] = temp;
+    linkedGlossaries.value = arr;
+  }
+};
+
+const moveGlossaryDown = (uid: string) => {
+  const idx = linkedGlossaries.value.indexOf(uid);
+  if (idx !== -1 && idx < linkedGlossaries.value.length - 1) {
+    const arr = [...linkedGlossaries.value];
+    const temp = arr[idx];
+    arr[idx] = arr[idx + 1];
+    arr[idx + 1] = temp;
+    linkedGlossaries.value = arr;
+  }
+};
 
 const expandedActiveGlossaries = ref<string[]>([]);
 const handleExpandedNamesChange = (
@@ -317,7 +342,9 @@ const duplicates = computed(() => {
     if (skippedKeys.value.has(k)) {
       continue;
     }
-    for (const guid of linkedGlossaries.value) {
+    // Search backwards (from last to first) because later loaded glossaries overwrite earlier ones.
+    for (let i = linkedGlossaries.value.length - 1; i >= 0; i--) {
+      const guid = linkedGlossaries.value[i];
       const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
       if (gg && gg.content[k] !== undefined) {
         dupes.push({
@@ -417,7 +444,7 @@ const exportMerged = async (ev?: MouseEvent) => {
 };
 
 const importGlobalToLocal = () => {
-  if (!window.confirm) return;
+  if (!window.confirm('此操作将解除所有全域术语表连结，是否合併？')) return;
 
   let count = 0;
   for (const guid of linkedGlossaries.value) {
@@ -490,6 +517,7 @@ const importGlobalToLocal = () => {
                   placeholder="引用全域术语表 (输入名称检索)"
                   :options="globalGlossariesOptions"
                   size="small"
+                  style="margin-bottom: 8px"
                 />
 
                 <!-- Active Linked Global Glossaries Content Tables -->
@@ -505,11 +533,39 @@ const importGlobalToLocal = () => {
                       style="
                         border: 1px solid var(--border-color);
                         border-radius: 4px;
-                        padding: 8px;
-                        margin-left: 8px;
-                        /* margin-bottom: 8px; */
+                        padding: 0px;
+                        margin: 0 0 0 8px;
                       "
                     >
+                      <template #header-extra>
+                        <n-space size="small" :wrap="false">
+                          <n-button
+                            size="tiny"
+                            secondary
+                            circle
+                            :disabled="linkedGlossaries.indexOf(gg.uid) === 0"
+                            @click.stop="moveGlossaryUp(gg.uid)"
+                          >
+                            <template #icon>
+                              <n-icon><ArrowUpwardOutlined /></n-icon>
+                            </template>
+                          </n-button>
+                          <n-button
+                            size="tiny"
+                            secondary
+                            circle
+                            :disabled="
+                              linkedGlossaries.indexOf(gg.uid) ===
+                              linkedGlossaries.length - 1
+                            "
+                            @click.stop="moveGlossaryDown(gg.uid)"
+                          >
+                            <template #icon>
+                              <n-icon><ArrowDownwardOutlined /></n-icon>
+                            </template>
+                          </n-button>
+                        </n-space>
+                      </template>
                       <template
                         v-if="expandedActiveGlossaries.includes(gg.uid)"
                       >
@@ -544,96 +600,95 @@ const importGlobalToLocal = () => {
 
                 <!-- Deduplication UI placed inside the same collapse panel -->
                 <template v-if="duplicates.length > 0">
-                  <div style="margin-top: 12px">
-                    <div
-                      style="
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        margin-bottom: 8px;
-                      "
+                  <n-divider />
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: center;
+                      margin-bottom: 8px;
+                    "
+                  >
+                    <n-text
+                      type="warning"
+                      style="font-weight: bold; font-size: 12px"
                     >
-                      <n-text
-                        type="warning"
-                        style="font-weight: bold; font-size: 12px"
+                      发现 {{ duplicates.length }} 個與全域重複
+                    </n-text>
+                    <n-space size="small">
+                      <n-button
+                        size="tiny"
+                        type="primary"
+                        secondary
+                        @click="applyAllLocal"
                       >
-                        发现 {{ duplicates.length }} 個與全域重複
-                      </n-text>
-                      <n-space size="small">
-                        <n-button
-                          size="tiny"
-                          type="primary"
-                          secondary
-                          @click="applyAllLocal"
-                        >
-                          套用独立
-                        </n-button>
-                        <n-button
-                          size="tiny"
-                          type="warning"
-                          secondary
-                          @click="applyAllGlobal"
-                        >
-                          套用全域
-                        </n-button>
-                      </n-space>
-                    </div>
-
-                    <n-table size="small" striped style="font-size: 12px">
-                      <thead>
-                        <tr>
-                          <th>原词</th>
-                          <th>独立</th>
-                          <th>全域</th>
-                          <th>使用</th>
-                        </tr>
-                      </thead>
-                    </n-table>
-
-                    <n-scrollbar
-                      style="
-                        max-height: 200px;
-                        border: 1px solid var(--border-color);
-                        border-radius: 4px;
-                      "
-                    >
-                      <n-table size="small" striped style="font-size: 12px">
-                        <tbody>
-                          <tr v-for="dup in duplicates" :key="dup.key">
-                            <td style="font-weight: bold">{{ dup.key }}</td>
-                            <td>{{ dup.localVal }}</td>
-                            <td>
-                              {{ dup.globalVal }}
-                              <!-- <br />
-                              <span style="font-size: 10px; color: gray">
-                                ({{ dup.globalName }})
-                              </span> -->
-                            </td>
-                            <td>
-                              <n-space size="small">
-                                <n-button
-                                  size="tiny"
-                                  type="primary"
-                                  secondary
-                                  @click="keepLocal(dup.key)"
-                                >
-                                  独立
-                                </n-button>
-                                <n-button
-                                  size="tiny"
-                                  type="warning"
-                                  secondary
-                                  @click="applyGlobal(dup.key)"
-                                >
-                                  全域
-                                </n-button>
-                              </n-space>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </n-table>
-                    </n-scrollbar>
+                        套用独立
+                      </n-button>
+                      <n-button
+                        size="tiny"
+                        type="warning"
+                        secondary
+                        @click="applyAllGlobal"
+                      >
+                        套用全域
+                      </n-button>
+                    </n-space>
                   </div>
+
+                  <n-table size="small" striped style="font-size: 12px">
+                    <thead>
+                      <tr>
+                        <th>原词</th>
+                        <th>独立</th>
+                        <th>全域</th>
+                        <th>使用</th>
+                      </tr>
+                    </thead>
+                  </n-table>
+
+                  <n-scrollbar
+                    style="
+                      max-height: 200px;
+                      border: 1px solid var(--border-color);
+                      border-radius: 4px;
+                    "
+                  >
+                    <n-table size="small" striped style="font-size: 12px">
+                      <tbody>
+                        <tr v-for="dup in duplicates" :key="dup.key">
+                          <td style="font-weight: bold">{{ dup.key }}</td>
+                          <td>{{ dup.localVal }}</td>
+                          <td>
+                            {{ dup.globalVal }}
+                            <!-- <br />
+                            <span style="font-size: 10px; color: gray">
+                              ({{ dup.globalName }})
+                            </span> -->
+                          </td>
+                          <td>
+                            <n-space size="small">
+                              <n-button
+                                size="tiny"
+                                type="primary"
+                                secondary
+                                @click="keepLocal(dup.key)"
+                              >
+                                独立
+                              </n-button>
+                              <n-button
+                                size="tiny"
+                                type="warning"
+                                secondary
+                                @click="applyGlobal(dup.key)"
+                              >
+                                全域
+                              </n-button>
+                            </n-space>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </n-table>
+                  </n-scrollbar>
                 </template>
               </n-flex>
               <n-divider />
