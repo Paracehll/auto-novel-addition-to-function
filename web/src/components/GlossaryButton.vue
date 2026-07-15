@@ -345,6 +345,26 @@ const applyGlobal = (key: string) => {
   message.success(`已应用全域词条 (删除独立项): ${key}`);
 };
 
+const applyAllLocal = () => {
+  const currentDupes = duplicates.value;
+  if (currentDupes.length === 0) return;
+  for (const dup of currentDupes) {
+    skippedKeys.value.add(dup.key);
+  }
+  skippedKeys.value = new Set(skippedKeys.value);
+  saveSkippedKeys();
+  message.success(`已全部保留独立词条并且对去重跳过: 共 ${currentDupes.length} 个`);
+};
+
+const applyAllGlobal = () => {
+  const currentDupes = duplicates.value;
+  if (currentDupes.length === 0) return;
+  for (const dup of currentDupes) {
+    delete glossary.value[dup.key];
+  }
+  message.success(`已全部应用全域词条 (删除了 ${currentDupes.length} 个独立项)`);
+};
+
 const downloadMergedJson = () => {
   const merged: Glossary = {};
   for (const guid of linkedGlossaries.value) {
@@ -382,6 +402,21 @@ const exportMerged = async (ev?: MouseEvent) => {
   } else {
     message.success('导出合并失败');
   }
+};
+
+const importGlobalToLocal = () => {
+  let count = 0;
+  for (const guid of linkedGlossaries.value) {
+    const gg = allGlobalGlossaries.value.find((g) => g.uid === guid);
+    if (gg) {
+      for (const jp in gg.content) {
+        glossary.value[jp] = gg.content[jp];
+        count++;
+      }
+    }
+  }
+  linkedGlossaries.value = [];
+  message.success(`成功导入全域术语并解除链接 (合并了 ${count} 个词条)`);
 };
 </script>
 
@@ -496,26 +531,43 @@ const exportMerged = async (ev?: MouseEvent) => {
                 <!-- Deduplication UI placed inside the same collapse panel -->
                 <template v-if="duplicates.length > 0">
                   <div style="margin-top: 12px">
-                    <n-text
-                      type="warning"
-                      style="
-                        font-weight: bold;
-                        font-size: 12px;
-                        display: block;
-                        margin-bottom: 6px;
-                      "
-                    >
-                      去重警告: 发现 {{ duplicates.length }} 個與全域重複
-                    </n-text>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                      <n-text
+                        type="warning"
+                        style="
+                          font-weight: bold;
+                          font-size: 12px;
+                        "
+                      >
+                        去重警告: 发现 {{ duplicates.length }} 個與全域重複
+                      </n-text>
+                      <n-space size="small">
+                        <n-button
+                          size="tiny"
+                          type="primary"
+                          secondary
+                          @click="applyAllLocal"
+                        >
+                          套用独立
+                        </n-button>
+                        <n-button
+                          size="tiny"
+                          type="warning"
+                          secondary
+                          @click="applyAllGlobal"
+                        >
+                          套用全域
+                        </n-button>
+                      </n-space>
+                    </div>
                     <n-scrollbar
                       style="
                         max-height: 200px;
                         border: 1px solid var(--border-color);
                         border-radius: 4px;
-                        padding: 4px;
                       "
                     >
-                      <n-table size="small" striped style="font-size: 12px">
+                      <n-table class="dupes-table" size="small" striped style="font-size: 12px">
                         <thead>
                           <tr>
                             <th>原词</th>
@@ -569,7 +621,16 @@ const exportMerged = async (ev?: MouseEvent) => {
         <indie-glossary-edit
           v-model="glossary"
           v-model:skippedKeys="skippedKeys"
-        />
+        >
+          <template #extra-edit-actions>
+            <c-button
+              label="导入全域"
+              :round="false"
+              size="small"
+              @action="importGlobalToLocal"
+            />
+          </template>
+        </indie-glossary-edit>
       </n-flex>
     </template>
 
@@ -584,3 +645,18 @@ const exportMerged = async (ev?: MouseEvent) => {
     </template>
   </c-modal>
 </template>
+
+<style scoped>
+.dupes-table :deep(thead th) {
+  position: sticky;
+  top: 0;
+  background-color: var(--card-color, #fff);
+  z-index: 10;
+  box-shadow: inset 0 -1px 0 var(--border-color);
+}
+
+.dupes-table :deep(th),
+.dupes-table :deep(td) {
+  padding: 4px 6px !important;
+}
+</style>

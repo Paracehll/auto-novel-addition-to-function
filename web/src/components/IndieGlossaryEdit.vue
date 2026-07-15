@@ -229,6 +229,7 @@ const revokeSkip = (jp: string) => {
           size="small"
           @action="downloadGlossaryAsJson"
         />
+        <slot name="extra-edit-actions" />
         <c-button
           v-if="whoamiStore.whoami.isAdmin"
           secondary
