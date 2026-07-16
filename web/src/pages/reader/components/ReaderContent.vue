@@ -103,7 +103,7 @@ const setImageCollapsed = (index: number, val: boolean) => {
         </n-p>
         <br v-else-if="!p" />
         <div v-else class="illustration-wrapper">
-          <div v-if="isImageCollapsed(index)" class="collapsed-placeholder">
+          <div v-show="isImageCollapsed(index)" class="collapsed-placeholder">
             <n-button
               @click="setImageCollapsed(index, false)"
               size="small"
@@ -117,7 +117,7 @@ const setImageCollapsed = (index: number, val: boolean) => {
               展开插图
             </n-button>
           </div>
-          <div v-else class="expanded-illustration">
+          <div v-show="!isImageCollapsed(index)" class="expanded-illustration">
             <div class="illustration-actions">
               <n-button
                 @click="setImageCollapsed(index, true)"
@@ -133,7 +133,7 @@ const setImageCollapsed = (index: number, val: boolean) => {
               :src="p.imageUrl"
               :alt="p.imageUrl"
               style="max-width: 100%; object-fit: scale-down"
-              loading="lazy"
+              loading="eager"
             />
           </div>
         </div>
@@ -158,17 +158,13 @@ const setImageCollapsed = (index: number, val: boolean) => {
   min-height: 65vh;
 }
 .illustration-wrapper {
-  margin: 16px 0;
+  margin: 8px 0px 48px 0px;
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
 }
 .collapsed-placeholder {
-  padding: 24px;
-  border: 1px dashed rgba(128, 128, 128, 0.3);
-  border-radius: 8px;
-  background-color: rgba(128, 128, 128, 0.05);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -184,8 +180,8 @@ const setImageCollapsed = (index: number, val: boolean) => {
 .illustration-actions {
   width: 100%;
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: 8px;
+  justify-content: center;
+  margin-top: 8px;
 }
 .chapter-content p {
   color: v-bind('fontColor');
