@@ -56,6 +56,22 @@ const getMatchCount = (gg: GlobalGlossary) => {
 
 const globalGlossariesOptions = computed(() => {
   const sorted = [...allGlobalGlossaries.value];
+  const presentUids = new Set(sorted.map(gg => gg.uid));
+  for (const uid of linkedGlossaries.value) {
+    if (!presentUids.has(uid)) {
+      sorted.push({
+        id: '',
+        uid: uid,
+        name: '[已删除的术语表]',
+        content: {},
+        termsCount: 0,
+        used: [],
+        update: 0,
+        tag: [],
+        record: []
+      });
+    }
+  }
   sorted.sort((a, b) => {
     let valA = 0;
     let valB = 0;
@@ -104,8 +120,19 @@ watch(
           const gg = await GlobalGlossaryApi.getGlobalGlossary(uid);
           return { uid, gg };
         } catch (e: any) {
-          message.error(`加载全域术语表[${uid}]详情失败: ${e.message || e}`);
-          return null;
+          // 替換為 [已刪除的術語表] ，並且不會彈出錯誤訊息
+          const fallbackGg: GlobalGlossary = {
+            id: '',
+            uid: uid,
+            name: '[已删除的术语表]',
+            content: {},
+            termsCount: 0,
+            used: [],
+            update: 0,
+            tag: [],
+            record: []
+          };
+          return { uid, gg: fallbackGg };
         }
       }
       return null;
@@ -300,6 +327,8 @@ const handleSaveConfirm = async () => {
     for (const key in glossary.value) {
       props.value[key] = glossary.value[key];
     }
+    originalGlossary.value = { ...glossary.value };
+    originalLinkedGlossaries.value = [...linkedGlossaries.value];
     message.success('保存成功');
     showGlossaryModal.value = false;
   } catch (e: any) {
@@ -355,6 +384,8 @@ const submitGlossary = () =>
       for (const key in glossary.value) {
         props.value[key] = glossary.value[key];
       }
+      originalGlossary.value = { ...glossary.value };
+      originalLinkedGlossaries.value = [...linkedGlossaries.value];
     }),
     '术语表提交',
     message,
