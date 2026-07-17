@@ -137,6 +137,12 @@ data class WebNovelTocItem(
 )
 
 @Serializable
+data class UsedGlobalGlossary(
+    val id: String,
+    val version: Long
+)
+
+@Serializable
 data class WebNovelChapter(
     val providerId: String,
     @SerialName("bookId")
@@ -152,19 +158,23 @@ data class WebNovelChapter(
     val baiduGlossary: Map<String, String>? = emptyMap(),
     @SerialName("paragraphsZh")
     val baiduParagraphs: List<String>? = null,
+    val baiduGlobalGlossaries: List<UsedGlobalGlossary>? = null,
 
     val youdaoGlossaryUuid: String? = null,
     val youdaoGlossary: Map<String, String>? = emptyMap(),
     val youdaoParagraphs: List<String>? = null,
+    val youdaoGlobalGlossaries: List<UsedGlobalGlossary>? = null,
 
     val gptGlossaryUuid: String? = null,
     val gptGlossary: Map<String, String>? = emptyMap(),
     val gptParagraphs: List<String>? = null,
+    val gptGlobalGlossaries: List<UsedGlobalGlossary>? = null,
 
     val sakuraVersion: String? = null,
     val sakuraGlossaryUuid: String? = null,
     val sakuraGlossary: Map<String, String>? = emptyMap(),
     val sakuraParagraphs: List<String>? = null,
+    val sakuraGlobalGlossaries: List<UsedGlobalGlossary>? = null,
 ) {
     companion object {
         fun byId(providerId: String, novelId: String, chapterId: String): Bson {

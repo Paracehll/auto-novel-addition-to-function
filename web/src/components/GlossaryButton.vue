@@ -19,10 +19,18 @@ import OrderSort from '@/components/OrderSort.vue';
 import { downloadFile } from '@/util';
 import naive from 'naive-ui';
 
-const props = defineProps<{
-  gnid?: GenericNovelId;
-  value: Glossary;
-}>();
+const props = withDefaults(
+  defineProps<{
+    gnid?: GenericNovelId;
+    value: Glossary;
+    showGlobal?: boolean;
+  }>(),
+  {
+    showGlobal: true,
+  },
+);
+
+const isSaved = ref(false);
 
 const message = useMessage();
 
@@ -56,19 +64,19 @@ const getMatchCount = (gg: GlobalGlossary) => {
 
 const globalGlossariesOptions = computed(() => {
   const sorted = [...allGlobalGlossaries.value];
-  const presentUids = new Set(sorted.map(gg => gg.uid));
+  const presentUids = new Set(sorted.map(gg => gg.id));
   for (const uid of linkedGlossaries.value) {
     if (!presentUids.has(uid)) {
       sorted.push({
-        id: '',
-        uid: uid,
+        id: uid,
         name: '[已删除的术语表]',
         content: {},
         termsCount: 0,
         used: [],
         update: 0,
         tag: [],
-        record: []
+        record: [],
+        version: 1
       });
     }
   }
@@ -88,7 +96,7 @@ const globalGlossariesOptions = computed(() => {
     }
 
     if (valA === valB) {
-      return a.uid.localeCompare(b.uid);
+      return a.id.localeCompare(b.id);
     }
 
     if (sortState.value.desc) {
@@ -104,7 +112,7 @@ const globalGlossariesOptions = computed(() => {
     const matchLabel = matchCount > 0 ? ` (匹配标签: ${matchCount})` : '';
     return {
       label: `${gg.name} [ ${gg.termsCount ?? 0} ] [引用: ${usedCount}次]${matchLabel}`,
-      value: gg.uid,
+      value: gg.id,
     };
   });
 });
@@ -114,25 +122,25 @@ const activeGlossariesMap = ref<Record<string, GlobalGlossary>>({});
 watch(
   linkedGlossaries,
   async (newVal) => {
-    const promises = newVal.map(async (uid) => {
-      if (!activeGlossariesMap.value[uid]) {
+    const promises = newVal.map(async (id) => {
+      if (!activeGlossariesMap.value[id]) {
         try {
-          const gg = await GlobalGlossaryApi.getGlobalGlossary(uid);
-          return { uid, gg };
+          const gg = await GlobalGlossaryApi.getGlobalGlossary(id);
+          return { id, gg };
         } catch (e: any) {
           // 替換為 [已刪除的術語表] ，並且不會彈出錯誤訊息
           const fallbackGg: GlobalGlossary = {
-            id: '',
-            uid: uid,
+            id,
             name: '[已删除的术语表]',
             content: {},
             termsCount: 0,
             used: [],
             update: 0,
             tag: [],
-            record: []
+            record: [],
+            version: 1
           };
-          return { uid, gg: fallbackGg };
+          return { id, gg: fallbackGg };
         }
       }
       return null;
@@ -142,7 +150,7 @@ watch(
     const nextMap = { ...activeGlossariesMap.value };
     for (const res of results) {
       if (res) {
-        nextMap[res.uid] = res.gg;
+        nextMap[res.id] = res.gg;
         updated = true;
       }
     }
@@ -290,6 +298,7 @@ const toggleGlossaryModal = async () => {
     await fetchData();
     originalGlossary.value = { ...glossary.value };
     originalLinkedGlossaries.value = [...linkedGlossaries.value];
+    isSaved.value = false;
     showGlossaryModal.value = true;
   } else {
     await handleUpdateShow(false);
@@ -298,6 +307,10 @@ const toggleGlossaryModal = async () => {
 
 const handleUpdateShow = async (value: boolean) => {
   if (value === false) {
+    if (isSaved.value) {
+      showGlossaryModal.value = false;
+      return;
+    }
     const hasChanges =
       !isEqual(toRaw(glossary.value), toRaw(originalGlossary.value)) ||
       !isEqual(
@@ -330,6 +343,7 @@ const handleSaveConfirm = async () => {
     originalGlossary.value = { ...glossary.value };
     originalLinkedGlossaries.value = [...linkedGlossaries.value];
     message.success('保存成功');
+    isSaved.value = true;
     showGlossaryModal.value = false;
   } catch (e: any) {
     message.error('保存失败:' + e);
@@ -386,6 +400,8 @@ const submitGlossary = () =>
       }
       originalGlossary.value = { ...glossary.value };
       originalLinkedGlossaries.value = [...linkedGlossaries.value];
+      isSaved.value = true;
+      showGlossaryModal.value = false;
     }),
     '术语表提交',
     message,
@@ -554,7 +570,7 @@ const importGlobalToLocal = () => {
         </template>
 
         <!-- Collapsible Global Glossary Configuration and Deduplication section -->
-        <template v-if="gnid && (gnid.type === 'web' || gnid.type === 'wenku')">
+        <template v-if="props.showGlobal && gnid && (gnid.type === 'web' || gnid.type === 'wenku')">
           <n-collapse style="margin: 4px 0">
             <n-collapse-item title="全域术语表" name="global-config">
               <n-flex vertical size="medium">
@@ -590,9 +606,9 @@ const importGlobalToLocal = () => {
                   >
                     <n-collapse-item
                       v-for="gg in activeGlobalGlossaries"
-                      :key="gg.uid"
+                      :key="gg.id"
                       :title="`${gg.name} (共 ${Object.keys(gg.content).length} 个词条)`"
-                      :name="gg.uid"
+                      :name="gg.id"
                       style="
                         border: 1px solid var(--border-color);
                         border-radius: 4px;
@@ -606,8 +622,8 @@ const importGlobalToLocal = () => {
                             size="tiny"
                             secondary
                             circle
-                            :disabled="linkedGlossaries.indexOf(gg.uid) === 0"
-                            @click.stop="moveGlossaryUp(gg.uid)"
+                            :disabled="linkedGlossaries.indexOf(gg.id) === 0"
+                            @click.stop="moveGlossaryUp(gg.id)"
                           >
                             <template #icon>
                               <n-icon><ArrowUpwardOutlined /></n-icon>
@@ -618,10 +634,10 @@ const importGlobalToLocal = () => {
                             secondary
                             circle
                             :disabled="
-                              linkedGlossaries.indexOf(gg.uid) ===
+                              linkedGlossaries.indexOf(gg.id) ===
                               linkedGlossaries.length - 1
                             "
-                            @click.stop="moveGlossaryDown(gg.uid)"
+                            @click.stop="moveGlossaryDown(gg.id)"
                           >
                             <template #icon>
                               <n-icon><ArrowDownwardOutlined /></n-icon>
@@ -630,7 +646,7 @@ const importGlobalToLocal = () => {
                         </n-space>
                       </template>
                       <template
-                        v-if="expandedActiveGlossaries.includes(gg.uid)"
+                        v-if="expandedActiveGlossaries.includes(gg.id)"
                       >
                         <n-scrollbar
                           v-if="Object.keys(gg.content).length > 0"

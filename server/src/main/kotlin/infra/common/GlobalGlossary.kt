@@ -21,7 +21,6 @@ data class GlobalGlossaryRecord(
 @Serializable
 data class GlobalGlossary(
     @Contextual @SerialName("_id") val id: ObjectId,
-    val uid: String,
     val name: String,
     val content: Map<String, String> = emptyMap(),
     val termsCount: Int = 0,
@@ -29,4 +28,25 @@ data class GlobalGlossary(
     @Contextual val update: Instant,
     val tag: List<String> = emptyList(),
     val record: List<GlobalGlossaryRecord> = emptyList(),
+    val version: Long = 1,
 )
+
+fun GlobalGlossary.contentAtVersion(targetVersion: Long): Map<String, String> {
+    val currentContent = this.content.toMutableMap()
+    val records = this.record
+    val targetIndex = (targetVersion - 1).toInt()
+    if (targetIndex < 0 || targetIndex >= records.size) {
+        return currentContent
+    }
+    for (j in records.size - 1 downTo targetIndex + 1) {
+        val rec = records[j]
+        for ((key, item) in rec.diff) {
+            if (item.old == null || item.old.isEmpty()) {
+                currentContent.remove(key)
+            } else {
+                currentContent[key] = item.old
+            }
+        }
+    }
+    return currentContent
+}
