@@ -1,7 +1,10 @@
 package infra.common
 
+import com.mongodb.client.model.Filters.`in`
 import com.mongodb.client.model.Filters.eq
 import com.mongodb.client.model.Projections.exclude
+import com.mongodb.client.model.Updates.addToSet
+import com.mongodb.client.model.Updates.pull
 import com.mongodb.client.model.Updates.set
 import infra.MongoClient
 import infra.MongoCollectionNames
@@ -18,12 +21,17 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
 
     suspend fun list(): List<GlobalGlossary> {
         return collection.find()
-            .projection(exclude(GlobalGlossary::record.field()))
+            .projection(exclude(GlobalGlossary::record.field(), GlobalGlossary::content.field()))
             .toList()
     }
 
     suspend fun getByUid(uid: String): GlobalGlossary? {
         return collection.find(eq(GlobalGlossary::uid.field(), uid)).firstOrNull()
+    }
+
+    suspend fun getByUids(uids: List<String>): List<GlobalGlossary> {
+        if (uids.isEmpty()) return emptyList()
+        return collection.find(`in`(GlobalGlossary::uid.field(), uids)).toList()
     }
 
     suspend fun create(uid: String, name: String, content: Map<String, String>, tag: List<String> = emptyList()): GlobalGlossary {
@@ -93,15 +101,14 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
     }
 
     suspend fun updateUsed(uid: String, novelUrl: String, add: Boolean) {
-        val gg = getByUid(uid) ?: return
-        val newUsed = if (add) {
-            if (novelUrl in gg.used) gg.used else gg.used + novelUrl
+        val update = if (add) {
+            addToSet(GlobalGlossary::used.field(), novelUrl)
         } else {
-            gg.used - novelUrl
+            pull(GlobalGlossary::used.field(), novelUrl)
         }
         collection.updateOne(
             eq(GlobalGlossary::uid.field(), uid),
-            set(GlobalGlossary::used.field(), newUsed)
+            update
         )
     }
 

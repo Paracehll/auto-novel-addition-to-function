@@ -98,18 +98,29 @@ const activeGlossariesMap = ref<Record<string, GlobalGlossary>>({});
 watch(
   linkedGlossaries,
   async (newVal) => {
-    for (const uid of newVal) {
+    const promises = newVal.map(async (uid) => {
       if (!activeGlossariesMap.value[uid]) {
         try {
           const gg = await GlobalGlossaryApi.getGlobalGlossary(uid);
-          activeGlossariesMap.value = {
-            ...activeGlossariesMap.value,
-            [uid]: gg,
-          };
+          return { uid, gg };
         } catch (e: any) {
           message.error(`加载全域术语表[${uid}]详情失败: ${e.message || e}`);
+          return null;
         }
       }
+      return null;
+    });
+    const results = await Promise.all(promises);
+    let updated = false;
+    const nextMap = { ...activeGlossariesMap.value };
+    for (const res of results) {
+      if (res) {
+        nextMap[res.uid] = res.gg;
+        updated = true;
+      }
+    }
+    if (updated) {
+      activeGlossariesMap.value = nextMap;
     }
   },
   { immediate: true, deep: true },

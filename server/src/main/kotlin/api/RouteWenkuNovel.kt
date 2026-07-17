@@ -506,10 +506,13 @@ class WenkuNovelApi(
     ): Map<String, String> {
         val novel = metadataRepo.get(novelId) ?: throwNovelNotFound()
         val merged = mutableMapOf<String, String>()
-        for (uid in novel.linkedGlossaries) {
-            val gg = globalGlossaryRepo.getByUid(uid)
-            if (gg != null) {
-                merged.putAll(gg.content)
+        if (novel.linkedGlossaries.isNotEmpty()) {
+            val ggs = globalGlossaryRepo.getByUids(novel.linkedGlossaries).associateBy { it.uid }
+            for (uid in novel.linkedGlossaries) {
+                val gg = ggs[uid]
+                if (gg != null) {
+                    merged.putAll(gg.content)
+                }
             }
         }
         merged.putAll(novel.glossary)
@@ -762,10 +765,13 @@ class WenkuNovelTranslateV2Api(
         linkedGlossaries: List<String>,
     ): Map<String, String> {
         val merged = mutableMapOf<String, String>()
-        for (uid in linkedGlossaries) {
-            val gg = globalGlossaryRepo.getByUid(uid)
-            if (gg != null) {
-                merged.putAll(gg.content)
+        if (linkedGlossaries.isNotEmpty()) {
+            val ggs = globalGlossaryRepo.getByUids(linkedGlossaries).associateBy { it.uid }
+            for (uid in linkedGlossaries) {
+                val gg = ggs[uid]
+                if (gg != null) {
+                    merged.putAll(gg.content)
+                }
             }
         }
         merged.putAll(localGlossary)
