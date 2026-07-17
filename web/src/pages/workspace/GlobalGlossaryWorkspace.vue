@@ -176,10 +176,10 @@ const rollbackToRecord = (targetIndex: number) => {
     const rec = records[j];
     for (const key in rec.diff) {
       const item = rec.diff[key];
-      if (item.type === 'add') {
+      if (item.old === null || item.old === '') {
         delete currentContent[key];
       } else {
-        currentContent[key] = item.old!;
+        currentContent[key] = item.old;
       }
     }
   }
@@ -289,25 +289,34 @@ const getRecordTimelineType = (rec: GlobalGlossaryRecord) => {
   const items = Object.values(rec.diff);
   if (items.length === 0) return 'info';
 
-  const isAllAdd = items.every((it) => it.type === 'add');
+  const isAllAdd = items.every((it) => !it.old || it.old.trim() === '');
   if (isAllAdd) return 'success';
 
-  const isAllDel = items.every((it) => it.type === 'delete');
+  const isAllDel = items.every((it) => !it.new || it.new.trim() === '');
   if (isAllDel) return 'error';
 
   return 'warning';
 };
 
-const getDiffType = (diffItem: any) => {
-  return diffItem.type || 'modify';
+const getDiffType = (
+  oldVal: string | null | undefined,
+  newVal: string | null | undefined,
+) => {
+  if (!oldVal || oldVal.trim() === '') {
+    return 'add';
+  } else if (!newVal || newVal.trim() === '') {
+    return 'delete';
+  } else {
+    return 'update';
+  }
 };
 
 const getAddCount = (rec: GlobalGlossaryRecord) => {
   let count = 0;
   for (const key in rec.diff) {
     const item = rec.diff[key];
-    const type = getDiffType(item);
-    if (type === 'add' || type === 'modify') {
+    const type = getDiffType(item.old, item.new);
+    if (type === 'add' || type === 'update') {
       count++;
     }
   }
@@ -318,8 +327,8 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
   let count = 0;
   for (const key in rec.diff) {
     const item = rec.diff[key];
-    const type = getDiffType(item);
-    if (type === 'delete' || type === 'modify') {
+    const type = getDiffType(item.old, item.new);
+    if (type === 'delete' || type === 'update') {
       count++;
     }
   }
@@ -575,7 +584,10 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                         <tr v-for="(diffItem, key) in rec.diff" :key="key">
                           <td style="width: 80px">
                             <n-tag
-                              v-if="getDiffType(diffItem) === 'add'"
+                              v-if="
+                                getDiffType(diffItem.old, diffItem.new) ===
+                                'add'
+                              "
                               type="success"
                               size="small"
                               :round="false"
@@ -583,7 +595,10 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                               新增
                             </n-tag>
                             <n-tag
-                              v-else-if="getDiffType(diffItem) === 'delete'"
+                              v-else-if="
+                                getDiffType(diffItem.old, diffItem.new) ===
+                                'delete'
+                              "
                               type="error"
                               size="small"
                               :round="false"
@@ -603,12 +618,22 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                             {{ key }}
                           </td>
                           <td>
-                            <template v-if="getDiffType(diffItem) === 'add'">
+                            <template
+                              v-if="
+                                getDiffType(diffItem.old, diffItem.new) ===
+                                'add'
+                              "
+                            >
                               <span style="color: var(--n-text-color)">
                                 {{ diffItem.new }}
                               </span>
                             </template>
-                            <template v-else-if="getDiffType(diffItem) === 'delete'">
+                            <template
+                              v-else-if="
+                                getDiffType(diffItem.old, diffItem.new) ===
+                                'delete'
+                              "
+                            >
                               <del style="color: var(--error-color)">
                                 {{ diffItem.old }}
                               </del>

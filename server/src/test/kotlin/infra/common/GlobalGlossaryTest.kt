@@ -32,10 +32,8 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 created.tag shouldBe tag
                 created.record.size shouldBe 1
                 val initialRecord = created.record[0]
-                initialRecord.diff["りんご"]?.type shouldBe "add"
                 initialRecord.diff["りんご"]?.old shouldBe null
                 initialRecord.diff["りんご"]?.new shouldBe "苹果"
-                initialRecord.diff["ばなな"]?.type shouldBe "add"
                 initialRecord.diff["ばなな"]?.old shouldBe null
                 initialRecord.diff["ばなな"]?.new shouldBe "香蕉"
 
@@ -52,13 +50,10 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 updated.tag shouldBe newTag
                 updated.record.size shouldBe 2
                 val record = updated.record[1]
-                record.diff["りんご"]?.type shouldBe "modify"
                 record.diff["りんご"]?.old shouldBe "苹果"
                 record.diff["りんご"]?.new shouldBe "林檎"
-                record.diff["ばなな"]?.type shouldBe "delete"
                 record.diff["ばなな"]?.old shouldBe "香蕉"
                 record.diff["ばなな"]?.new shouldBe null
-                record.diff["めろん"]?.type shouldBe "add"
                 record.diff["めろん"]?.old shouldBe null
                 record.diff["めろん"]?.new shouldBe "哈密瓜"
 

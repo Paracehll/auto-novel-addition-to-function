@@ -117,14 +117,14 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         for ((key, oldValue) in oldContent) {
             val newValue = newContent[key]
             if (newValue == null) {
-                diff[key] = GlobalGlossaryDiffItem(type = "delete", old = oldValue)
+                diff[key] = GlobalGlossaryDiffItem(old = oldValue, new = null)
             } else if (oldValue != newValue) {
-                diff[key] = GlobalGlossaryDiffItem(type = "modify", old = oldValue, new = newValue)
+                diff[key] = GlobalGlossaryDiffItem(old = oldValue, new = newValue)
             }
         }
         for ((key, newValue) in newContent) {
             if (!oldContent.containsKey(key)) {
-                diff[key] = GlobalGlossaryDiffItem(type = "add", new = newValue)
+                diff[key] = GlobalGlossaryDiffItem(old = null, new = newValue)
             }
         }
         return diff

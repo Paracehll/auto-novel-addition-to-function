@@ -8,9 +8,8 @@ import org.bson.types.ObjectId
 
 @Serializable
 data class GlobalGlossaryDiffItem(
-    val type: String, // "add", "delete", "modify"
-    val old: String? = null,
-    val new: String? = null,
+    val old: String?,
+    val new: String?,
 )
 
 @Serializable
