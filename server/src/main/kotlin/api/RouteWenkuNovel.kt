@@ -474,16 +474,15 @@ class WenkuNovelApi(
         if (glossary == novel.glossary && linkedGlossaries == novel.linkedGlossaries)
             throwBadRequest("术语表没有改变")
 
-        val novelUrl = "/wenku/$novelId"
         val oldLinked = novel.linkedGlossaries
         val removed = oldLinked - linkedGlossaries.toSet()
         val added = linkedGlossaries - oldLinked.toSet()
 
         for (uid in removed) {
-            globalGlossaryRepo.updateUsed(uid, novelUrl, false)
+            globalGlossaryRepo.updateUsed(uid, novel.id, false)
         }
         for (uid in added) {
-            globalGlossaryRepo.updateUsed(uid, novelUrl, true)
+            globalGlossaryRepo.updateUsed(uid, novel.id, true)
         }
 
         metadataRepo.updateGlossary(

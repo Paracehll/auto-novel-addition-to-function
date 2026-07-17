@@ -4,7 +4,10 @@ import api.plugins.*
 import infra.common.GlobalGlossary
 import infra.common.GlobalGlossaryDiffItem
 import infra.common.GlobalGlossaryRepository
+import infra.web.repository.WebNovelMetadataRepository
+import infra.wenku.repository.WenkuNovelMetadataRepository
 import io.ktor.http.*
+import org.bson.types.ObjectId
 import io.ktor.resources.*
 import io.ktor.server.request.*
 import io.ktor.server.resources.*
@@ -60,13 +63,13 @@ data class GlobalGlossaryDto(
     val record: List<GlobalGlossaryRecordDto>,
 )
 
-fun GlobalGlossary.asDto(excludeDetails: Boolean = false) = GlobalGlossaryDto(
+fun GlobalGlossary.asDto(usedUrls: List<String>, excludeDetails: Boolean = false) = GlobalGlossaryDto(
     id = id.toHexString(),
     uid = uid,
     name = name,
     content = if (excludeDetails) emptyMap() else content,
     termsCount = if (termsCount > 0) termsCount else content.size,
-    used = used,
+    used = usedUrls,
     update = update.epochSeconds,
     tag = tag,
     record = if (excludeDetails) emptyList() else record.map {
@@ -129,13 +132,29 @@ fun Route.routeGlobalGlossary() {
 
 class GlobalGlossaryApi(
     private val repo: GlobalGlossaryRepository,
+    private val webNovelRepo: WebNovelMetadataRepository,
+    private val wenkuNovelRepo: WenkuNovelMetadataRepository,
 ) {
     suspend fun list(): List<GlobalGlossaryDto> {
-        return repo.list().map { it.asDto(excludeDetails = true) }
+        return repo.list().map { it.asDto(usedUrls = it.used.map { id -> id.toHexString() }, excludeDetails = true) }
     }
 
     suspend fun get(uid: String): GlobalGlossaryDto {
-        return repo.getByUid(uid)?.asDto() ?: throwNotFound("全域术语表不存在")
+        val gg = repo.getByUid(uid) ?: throwNotFound("全域术语表不存在")
+        val resolvedUrls = gg.used.mapNotNull { id ->
+            val webNovel = webNovelRepo.getById(id)
+            if (webNovel != null) {
+                "/novel/${webNovel.providerId}/${webNovel.novelId}"
+            } else {
+                val wenkuNovel = wenkuNovelRepo.getById(id)
+                if (wenkuNovel != null) {
+                    "/wenku/${wenkuNovel.id.toHexString()}"
+                } else {
+                    null
+                }
+            }
+        }
+        return gg.asDto(usedUrls = resolvedUrls)
     }
 
     suspend fun create(user: User, body: GlobalGlossaryCreateBody): GlobalGlossaryDto {
@@ -149,7 +168,7 @@ class GlobalGlossaryApi(
             name = body.name,
             content = body.content,
             tag = body.tag,
-        ).asDto()
+        ).asDto(emptyList())
     }
 
     suspend fun update(user: User, uid: String, body: GlobalGlossaryUpdateBody): GlobalGlossaryDto {
@@ -162,7 +181,7 @@ class GlobalGlossaryApi(
             name = body.name,
             content = body.content,
             tag = body.tag,
-        ).asDto()
+        ).asDto(emptyList())
     }
 
     suspend fun delete(user: User, uid: String) {

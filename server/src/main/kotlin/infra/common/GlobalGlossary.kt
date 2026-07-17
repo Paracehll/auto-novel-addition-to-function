@@ -25,7 +25,7 @@ data class GlobalGlossary(
     val name: String,
     val content: Map<String, String> = emptyMap(),
     val termsCount: Int = 0,
-    val used: List<String> = emptyList(),
+    val used: List<@Contextual ObjectId> = emptyList(),
     @Contextual val update: Instant,
     val tag: List<String> = emptyList(),
     val record: List<GlobalGlossaryRecord> = emptyList(),

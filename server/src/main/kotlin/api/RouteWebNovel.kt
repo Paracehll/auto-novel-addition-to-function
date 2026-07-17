@@ -895,16 +895,15 @@ class WebNovelApi(
         if (novel.glossary == glossary && novel.linkedGlossaries == linkedGlossaries)
             throwBadRequest("修改为空")
 
-        val novelUrl = "/novel/$providerId/$novelId"
         val oldLinked = novel.linkedGlossaries
         val removed = oldLinked - linkedGlossaries.toSet()
         val added = linkedGlossaries - oldLinked.toSet()
 
         for (uid in removed) {
-            globalGlossaryRepo.updateUsed(uid, novelUrl, false)
+            globalGlossaryRepo.updateUsed(uid, novel.id, false)
         }
         for (uid in added) {
-            globalGlossaryRepo.updateUsed(uid, novelUrl, true)
+            globalGlossaryRepo.updateUsed(uid, novel.id, true)
         }
 
         metadataRepo.updateGlossary(

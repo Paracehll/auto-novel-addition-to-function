@@ -5,6 +5,7 @@ import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import koinExtensions
+import org.bson.types.ObjectId
 import org.koin.test.KoinTest
 import org.koin.test.inject
 
@@ -57,11 +58,12 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 record.diff["めろん"]?.new shouldBe "哈密瓜"
 
                 // 4. Update Used
-                repo.updateUsed(uid, "/novel/syosetu/n1234ab", true)
+                val dummyNovelId = ObjectId()
+                repo.updateUsed(uid, dummyNovelId, true)
                 val withUsed = repo.getByUid(uid)
-                withUsed!!.used shouldBe listOf("/novel/syosetu/n1234ab")
+                withUsed!!.used shouldBe listOf(dummyNovelId)
 
-                repo.updateUsed(uid, "/novel/syosetu/n1234ab", false)
+                repo.updateUsed(uid, dummyNovelId, false)
                 val withoutUsed = repo.getByUid(uid)
                 withoutUsed!!.used.size shouldBe 0
 

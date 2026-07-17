@@ -59,7 +59,7 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         return gg
     }
 
-    suspend fun update(uid: String, name: String, content: Map<String, String>, tag: List<String>? = null, used: List<String>? = null): GlobalGlossary {
+    suspend fun update(uid: String, name: String, content: Map<String, String>, tag: List<String>? = null, used: List<ObjectId>? = null): GlobalGlossary {
         val old = getByUid(uid) ?: throw NoSuchElementException("Global glossary not found")
         val isContentChanged = old.content != content
         val newRecord = if (isContentChanged) {
@@ -100,11 +100,11 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         )
     }
 
-    suspend fun updateUsed(uid: String, novelUrl: String, add: Boolean) {
+    suspend fun updateUsed(uid: String, novelId: ObjectId, add: Boolean) {
         val update = if (add) {
-            addToSet(GlobalGlossary::used.field(), novelUrl)
+            addToSet(GlobalGlossary::used.field(), novelId)
         } else {
-            pull(GlobalGlossary::used.field(), novelUrl)
+            pull(GlobalGlossary::used.field(), novelId)
         }
         collection.updateOne(
             eq(GlobalGlossary::uid.field(), uid),
