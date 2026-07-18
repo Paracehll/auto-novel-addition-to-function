@@ -36,10 +36,16 @@ const jpKeys = computed(() => Object.keys(glossary.value).reverse());
 const limit = ref(50);
 const displayedKeys = computed(() => jpKeys.value.slice(0, limit.value));
 
+const isReordering = ref(false);
+
 // Reset limit when glossary changes
 watch(
   () => glossary.value,
   () => {
+    if (isReordering.value) {
+      isReordering.value = false;
+      return;
+    }
     limit.value = 50;
   },
   { deep: false },
@@ -187,6 +193,103 @@ const revokeSkip = (jp: string) => {
   skippedKeys.value.delete(jp);
   skippedKeys.value = new Set(skippedKeys.value);
 };
+
+// Drag and drop state for reordering terms
+const draggedKey = ref<string | null>(null);
+const dragOverKey = ref<string | null>(null);
+const dragPosition = ref<'above' | 'below' | 'on' | null>(null);
+
+const handleDragStart = (event: DragEvent, key: string) => {
+  draggedKey.value = key;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', key);
+    const target = event.currentTarget as HTMLElement;
+    if (target) {
+      const row = target.closest('tr');
+      const dragElement = row || target;
+      const rect = dragElement.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      event.dataTransfer.setDragImage(dragElement, x, y);
+    }
+  }
+};
+
+const handleDragOver = (event: DragEvent, key: string) => {
+  event.preventDefault();
+  if (draggedKey.value && draggedKey.value !== key) {
+    dragOverKey.value = key;
+    const currentTarget = event.currentTarget as HTMLElement;
+    if (currentTarget) {
+      const rect = currentTarget.getBoundingClientRect();
+      const relativeY = event.clientY - rect.top;
+      const ratio = relativeY / rect.height;
+
+      const isLast =
+        key === displayedKeys.value[displayedKeys.value.length - 1];
+
+      if (ratio < 0.3) {
+        dragPosition.value = 'above';
+      } else if (isLast && ratio > 0.7) {
+        dragPosition.value = 'below';
+      } else {
+        dragPosition.value = 'on';
+      }
+    }
+  }
+};
+
+const handleDragLeave = (key: string) => {
+  if (dragOverKey.value === key) {
+    dragOverKey.value = null;
+    dragPosition.value = null;
+  }
+};
+
+const handleDrop = (event: DragEvent, targetKey: string) => {
+  event.preventDefault();
+  const sourceKey = draggedKey.value;
+  if (!sourceKey || sourceKey === targetKey) {
+    cleanupDrag();
+    return;
+  }
+
+  const keys = [...jpKeys.value];
+  const fromIndex = keys.indexOf(sourceKey);
+  const toIndex = keys.indexOf(targetKey);
+
+  if (fromIndex !== -1 && toIndex !== -1) {
+    if (dragPosition.value === 'on') {
+      keys[fromIndex] = targetKey;
+      keys[toIndex] = sourceKey;
+    } else {
+      keys.splice(fromIndex, 1);
+      let targetIndex = keys.indexOf(targetKey);
+      if (targetIndex !== -1) {
+        if (dragPosition.value === 'below') {
+          targetIndex += 1;
+        }
+        keys.splice(targetIndex, 0, sourceKey);
+      }
+    }
+
+    const newGlossary: Glossary = {};
+    const reversedKeys = [...keys].reverse();
+    for (const k of reversedKeys) {
+      newGlossary[k] = glossary.value[k];
+    }
+    isReordering.value = true;
+    glossary.value = newGlossary;
+  }
+  cleanupDrag();
+};
+
+const cleanupDrag = () => {
+  draggedKey.value = null;
+  dragOverKey.value = null;
+  dragPosition.value = null;
+};
 </script>
 
 <template>
@@ -278,6 +381,13 @@ const revokeSkip = (jp: string) => {
       >
         {{ lastDeletedTerm }}
       </n-text>
+      <n-text
+        v-if="lastDeletedTerm === undefined"
+        depth="3"
+        style="font-size: 12px"
+      >
+        Tip: 拖动 => 可调整顺序
+      </n-text>
     </n-flex>
 
     <!-- Interactive Terms List Table with Dynamic Loading -->
@@ -296,7 +406,21 @@ const revokeSkip = (jp: string) => {
         size="small"
         style="font-size: 12px"
       >
-        <tr v-for="wordJp in displayedKeys" :key="wordJp">
+        <tr
+          v-for="wordJp in displayedKeys"
+          :key="wordJp"
+          :class="{
+            'dragged-row': wordJp === draggedKey,
+            'drag-over-above':
+              wordJp === dragOverKey && dragPosition === 'above',
+            'drag-over-below':
+              wordJp === dragOverKey && dragPosition === 'below',
+            'drag-over-on': wordJp === dragOverKey && dragPosition === 'on',
+          }"
+          @dragover="handleDragOver($event, wordJp)"
+          @dragleave="handleDragLeave(wordJp)"
+          @drop="handleDrop($event, wordJp)"
+        >
           <td>
             <c-button
               :icon="DeleteOutlineOutlined"
@@ -307,7 +431,16 @@ const revokeSkip = (jp: string) => {
             />
           </td>
           <td>{{ wordJp }}</td>
-          <td nowrap="nowrap">=></td>
+          <td
+            nowrap="nowrap"
+            draggable="true"
+            class="drag-handle"
+            @dragstart="handleDragStart($event, wordJp)"
+            @dragend="cleanupDrag"
+            title="拖动调整顺序"
+          >
+            =&gt;
+          </td>
           <td style="padding-right: 16px">
             <div style="display: flex; align-items: center; gap: 4px">
               <n-input
@@ -356,3 +489,34 @@ const revokeSkip = (jp: string) => {
     </n-scrollbar>
   </n-flex>
 </template>
+
+<style scoped>
+.drag-handle {
+  cursor: grab;
+  user-select: none;
+  font-weight: bold;
+  padding: 0 8px;
+  text-align: center;
+  color: #ffffff;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.dragged-row {
+  opacity: 0.4;
+}
+
+.drag-over-above td {
+  box-shadow: inset 0 2px 0 0 var(--primary-color, #ffffff) !important;
+}
+
+.drag-over-below td {
+  box-shadow: inset 0 -2px 0 0 var(--primary-color, #ffffff) !important;
+}
+
+.drag-over-on td {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+}
+</style>

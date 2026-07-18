@@ -156,10 +156,12 @@ const handleUpdateShow = async (value: boolean) => {
       showEditModal.value = false;
       return;
     }
-    const hasChanges = !isEqual(
-      toRaw(formModel.value),
-      originalFormModel.value,
-    );
+    const hasChanges =
+      !isEqual(toRaw(formModel.value), originalFormModel.value) ||
+      !isEqual(
+        Object.keys(toRaw(formModel.value.content || {})),
+        Object.keys(originalFormModel.value.content || {}),
+      );
     if (hasChanges) {
       if (window.confirm('术语表有未保存的修改，是否保存？')) {
         await saveGlossary();

@@ -374,6 +374,10 @@ const handleUpdateShow = async (value: boolean) => {
     const hasChanges =
       !isEqual(toRaw(glossary.value), toRaw(originalGlossary.value)) ||
       !isEqual(
+        Object.keys(toRaw(glossary.value)),
+        Object.keys(toRaw(originalGlossary.value)),
+      ) ||
+      !isEqual(
         toRaw(linkedGlossaries.value),
         toRaw(originalLinkedGlossaries.value),
       );
