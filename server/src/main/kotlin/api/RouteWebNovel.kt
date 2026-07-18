@@ -900,10 +900,18 @@ class WebNovelApi(
         val added = linkedGlossaries - oldLinked.toSet()
 
         for (uid in removed) {
-            globalGlossaryRepo.updateUsed(ObjectId(uid), novel.id, false)
+            try {
+                globalGlossaryRepo.updateUsed(ObjectId(uid), novel.id, false)
+            } catch (e: Exception) {
+                // Ignore invalid or legacy glossary ID format
+            }
         }
         for (uid in added) {
-            globalGlossaryRepo.updateUsed(ObjectId(uid), novel.id, true)
+            try {
+                globalGlossaryRepo.updateUsed(ObjectId(uid), novel.id, true)
+            } catch (e: Exception) {
+                // Ignore invalid or legacy glossary ID format
+            }
         }
 
         metadataRepo.updateGlossary(
