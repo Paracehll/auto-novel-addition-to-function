@@ -27,7 +27,7 @@ data class UserFavoredList(
 data class UserDbModel(
     @Contextual @SerialName("_id") val id: ObjectId,
     val username: String,
-    val favoredWeb: List<UserFavored>,
-    val favoredWenku: List<UserFavored>,
+    val favoredWeb: List<UserFavored> = emptyList(),
+    val favoredWenku: List<UserFavored> = emptyList(),
     val readHistoryPaused: Boolean = false,
 )
