@@ -23,10 +23,13 @@ export const createLocalVolumeStore = async () => {
       dao.deleteFile(id),
     ]);
 
-  const updateGlossary = (id: string, glossary: Glossary) =>
+  const updateGlossary = (id: string, glossary: Glossary, linkedGlossaries?: string[]) =>
     dao.updateMetadata(id, (value) => {
       value.glossary = glossary;
       value.glossaryId = uuidv4();
+      if (linkedGlossaries !== undefined) {
+        value.linkedGlossaries = linkedGlossaries;
+      }
       return value;
     });
 

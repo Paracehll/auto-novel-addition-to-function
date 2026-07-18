@@ -216,6 +216,12 @@ const fetchData = async () => {
         const novel = await WenkuNovelApi.getNovel(gnid.novelId);
         linkedGlossaries.value = novel.linkedGlossaries || [];
         novelKeywords.value = novel.keywords || [];
+      } else if (gnid.type === 'local') {
+        const store = await useLocalVolumeStore();
+        const volume = await store.getVolume(gnid.volumeId);
+        if (volume) {
+          linkedGlossaries.value = volume.linkedGlossaries || [];
+        }
       }
     }
   } catch (e: any) {
@@ -384,7 +390,7 @@ const updateGlossary = async () => {
     });
   } else {
     const repo = await useLocalVolumeStore();
-    await repo.updateGlossary(gnid.volumeId, glossaryValue);
+    await repo.updateGlossary(gnid.volumeId, glossaryValue, linkedList);
   }
 };
 
@@ -570,7 +576,7 @@ const importGlobalToLocal = () => {
         </template>
 
         <!-- Collapsible Global Glossary Configuration and Deduplication section -->
-        <template v-if="props.showGlobal && gnid && (gnid.type === 'web' || gnid.type === 'wenku')">
+        <template v-if="props.showGlobal && gnid && (gnid.type === 'web' || gnid.type === 'wenku' || gnid.type === 'local')">
           <n-collapse style="margin: 4px 0">
             <n-collapse-item title="全域术语表" name="global-config">
               <n-flex vertical size="medium">
