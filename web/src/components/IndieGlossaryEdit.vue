@@ -197,7 +197,7 @@ const revokeSkip = (jp: string) => {
 // Drag and drop state for reordering terms
 const draggedKey = ref<string | null>(null);
 const dragOverKey = ref<string | null>(null);
-const dragPosition = ref<'above' | 'below' | null>(null);
+const dragPosition = ref<'above' | 'below' | 'on' | null>(null);
 
 const handleDragStart = (event: DragEvent, key: string) => {
   draggedKey.value = key;
@@ -215,7 +215,14 @@ const handleDragOver = (event: DragEvent, key: string) => {
     if (currentTarget) {
       const rect = currentTarget.getBoundingClientRect();
       const relativeY = event.clientY - rect.top;
-      dragPosition.value = relativeY < rect.height / 2 ? 'above' : 'below';
+      const ratio = relativeY / rect.height;
+      if (ratio < 0.3) {
+        dragPosition.value = 'above';
+      } else if (ratio > 0.7) {
+        dragPosition.value = 'below';
+      } else {
+        dragPosition.value = 'on';
+      }
     }
   }
 };
@@ -237,23 +244,30 @@ const handleDrop = (event: DragEvent, targetKey: string) => {
 
   const keys = [...jpKeys.value];
   const fromIndex = keys.indexOf(sourceKey);
-  if (fromIndex !== -1) {
-    keys.splice(fromIndex, 1);
-    let toIndex = keys.indexOf(targetKey);
-    if (toIndex !== -1) {
-      if (dragPosition.value === 'below') {
-        toIndex += 1;
-      }
-      keys.splice(toIndex, 0, sourceKey);
+  const toIndex = keys.indexOf(targetKey);
 
-      const newGlossary: Glossary = {};
-      const reversedKeys = [...keys].reverse();
-      for (const k of reversedKeys) {
-        newGlossary[k] = glossary.value[k];
+  if (fromIndex !== -1 && toIndex !== -1) {
+    if (dragPosition.value === 'on') {
+      keys[fromIndex] = targetKey;
+      keys[toIndex] = sourceKey;
+    } else {
+      keys.splice(fromIndex, 1);
+      let targetIndex = keys.indexOf(targetKey);
+      if (targetIndex !== -1) {
+        if (dragPosition.value === 'below') {
+          targetIndex += 1;
+        }
+        keys.splice(targetIndex, 0, sourceKey);
       }
-      isReordering.value = true;
-      glossary.value = newGlossary;
     }
+
+    const newGlossary: Glossary = {};
+    const reversedKeys = [...keys].reverse();
+    for (const k of reversedKeys) {
+      newGlossary[k] = glossary.value[k];
+    }
+    isReordering.value = true;
+    glossary.value = newGlossary;
   }
   cleanupDrag();
 };
@@ -379,6 +393,7 @@ const cleanupDrag = () => {
             'dragged-row': wordJp === draggedKey,
             'drag-over-above': wordJp === dragOverKey && dragPosition === 'above',
             'drag-over-below': wordJp === dragOverKey && dragPosition === 'below',
+            'drag-over-on': wordJp === dragOverKey && dragPosition === 'on',
           }"
           @dragover="handleDragOver($event, wordJp)"
           @dragleave="handleDragLeave(wordJp)"
@@ -477,5 +492,11 @@ const cleanupDrag = () => {
 
 .drag-over-below td {
   border-bottom: 2px solid var(--primary-color, #ffffff) !important;
+}
+
+.drag-over-on td {
+  border-top: 2px solid var(--primary-color, #ffffff) !important;
+  border-bottom: 2px solid var(--primary-color, #ffffff) !important;
+  background-color: rgba(24, 160, 88, 0.25) !important;
 }
 </style>
