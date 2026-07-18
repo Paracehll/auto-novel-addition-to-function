@@ -167,6 +167,22 @@ const activeGlobalGlossaries = computed(() => {
     .filter((gg): gg is GlobalGlossary => gg !== undefined);
 });
 
+const totalGlobalTermsCount = computed(() => {
+  let count = 0;
+  for (const gg of activeGlobalGlossaries.value) {
+    if (gg && gg.content) {
+      count += Object.keys(gg.content).length;
+    }
+  }
+  return count;
+});
+
+const buttonLabel = computed(() => {
+  const localCount = Object.keys(props.value).length;
+  const globalCount = totalGlobalTermsCount.value;
+  return `术语表[${localCount}] + [${globalCount}]`;
+});
+
 const moveGlossaryUp = (uid: string) => {
   const idx = linkedGlossaries.value.indexOf(uid);
   if (idx > 0) {
@@ -228,6 +244,8 @@ const fetchData = async () => {
     message.error(`获取全域术语表配置失败: ${e.message || e}`);
   }
 };
+
+onMounted(fetchData);
 
 const skippedKeys = ref<Set<string>>(new Set());
 
@@ -548,7 +566,7 @@ const importGlobalToLocal = () => {
 
 <template>
   <c-button
-    :label="`术语表[${Object.keys(value).length}]`"
+    :label="buttonLabel"
     v-bind="$attrs"
     @action="toggleGlossaryModal()"
   />
