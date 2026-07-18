@@ -225,9 +225,12 @@ const handleDragOver = (event: DragEvent, key: string) => {
       const rect = currentTarget.getBoundingClientRect();
       const relativeY = event.clientY - rect.top;
       const ratio = relativeY / rect.height;
+
+      const isLast = key === displayedKeys.value[displayedKeys.value.length - 1];
+
       if (ratio < 0.3) {
         dragPosition.value = 'above';
-      } else if (ratio > 0.7) {
+      } else if (isLast && ratio > 0.7) {
         dragPosition.value = 'below';
       } else {
         dragPosition.value = 'on';
