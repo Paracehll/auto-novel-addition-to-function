@@ -16,40 +16,41 @@ import org.bson.codecs.kotlinx.BsonDecoder
 import org.bson.codecs.kotlinx.BsonEncoder
 import org.bson.types.ObjectId
 
-object RecordBySerializer : KSerializer<String> {
+object RecordBySingleSerializer : KSerializer<ObjectId> {
     override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("RecordBy", PrimitiveKind.STRING)
+        PrimitiveSerialDescriptor("RecordBySingle", PrimitiveKind.STRING)
 
-    override fun serialize(encoder: Encoder, value: String) {
+    override fun serialize(encoder: Encoder, value: ObjectId) {
         if (encoder is BsonEncoder) {
-            if (value == "admin") {
-                encoder.encodeBsonValue(BsonString("admin"))
-            } else {
-                val objectId = try {
-                    ObjectId(value)
-                } catch (e: Exception) {
-                    null
-                }
-                if (objectId != null) {
-                    encoder.encodeBsonValue(BsonObjectId(objectId))
-                } else {
-                    encoder.encodeBsonValue(BsonString(value))
-                }
-            }
+            encoder.encodeBsonValue(BsonObjectId(value))
         } else {
-            encoder.encodeString(value)
+            encoder.encodeString(value.toHexString())
         }
     }
 
-    override fun deserialize(decoder: Decoder): String {
+    override fun deserialize(decoder: Decoder): ObjectId {
+        val fallback = ObjectId("000000000000000000000000")
         return if (decoder is BsonDecoder) {
             when (val bsonValue = decoder.decodeBsonValue()) {
-                is BsonString -> bsonValue.value
-                is BsonObjectId -> bsonValue.value.toHexString()
-                else -> bsonValue.toString()
+                is BsonObjectId -> bsonValue.value
+                is BsonString -> {
+                    try { ObjectId(bsonValue.value) } catch (e: Exception) { fallback }
+                }
+                is org.bson.BsonArray -> {
+                    val first = bsonValue.firstOrNull()
+                    when (first) {
+                        is BsonObjectId -> first.value
+                        is BsonString -> {
+                            try { ObjectId(first.value) } catch (e: Exception) { fallback }
+                        }
+                        else -> fallback
+                    }
+                }
+                else -> fallback
             }
         } else {
-            decoder.decodeString()
+            val str = decoder.decodeString()
+            try { ObjectId(str.trim()) } catch (e: Exception) { fallback }
         }
     }
 }
@@ -64,7 +65,7 @@ data class GlobalGlossaryDiffItem(
 data class GlobalGlossaryRecord(
     @Contextual val date: Instant,
     val diff: Map<String, GlobalGlossaryDiffItem>,
-    @Serializable(with = RecordBySerializer::class) val by: String = "admin",
+    @Serializable(with = RecordBySingleSerializer::class) val by: @Contextual ObjectId = ObjectId("000000000000000000000000"),
 )
 
 @Serializable
