@@ -226,7 +226,8 @@ const handleDragOver = (event: DragEvent, key: string) => {
       const relativeY = event.clientY - rect.top;
       const ratio = relativeY / rect.height;
 
-      const isLast = key === displayedKeys.value[displayedKeys.value.length - 1];
+      const isLast =
+        key === displayedKeys.value[displayedKeys.value.length - 1];
 
       if (ratio < 0.3) {
         dragPosition.value = 'above';
@@ -403,8 +404,10 @@ const cleanupDrag = () => {
           :key="wordJp"
           :class="{
             'dragged-row': wordJp === draggedKey,
-            'drag-over-above': wordJp === dragOverKey && dragPosition === 'above',
-            'drag-over-below': wordJp === dragOverKey && dragPosition === 'below',
+            'drag-over-above':
+              wordJp === dragOverKey && dragPosition === 'above',
+            'drag-over-below':
+              wordJp === dragOverKey && dragPosition === 'below',
             'drag-over-on': wordJp === dragOverKey && dragPosition === 'on',
           }"
           @dragover="handleDragOver($event, wordJp)"
@@ -507,6 +510,6 @@ const cleanupDrag = () => {
 }
 
 .drag-over-on td {
-  background-color: rgba(24, 160, 88, 0.25) !important;
+  background-color: rgba(255, 255, 255, 0.25) !important;
 }
 </style>
