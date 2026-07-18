@@ -2,6 +2,7 @@ package infra.user
 
 import com.mongodb.client.model.Filters.`in`
 import com.mongodb.client.model.Filters.*
+import com.mongodb.client.model.Projections.include
 import com.mongodb.client.model.Updates.set
 import infra.MongoClient
 import infra.MongoCollectionNames
@@ -64,7 +65,9 @@ class UserRepository(
             try { ObjectId(it) } catch (e: Exception) { null }
         }
         if (objectIds.isEmpty()) return emptyMap()
-        val users = userCollection.find(`in`(UserDbModel::id.field(), objectIds)).toList()
+        val users = userCollection.find(`in`(UserDbModel::id.field(), objectIds))
+            .projection(include(UserDbModel::id.field(), UserDbModel::username.field()))
+            .toList()
         return users.associate { it.id.toHexString() to it.username }
     }
 }

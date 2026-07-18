@@ -119,18 +119,37 @@ const globalGlossariesOptions = computed(() => {
 });
 
 const activeGlossariesMap = ref<Record<string, GlobalGlossary>>({});
+const fullyLoadedGlossaryIds = ref<Set<string>>(new Set());
+
+const expandedActiveGlossaries = ref<string[]>([]);
+const handleExpandedNamesChange = (
+  names: string | number | (string | number)[],
+) => {
+  if (Array.isArray(names)) {
+    expandedActiveGlossaries.value = names.map(String);
+  } else if (names !== null && names !== undefined) {
+    expandedActiveGlossaries.value = [String(names)];
+  } else {
+    expandedActiveGlossaries.value = [];
+  }
+};
 
 watch(
   linkedGlossaries,
-  async (newVal) => {
-    const promises = newVal.map(async (id) => {
-      if (!activeGlossariesMap.value[id]) {
-        try {
-          const gg = await GlobalGlossaryApi.getGlobalGlossary(id);
-          return { id, gg };
-        } catch (e: any) {
-          // 已刪除的全域術語表，替換為 [已刪除的術語表]
-          const fallbackGg: GlobalGlossary = {
+  (newVal) => {
+    const nextMap = { ...activeGlossariesMap.value };
+    let updated = false;
+    for (const id of newVal) {
+      if (!nextMap[id]) {
+        const metaGg = allGlobalGlossaries.value.find((gg) => gg.id === id);
+        if (metaGg) {
+          nextMap[id] = {
+            ...metaGg,
+            content: {},
+          };
+          updated = true;
+        } else {
+          nextMap[id] = {
             id,
             name: '[已删除的术语表]',
             content: {},
@@ -141,18 +160,8 @@ watch(
             record: [],
             version: 1,
           };
-          return { id, gg: fallbackGg };
+          updated = true;
         }
-      }
-      return null;
-    });
-    const results = await Promise.all(promises);
-    let updated = false;
-    const nextMap = { ...activeGlossariesMap.value };
-    for (const res of results) {
-      if (res) {
-        nextMap[res.id] = res.gg;
-        updated = true;
       }
     }
     if (updated) {
@@ -161,6 +170,45 @@ watch(
   },
   { immediate: true, deep: true },
 );
+
+watch(
+  expandedActiveGlossaries,
+  async (newVal) => {
+    for (const id of newVal) {
+      if (!fullyLoadedGlossaryIds.value.has(id)) {
+        try {
+          const fullGg = await GlobalGlossaryApi.getGlobalGlossary(id);
+          activeGlossariesMap.value = {
+            ...activeGlossariesMap.value,
+            [id]: fullGg,
+          };
+          fullyLoadedGlossaryIds.value.add(id);
+        } catch (e: any) {
+          message.error(`获取全域术语表详情失败: ${e.message || e}`);
+        }
+      }
+    }
+  },
+  { deep: true },
+);
+
+const ensureAllActiveGlossariesLoaded = async () => {
+  const promises = linkedGlossaries.value.map(async (id) => {
+    if (!fullyLoadedGlossaryIds.value.has(id)) {
+      try {
+        const fullGg = await GlobalGlossaryApi.getGlobalGlossary(id);
+        activeGlossariesMap.value = {
+          ...activeGlossariesMap.value,
+          [id]: fullGg,
+        };
+        fullyLoadedGlossaryIds.value.add(id);
+      } catch (e) {
+        console.error('Failed to load global glossary content', id, e);
+      }
+    }
+  });
+  await Promise.all(promises);
+};
 
 const activeGlobalGlossaries = computed(() => {
   return linkedGlossaries.value
@@ -171,8 +219,8 @@ const activeGlobalGlossaries = computed(() => {
 const totalGlobalTermsCount = computed(() => {
   let count = 0;
   for (const gg of activeGlobalGlossaries.value) {
-    if (gg && gg.content) {
-      count += Object.keys(gg.content).length;
+    if (gg) {
+      count += gg.termsCount ?? Object.keys(gg.content).length;
     }
   }
   return count;
@@ -203,19 +251,6 @@ const moveGlossaryDown = (id: string) => {
     arr[idx] = arr[idx + 1];
     arr[idx + 1] = temp;
     linkedGlossaries.value = arr;
-  }
-};
-
-const expandedActiveGlossaries = ref<string[]>([]);
-const handleExpandedNamesChange = (
-  names: string | number | (string | number)[],
-) => {
-  if (Array.isArray(names)) {
-    expandedActiveGlossaries.value = names.map(String);
-  } else if (names !== null && names !== undefined) {
-    expandedActiveGlossaries.value = [String(names)];
-  } else {
-    expandedActiveGlossaries.value = [];
   }
 };
 
@@ -508,7 +543,8 @@ const applyAllGlobal = () => {
   );
 };
 
-const downloadMergedJson = () => {
+const downloadMergedJson = async () => {
+  await ensureAllActiveGlossariesLoaded();
   const merged: Glossary = {};
   for (const guid of linkedGlossaries.value) {
     const gg = activeGlossariesMap.value[guid];
@@ -527,6 +563,7 @@ const downloadMergedJson = () => {
 };
 
 const exportMerged = async (ev?: MouseEvent) => {
+  await ensureAllActiveGlossariesLoaded();
   const merged: Glossary = {};
   for (const guid of linkedGlossaries.value) {
     const gg = activeGlossariesMap.value[guid];
@@ -547,9 +584,10 @@ const exportMerged = async (ev?: MouseEvent) => {
   }
 };
 
-const importGlobalToLocal = () => {
+const importGlobalToLocal = async () => {
   if (!window.confirm('此操作将解除所有全域术语表连结，是否合併？')) return;
 
+  await ensureAllActiveGlossariesLoaded();
   let count = 0;
   for (const guid of linkedGlossaries.value) {
     const gg = activeGlossariesMap.value[guid];
@@ -643,7 +681,7 @@ const importGlobalToLocal = () => {
                     <n-collapse-item
                       v-for="gg in activeGlobalGlossaries"
                       :key="gg.id"
-                      :title="`${gg.name} (共 ${Object.keys(gg.content).length} 个词条)`"
+                      :title="`${gg.name} (共 ${gg.termsCount ?? Object.keys(gg.content).length} 个词条)`"
                       :name="gg.id"
                       style="
                         border: 1px solid var(--border-color);
