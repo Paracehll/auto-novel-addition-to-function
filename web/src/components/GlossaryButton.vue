@@ -596,7 +596,7 @@ const importGlobalToLocal = () => {
         <!-- Collapsible Global Glossary Configuration and Deduplication section -->
         <template v-if="props.showGlobal && gnid && (gnid.type === 'web' || gnid.type === 'wenku' || gnid.type === 'local')">
           <n-collapse style="margin: 4px 0">
-            <n-collapse-item title="全域术语表" name="global-config">
+            <n-collapse-item :title="`全域术语表 [${totalGlobalTermsCount}]`" name="global-config">
               <n-flex vertical size="medium">
                 <!-- <n-text style="font-size: 12px; font-weight: bold">链接全域术语表</n-text> -->
 

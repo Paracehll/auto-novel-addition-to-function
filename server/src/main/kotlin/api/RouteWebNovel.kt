@@ -1206,11 +1206,12 @@ class WebNovelTranslateV2Api(
 
         val mergedGlossary = getMergedGlossaryMap(novel.glossary, novel.linkedGlossaries)
 
+        val mergedGgContent = mutableMapOf<String, String>()
+        for (gg in globalGlossaries) {
+            mergedGgContent.putAll(gg.content)
+        }
+
         val optimizedGlossary = mergedGlossary.filter { (key, value) ->
-            val mergedGgContent = mutableMapOf<String, String>()
-            for (gg in globalGlossaries) {
-                mergedGgContent.putAll(gg.content)
-            }
             val isFromGgAndIdentical = mergedGgContent[key] == value
             !isFromGgAndIdentical
         }
