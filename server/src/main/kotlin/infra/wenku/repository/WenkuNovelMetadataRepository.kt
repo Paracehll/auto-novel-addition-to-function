@@ -191,7 +191,7 @@ class WenkuNovelMetadataRepository(
     suspend fun updateGlossary(
         novelId: String,
         glossary: Map<String, String>,
-        linkedGlossaries: List<String>,
+        linkedGlossaries: List<ObjectId>,
     ) {
         wenkuNovelMetadataCollection
             .updateOne(

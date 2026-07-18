@@ -342,7 +342,7 @@ class WenkuNovelApi(
             webIds = metadata.webIds,
             volumes = metadata.volumes,
             glossary = metadata.glossary,
-            linkedGlossaries = metadata.linkedGlossaries,
+            linkedGlossaries = metadata.linkedGlossaries.map { it.toHexString() },
             visited = metadata.visited,
             favored = null,
             volumeZh = volumes.zh,
@@ -471,12 +471,12 @@ class WenkuNovelApi(
         user.requireNovelAccess()
         val novel = metadataRepo.get(novelId)
             ?: throwNovelNotFound()
+        val oldLinked = novel.linkedGlossaries.map { it.toHexString() }
         if (glossary == novel.glossary &&
             glossary.keys.toList() == novel.glossary.keys.toList() &&
-            linkedGlossaries == novel.linkedGlossaries)
+            linkedGlossaries == oldLinked)
             throwBadRequest("术语表没有改变")
 
-        val oldLinked = novel.linkedGlossaries
         val removed = oldLinked - linkedGlossaries.toSet()
         val added = linkedGlossaries - oldLinked.toSet()
 
@@ -487,10 +487,12 @@ class WenkuNovelApi(
             globalGlossaryRepo.updateUsed(ObjectId(id), novel.id, true)
         }
 
+        val linkedIds = linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }
+
         metadataRepo.updateGlossary(
             novelId = novelId,
             glossary = glossary,
-            linkedGlossaries = linkedGlossaries,
+            linkedGlossaries = linkedIds,
         )
         operationHistoryRepo.create(
             operator = ObjectId(user.id),
@@ -508,8 +510,7 @@ class WenkuNovelApi(
         val novel = metadataRepo.get(novelId) ?: throwNovelNotFound()
         val merged = mutableMapOf<String, String>()
         if (novel.linkedGlossaries.isNotEmpty()) {
-            val linkedIds = novel.linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }
-            val ggs = globalGlossaryRepo.getByIds(linkedIds).associateBy { it.id.toHexString() }
+            val ggs = globalGlossaryRepo.getByIds(novel.linkedGlossaries).associateBy { it.id }
             for (id in novel.linkedGlossaries) {
                 val gg = ggs[id]
                 if (gg != null) {
@@ -764,12 +765,11 @@ class WenkuNovelTranslateV2Api(
 
     private suspend fun getMergedGlossaryMap(
         localGlossary: Map<String, String>,
-        linkedGlossaries: List<String>,
+        linkedGlossaries: List<ObjectId>,
     ): Map<String, String> {
         val merged = mutableMapOf<String, String>()
         if (linkedGlossaries.isNotEmpty()) {
-            val linkedIds = linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }
-            val ggs = globalGlossaryRepo.getByIds(linkedIds).associateBy { it.id.toHexString() }
+            val ggs = globalGlossaryRepo.getByIds(linkedGlossaries).associateBy { it.id }
             for (id in linkedGlossaries) {
                 val gg = ggs[id]
                 if (gg != null) {
