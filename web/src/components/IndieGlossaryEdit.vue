@@ -495,7 +495,6 @@ const cleanupDrag = () => {
 }
 
 .drag-over-on td {
-  box-shadow: inset 0 2px 0 0 var(--primary-color, #ffffff), inset 0 -2px 0 0 var(--primary-color, #ffffff) !important;
   background-color: rgba(24, 160, 88, 0.25) !important;
 }
 </style>
