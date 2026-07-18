@@ -63,7 +63,9 @@ const sortedAndFilteredGlossaries = computed(() => {
         return tokens.some((token) => {
           if (token.endsWith('$')) {
             const tagQuery = token.slice(0, -1).toLowerCase();
-            return (gg.tag || []).some((t) => t.toLowerCase().includes(tagQuery));
+            return (gg.tag || []).some((t) =>
+              t.toLowerCase().includes(tagQuery),
+            );
           } else {
             const nameQuery = token.toLowerCase();
             return (gg.name || '').toLowerCase().includes(nameQuery);
@@ -405,39 +407,41 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
   <div class="layout-content">
     <n-h1>全域术语表</n-h1>
 
-    <n-space vertical size="large" style="margin-top: 16px">
-      <n-space justify="space-between" align="center" style="width: 100%">
-        <c-button
-          label="新建全域术语表"
-          :icon="AddOutlined"
-          @action="openCreateModal()"
+    <n-space vertical size="large">
+      <c-button
+        label="新建全域术语表"
+        :icon="AddOutlined"
+        @action="openCreateModal()"
+      />
+
+      <bulletin>
+        <n-p>
+          全域术语表可以被多本小说同时引用，并且独立术语表会优先覆盖全域术语表的同名项。
+        </n-p>
+      </bulletin>
+
+      <n-flex style="margin-top: 16px; margin-bottom: 8px">
+        <n-input
+          v-model:value="searchQuery"
+          placeholder="搜索标题或标签 (例如: BA Re0$)"
+          clearable
+          size="small"
+          style="width: 300px"
+        >
+          <template #suffix>
+            <n-icon :component="SearchOutlined" />
+          </template>
+        </n-input>
+        <OrderSort
+          v-model:value="sortState"
+          :options="[
+            { label: '默认', value: 'default' },
+            { label: '词条数', value: 'termsCount' },
+            { label: '引用数', value: 'used' },
+            { label: '更新时间', value: 'update' },
+          ]"
         />
-        <n-space align="center" size="medium">
-          <n-input
-            v-model:value="searchQuery"
-            placeholder="搜索标题或标签 (例如: BA Re0$)"
-            clearable
-            size="small"
-            style="width: 300px"
-          >
-            <template #suffix>
-              <n-icon :component="SearchOutlined" />
-            </template>
-          </n-input>
-          <OrderSort
-            v-model:value="sortState"
-            :options="[
-              { label: '默认', value: 'default' },
-              { label: '更新时间', value: 'update' },
-              { label: '词条数', value: 'termsCount' },
-              { label: '引用数', value: 'used' },
-            ]"
-          />
-        </n-space>
-      </n-space>
-      <n-text depth="3">
-        全域术语表可以被多本小说同时引用，并且独立术语表会优先覆盖全域术语表的同名项。
-      </n-text>
+      </n-flex>
 
       <n-data-table
         :columns="[
