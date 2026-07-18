@@ -59,7 +59,8 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
 
     suspend fun update(id: ObjectId, name: String, content: Map<String, String>, tag: List<String>? = null, used: List<ObjectId>? = null, by: String = "admin"): GlobalGlossary {
         val old = getById(id) ?: throw NoSuchElementException("Global glossary not found")
-        val isContentChanged = old.content != content || old.content.keys.toList() != content.keys.toList()
+        val isContentChanged = old.content != content
+        val isOrderChanged = old.content == content && old.content.keys.toList() != content.keys.toList()
         val newRecord = if (isContentChanged) {
             val diff = computeGlossaryDiff(old.content, content)
             val recordItem = GlobalGlossaryRecord(
@@ -71,7 +72,7 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         } else {
             old.record
         }
-        val newVersion = if (isContentChanged) old.version + 1 else old.version
+        val newVersion = if (isContentChanged || isOrderChanged) old.version + 1 else old.version
 
         val updated = GlobalGlossary(
             id = old.id,
