@@ -77,10 +77,7 @@ fun GlobalGlossary.asDto(
     update = update.epochSeconds,
     tag = tag,
     record = if (excludeDetails) emptyList() else record.map { rec ->
-        val resolvedBy = rec.by.map { id ->
-            val username = usernamesMap[id.toHexString()]
-            username ?: "unknown"
-        }.distinct().joinToString(", ").ifEmpty { "unknown" }
+        val resolvedBy = usernamesMap[rec.by.toHexString()] ?: "unknown"
         GlobalGlossaryRecordDto(
             date = rec.date.epochSeconds,
             diff = rec.diff,
@@ -177,7 +174,7 @@ class GlobalGlossaryApi(
                 }
             }
         }
-        val userIds = gg.record.flatMap { it.by }.map { it.toHexString() }.distinct()
+        val userIds = gg.record.map { it.by.toHexString() }.distinct()
         val usernamesMap = userRepo.getUsernamesMap(userIds)
         return gg.asDto(usedUrls = resolvedUrls, usernamesMap = usernamesMap)
     }
@@ -187,14 +184,14 @@ class GlobalGlossaryApi(
         if (body.name.isBlank()) {
             throwBadRequest("名称不能为空")
         }
-        val byVal = listOf(ObjectId(user.id))
+        val byVal = ObjectId(user.id)
         val gg = repo.create(
             name = body.name,
             content = body.content,
             tag = body.tag,
             by = byVal
         )
-        val userIds = byVal.map { it.toHexString() }
+        val userIds = listOf(byVal.toHexString())
         val usernamesMap = userRepo.getUsernamesMap(userIds)
         return gg.asDto(emptyList(), usernamesMap)
     }
@@ -205,7 +202,7 @@ class GlobalGlossaryApi(
             throwBadRequest("名称不能为空")
         }
         val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("无效的ID格式") }
-        val byVal = listOf(ObjectId(user.id))
+        val byVal = ObjectId(user.id)
         val gg = repo.update(
             id = parsedId,
             name = body.name,
@@ -213,7 +210,7 @@ class GlobalGlossaryApi(
             tag = body.tag,
             by = byVal
         )
-        val userIds = gg.record.flatMap { it.by }.map { it.toHexString() }.distinct()
+        val userIds = gg.record.map { it.by.toHexString() }.distinct()
         val usernamesMap = userRepo.getUsernamesMap(userIds)
         return gg.asDto(emptyList(), usernamesMap)
     }

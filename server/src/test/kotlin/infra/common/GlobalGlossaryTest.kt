@@ -22,7 +22,7 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
 
                 // 1. Create
                 val userIdStr = "654321098765432109876543"
-                val created = repo.create(name, content, tag, by = listOf(ObjectId(userIdStr)))
+                val created = repo.create(name, content, tag, by = ObjectId(userIdStr))
                 val id = created.id
                 created.name shouldBe name
                 created.content shouldBe content
@@ -30,7 +30,7 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 created.version shouldBe 1L
                 created.record.size shouldBe 1
                 val initialRecord = created.record[0]
-                initialRecord.by shouldBe listOf(ObjectId(userIdStr))
+                initialRecord.by shouldBe ObjectId(userIdStr)
                 initialRecord.diff["りんご"]?.old shouldBe null
                 initialRecord.diff["りんご"]?.new shouldBe "苹果"
                 initialRecord.diff["ばなな"]?.old shouldBe null
@@ -42,19 +42,19 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 fetched!!.name shouldBe name
                 fetched.tag shouldBe tag
                 fetched.version shouldBe 1L
-                fetched.record[0].by shouldBe listOf(ObjectId(userIdStr))
+                fetched.record[0].by shouldBe ObjectId(userIdStr)
 
                 // 3. Update (Content and Version/Diff change)
                 val newContent = mapOf("りんご" to "林檎", "めろん" to "哈密瓜")
                 val newTag = listOf("abc", "123")
                 val updaterIdStr = "654321098765432109876544"
-                val updated = repo.update(id, name, newContent, newTag, by = listOf(ObjectId(updaterIdStr)))
+                val updated = repo.update(id, name, newContent, newTag, by = ObjectId(updaterIdStr))
                 updated.tag shouldBe newTag
                 updated.version shouldBe 2L
                 updated.record.size shouldBe 2
-                updated.record[0].by shouldBe listOf(ObjectId(userIdStr))
+                updated.record[0].by shouldBe ObjectId(userIdStr)
                 val record = updated.record[1]
-                record.by shouldBe listOf(ObjectId(updaterIdStr))
+                record.by shouldBe ObjectId(updaterIdStr)
                 record.diff["りんご"]?.old shouldBe "苹果"
                 record.diff["りんご"]?.new shouldBe "林檎"
                 record.diff["ばなな"]?.old shouldBe "香蕉"

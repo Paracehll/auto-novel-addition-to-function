@@ -16,50 +16,41 @@ import org.bson.codecs.kotlinx.BsonDecoder
 import org.bson.codecs.kotlinx.BsonEncoder
 import org.bson.types.ObjectId
 
-object RecordByListSerializer : KSerializer<List<ObjectId>> {
+object RecordBySingleSerializer : KSerializer<ObjectId> {
     override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("RecordByList", PrimitiveKind.STRING)
+        PrimitiveSerialDescriptor("RecordBySingle", PrimitiveKind.STRING)
 
-    override fun serialize(encoder: Encoder, value: List<ObjectId>) {
+    override fun serialize(encoder: Encoder, value: ObjectId) {
         if (encoder is BsonEncoder) {
-            val bsonArray = org.bson.BsonArray(value.map { BsonObjectId(it) })
-            encoder.encodeBsonValue(bsonArray)
+            encoder.encodeBsonValue(BsonObjectId(value))
         } else {
-            encoder.encodeString(value.joinToString(",") { it.toHexString() })
+            encoder.encodeString(value.toHexString())
         }
     }
 
-    override fun deserialize(decoder: Decoder): List<ObjectId> {
+    override fun deserialize(decoder: Decoder): ObjectId {
+        val fallback = ObjectId("000000000000000000000000")
         return if (decoder is BsonDecoder) {
             when (val bsonValue = decoder.decodeBsonValue()) {
-                is org.bson.BsonArray -> {
-                    bsonValue.mapNotNull { element ->
-                        when (element) {
-                            is BsonObjectId -> element.value
-                            is BsonString -> {
-                                try { ObjectId(element.value) } catch (e: Exception) { null }
-                            }
-                            else -> null
-                        }
-                    }
-                }
+                is BsonObjectId -> bsonValue.value
                 is BsonString -> {
-                    try {
-                        listOf(ObjectId(bsonValue.value))
-                    } catch (e: Exception) {
-                        emptyList()
+                    try { ObjectId(bsonValue.value) } catch (e: Exception) { fallback }
+                }
+                is org.bson.BsonArray -> {
+                    val first = bsonValue.firstOrNull()
+                    when (first) {
+                        is BsonObjectId -> first.value
+                        is BsonString -> {
+                            try { ObjectId(first.value) } catch (e: Exception) { fallback }
+                        }
+                        else -> fallback
                     }
                 }
-                is BsonObjectId -> {
-                    listOf(bsonValue.value)
-                }
-                else -> emptyList()
+                else -> fallback
             }
         } else {
             val str = decoder.decodeString()
-            str.split(",").mapNotNull {
-                try { ObjectId(it.trim()) } catch (e: Exception) { null }
-            }
+            try { ObjectId(str.trim()) } catch (e: Exception) { fallback }
         }
     }
 }
@@ -74,7 +65,7 @@ data class GlobalGlossaryDiffItem(
 data class GlobalGlossaryRecord(
     @Contextual val date: Instant,
     val diff: Map<String, GlobalGlossaryDiffItem>,
-    @Serializable(with = RecordByListSerializer::class) val by: List<@Contextual ObjectId> = emptyList(),
+    @Serializable(with = RecordBySingleSerializer::class) val by: @Contextual ObjectId = ObjectId("000000000000000000000000"),
 )
 
 @Serializable
