@@ -12,7 +12,9 @@ import {
   EditOutlined,
   HistoryOutlined,
   AddOutlined,
+  SearchOutlined,
 } from '@vicons/material';
+import OrderSort from '@/components/OrderSort.vue';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 import { WebNovelApi } from '@/api/novel/WebNovelApi';
 import { WenkuNovelApi } from '@/api/novel/WenkuNovelApi';
@@ -32,6 +34,12 @@ const themeVars = useThemeVars();
 const glossaries = ref<GlobalGlossary[]>([]);
 const loading = ref(false);
 
+const searchQuery = ref('');
+const sortState = ref({
+  value: 'default',
+  desc: true,
+});
+
 const loadGlossaries = async () => {
   loading.value = true;
   try {
@@ -42,6 +50,57 @@ const loadGlossaries = async () => {
     loading.value = false;
   }
 };
+
+const sortedAndFilteredGlossaries = computed(() => {
+  let list = [...glossaries.value];
+
+  // 1. Filter
+  const query = searchQuery.value.trim();
+  if (query) {
+    const tokens = query.split(/\s+/).filter(Boolean);
+    if (tokens.length > 0) {
+      list = list.filter((gg) => {
+        return tokens.some((token) => {
+          if (token.endsWith('$')) {
+            const tagQuery = token.slice(0, -1).toLowerCase();
+            return (gg.tag || []).some((t) =>
+              t.toLowerCase().includes(tagQuery),
+            );
+          } else {
+            const nameQuery = token.toLowerCase();
+            return (gg.name || '').toLowerCase().includes(nameQuery);
+          }
+        });
+      });
+    }
+  }
+
+  // 2. Sort
+  list.sort((a, b) => {
+    let cmp = 0;
+    if (sortState.value.value === 'default') {
+      cmp = a.id.localeCompare(b.id);
+    } else if (sortState.value.value === 'update') {
+      cmp = (a.update || 0) - (b.update || 0);
+    } else if (sortState.value.value === 'termsCount') {
+      const countA = a.termsCount ?? Object.keys(a.content || {}).length;
+      const countB = b.termsCount ?? Object.keys(b.content || {}).length;
+      cmp = countA - countB;
+    } else if (sortState.value.value === 'used') {
+      const usedA = (a.used || []).length;
+      const usedB = (b.used || []).length;
+      cmp = usedA - usedB;
+    }
+
+    if (cmp === 0) {
+      cmp = a.id.localeCompare(b.id);
+    }
+
+    return sortState.value.desc ? -cmp : cmp;
+  });
+
+  return list;
+});
 
 onMounted(() => {
   loadGlossaries();
@@ -348,15 +407,41 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
   <div class="layout-content">
     <n-h1>全域术语表</n-h1>
 
-    <n-space vertical size="large" style="margin-top: 16px">
+    <n-space vertical size="large">
       <c-button
         label="新建全域术语表"
         :icon="AddOutlined"
         @action="openCreateModal()"
       />
-      <n-text depth="3">
-        全域术语表可以被多本小说同时引用，并且独立术语表会优先覆盖全域术语表的同名项。
-      </n-text>
+
+      <bulletin>
+        <n-p>
+          全域术语表可以被多本小说同时引用，并且独立术语表会优先覆盖全域术语表的同名项。
+        </n-p>
+      </bulletin>
+
+      <n-flex style="margin-top: 16px; margin-bottom: 8px">
+        <n-input
+          v-model:value="searchQuery"
+          placeholder="搜索标题或标签 (例如: BA Re0$)"
+          clearable
+          size="small"
+          style="width: 300px"
+        >
+          <template #suffix>
+            <n-icon :component="SearchOutlined" />
+          </template>
+        </n-input>
+        <OrderSort
+          v-model:value="sortState"
+          :options="[
+            { label: '默认', value: 'default' },
+            { label: '词条数', value: 'termsCount' },
+            { label: '引用数', value: 'used' },
+            { label: '更新时间', value: 'update' },
+          ]"
+        />
+      </n-flex>
 
       <n-data-table
         :columns="[
@@ -447,7 +532,7 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
               ),
           },
         ]"
-        :data="glossaries"
+        :data="sortedAndFilteredGlossaries"
         :loading="loading"
       />
 
