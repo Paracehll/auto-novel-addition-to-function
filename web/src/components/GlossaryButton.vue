@@ -64,11 +64,12 @@ const getMatchCount = (gg: GlobalGlossary) => {
 
 const globalGlossariesOptions = computed(() => {
   const sorted = [...allGlobalGlossaries.value];
-  const presentUids = new Set(sorted.map(gg => gg.id));
-  for (const uid of linkedGlossaries.value) {
-    if (!presentUids.has(uid)) {
+  const presentUids = new Set(sorted.map((gg) => gg.id));
+  // 已刪除的全域術語表
+  for (const _id of linkedGlossaries.value) {
+    if (!presentUids.has(_id)) {
       sorted.push({
-        id: uid,
+        id: _id,
         name: '[已删除的术语表]',
         content: {},
         termsCount: 0,
@@ -76,7 +77,7 @@ const globalGlossariesOptions = computed(() => {
         update: 0,
         tag: [],
         record: [],
-        version: 1
+        version: 1,
       });
     }
   }
@@ -128,7 +129,7 @@ watch(
           const gg = await GlobalGlossaryApi.getGlobalGlossary(id);
           return { id, gg };
         } catch (e: any) {
-          // 替換為 [已刪除的術語表] ，並且不會彈出錯誤訊息
+          // 已刪除的全域術語表，替換為 [已刪除的術語表]
           const fallbackGg: GlobalGlossary = {
             id,
             name: '[已删除的术语表]',
@@ -138,7 +139,7 @@ watch(
             update: 0,
             tag: [],
             record: [],
-            version: 1
+            version: 1,
           };
           return { id, gg: fallbackGg };
         }
@@ -163,7 +164,7 @@ watch(
 
 const activeGlobalGlossaries = computed(() => {
   return linkedGlossaries.value
-    .map((uid) => activeGlossariesMap.value[uid])
+    .map((id) => activeGlossariesMap.value[id])
     .filter((gg): gg is GlobalGlossary => gg !== undefined);
 });
 
@@ -180,11 +181,11 @@ const totalGlobalTermsCount = computed(() => {
 const buttonLabel = computed(() => {
   const localCount = Object.keys(props.value).length;
   const globalCount = totalGlobalTermsCount.value;
-  return `术语表[${localCount}] + [${globalCount}]`;
+  return `术语表[${localCount}]+[${globalCount}]`;
 });
 
-const moveGlossaryUp = (uid: string) => {
-  const idx = linkedGlossaries.value.indexOf(uid);
+const moveGlossaryUp = (id: string) => {
+  const idx = linkedGlossaries.value.indexOf(id);
   if (idx > 0) {
     const arr = [...linkedGlossaries.value];
     const temp = arr[idx];
@@ -194,8 +195,8 @@ const moveGlossaryUp = (uid: string) => {
   }
 };
 
-const moveGlossaryDown = (uid: string) => {
-  const idx = linkedGlossaries.value.indexOf(uid);
+const moveGlossaryDown = (id: string) => {
+  const idx = linkedGlossaries.value.indexOf(id);
   if (idx !== -1 && idx < linkedGlossaries.value.length - 1) {
     const arr = [...linkedGlossaries.value];
     const temp = arr[idx];
@@ -594,9 +595,20 @@ const importGlobalToLocal = () => {
         </template>
 
         <!-- Collapsible Global Glossary Configuration and Deduplication section -->
-        <template v-if="props.showGlobal && gnid && (gnid.type === 'web' || gnid.type === 'wenku' || gnid.type === 'local')">
+        <template
+          v-if="
+            props.showGlobal &&
+            gnid &&
+            (gnid.type === 'web' ||
+              gnid.type === 'wenku' ||
+              gnid.type === 'local')
+          "
+        >
           <n-collapse style="margin: 4px 0">
-            <n-collapse-item :title="`全域术语表 [${totalGlobalTermsCount}]`" name="global-config">
+            <n-collapse-item
+              :title="`全域术语表 [${totalGlobalTermsCount}]`"
+              name="global-config"
+            >
               <n-flex vertical size="medium">
                 <!-- <n-text style="font-size: 12px; font-weight: bold">链接全域术语表</n-text> -->
 
@@ -669,9 +681,7 @@ const importGlobalToLocal = () => {
                           </n-button>
                         </n-space>
                       </template>
-                      <template
-                        v-if="expandedActiveGlossaries.includes(gg.id)"
-                      >
+                      <template v-if="expandedActiveGlossaries.includes(gg.id)">
                         <n-scrollbar
                           v-if="Object.keys(gg.content).length > 0"
                           style="max-height: 150px"

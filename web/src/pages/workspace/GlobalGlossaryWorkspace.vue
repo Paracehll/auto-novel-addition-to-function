@@ -394,8 +394,7 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
           {
             title: '词条数量',
             key: 'termsCount',
-            render: (row: any) =>
-              h('span', {}, row.termsCount ?? 0),
+            render: (row: any) => h('span', {}, row.termsCount ?? 0),
           },
           {
             title: '引用',
@@ -678,8 +677,8 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                 v-for="item in lazyUsedNovels"
                 :key="item.url"
                 style="
-                  margin: 8px 0;
-                  padding: 8px 0;
+                  /* margin: 8px 0; */
+                  /* padding: 8px 0; */
                   border-bottom: 1px solid var(--border-color);
                 "
               >
