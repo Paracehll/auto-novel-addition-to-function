@@ -37,25 +37,17 @@ object RecordByListSerializer : KSerializer<List<ObjectId>> {
                         when (element) {
                             is BsonObjectId -> element.value
                             is BsonString -> {
-                                if (element.value == "admin") {
-                                    ObjectId("000000000000000000000000")
-                                } else {
-                                    try { ObjectId(element.value) } catch (e: Exception) { null }
-                                }
+                                try { ObjectId(element.value) } catch (e: Exception) { null }
                             }
                             else -> null
                         }
                     }
                 }
                 is BsonString -> {
-                    if (bsonValue.value == "admin") {
-                        listOf(ObjectId("000000000000000000000000"))
-                    } else {
-                        try {
-                            listOf(ObjectId(bsonValue.value))
-                        } catch (e: Exception) {
-                            emptyList()
-                        }
+                    try {
+                        listOf(ObjectId(bsonValue.value))
+                    } catch (e: Exception) {
+                        emptyList()
                     }
                 }
                 is BsonObjectId -> {

@@ -79,12 +79,8 @@ fun GlobalGlossary.asDto(
     record = if (excludeDetails) emptyList() else record.map { rec ->
         val resolvedBy = rec.by.map { id ->
             val username = usernamesMap[id.toHexString()]
-            if (id.toHexString() == "000000000000000000000000" || username == "admin") {
-                "admin"
-            } else {
-                username ?: "unknown"
-            }
-        }.distinct().joinToString(", ").ifEmpty { "admin" }
+            username ?: "unknown"
+        }.distinct().joinToString(", ").ifEmpty { "unknown" }
         GlobalGlossaryRecordDto(
             date = rec.date.epochSeconds,
             diff = rec.diff,
