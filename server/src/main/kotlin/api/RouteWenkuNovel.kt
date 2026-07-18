@@ -471,7 +471,9 @@ class WenkuNovelApi(
         user.requireNovelAccess()
         val novel = metadataRepo.get(novelId)
             ?: throwNovelNotFound()
-        if (glossary == novel.glossary && linkedGlossaries == novel.linkedGlossaries)
+        if (glossary == novel.glossary &&
+            glossary.keys.toList() == novel.glossary.keys.toList() &&
+            linkedGlossaries == novel.linkedGlossaries)
             throwBadRequest("术语表没有改变")
 
         val oldLinked = novel.linkedGlossaries
