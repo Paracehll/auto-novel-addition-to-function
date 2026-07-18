@@ -2,9 +2,57 @@ package infra.common
 
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Contextual
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import org.bson.BsonObjectId
+import org.bson.BsonString
+import org.bson.codecs.kotlinx.BsonDecoder
+import org.bson.codecs.kotlinx.BsonEncoder
 import org.bson.types.ObjectId
+
+object RecordBySerializer : KSerializer<String> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("RecordBy", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: String) {
+        if (encoder is BsonEncoder) {
+            if (value == "admin") {
+                encoder.encodeBsonValue(BsonString("admin"))
+            } else {
+                val objectId = try {
+                    ObjectId(value)
+                } catch (e: Exception) {
+                    null
+                }
+                if (objectId != null) {
+                    encoder.encodeBsonValue(BsonObjectId(objectId))
+                } else {
+                    encoder.encodeBsonValue(BsonString(value))
+                }
+            }
+        } else {
+            encoder.encodeString(value)
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): String {
+        return if (decoder is BsonDecoder) {
+            when (val bsonValue = decoder.decodeBsonValue()) {
+                is BsonString -> bsonValue.value
+                is BsonObjectId -> bsonValue.value.toHexString()
+                else -> bsonValue.toString()
+            }
+        } else {
+            decoder.decodeString()
+        }
+    }
+}
 
 @Serializable
 data class GlobalGlossaryDiffItem(
@@ -16,6 +64,7 @@ data class GlobalGlossaryDiffItem(
 data class GlobalGlossaryRecord(
     @Contextual val date: Instant,
     val diff: Map<String, GlobalGlossaryDiffItem>,
+    @Serializable(with = RecordBySerializer::class) val by: String = "admin",
 )
 
 @Serializable

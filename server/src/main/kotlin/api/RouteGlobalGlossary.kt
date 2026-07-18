@@ -4,6 +4,7 @@ import api.plugins.*
 import infra.common.GlobalGlossary
 import infra.common.GlobalGlossaryDiffItem
 import infra.common.GlobalGlossaryRepository
+import infra.user.UserRepository
 import infra.web.repository.WebNovelMetadataRepository
 import infra.wenku.repository.WenkuNovelMetadataRepository
 import io.ktor.http.*
@@ -47,6 +48,7 @@ data class GlobalGlossaryUpdateBody(
 data class GlobalGlossaryRecordDto(
     val date: Long,
     val diff: Map<String, GlobalGlossaryDiffItem>,
+    val by: String,
 )
 
 @Serializable
@@ -62,7 +64,11 @@ data class GlobalGlossaryDto(
     val version: Long,
 )
 
-fun GlobalGlossary.asDto(usedUrls: List<String>, excludeDetails: Boolean = false) = GlobalGlossaryDto(
+fun GlobalGlossary.asDto(
+    usedUrls: List<String>,
+    usernamesMap: Map<String, String> = emptyMap(),
+    excludeDetails: Boolean = false
+) = GlobalGlossaryDto(
     id = id.toHexString(),
     name = name,
     content = if (excludeDetails) emptyMap() else content,
@@ -71,9 +77,15 @@ fun GlobalGlossary.asDto(usedUrls: List<String>, excludeDetails: Boolean = false
     update = update.epochSeconds,
     tag = tag,
     record = if (excludeDetails) emptyList() else record.map {
+        val resolvedBy = if (it.by == "admin") {
+            "admin"
+        } else {
+            usernamesMap[it.by] ?: "unknown"
+        }
         GlobalGlossaryRecordDto(
             date = it.date.epochSeconds,
             diff = it.diff,
+            by = resolvedBy,
         )
     },
     version = version,
@@ -133,6 +145,7 @@ class GlobalGlossaryApi(
     private val repo: GlobalGlossaryRepository,
     private val webNovelRepo: WebNovelMetadataRepository,
     private val wenkuNovelRepo: WenkuNovelMetadataRepository,
+    private val userRepo: UserRepository,
 ) {
     suspend fun list(): List<GlobalGlossaryDto> {
         return repo.list().map { it.asDto(usedUrls = it.used.map { id -> id.toHexString() }, excludeDetails = true) }
@@ -165,7 +178,9 @@ class GlobalGlossaryApi(
                 }
             }
         }
-        return gg.asDto(usedUrls = resolvedUrls)
+        val userIds = gg.record.map { it.by }.filter { it != "admin" }.distinct()
+        val usernamesMap = userRepo.getUsernamesMap(userIds)
+        return gg.asDto(usedUrls = resolvedUrls, usernamesMap = usernamesMap)
     }
 
     suspend fun create(user: User, body: GlobalGlossaryCreateBody): GlobalGlossaryDto {
@@ -173,11 +188,16 @@ class GlobalGlossaryApi(
         if (body.name.isBlank()) {
             throwBadRequest("名称不能为空")
         }
-        return repo.create(
+        val byVal = if (user.role == UserRole.Admin) "admin" else user.id
+        val gg = repo.create(
             name = body.name,
             content = body.content,
             tag = body.tag,
-        ).asDto(emptyList())
+            by = byVal
+        )
+        val userIds = listOf(byVal).filter { it != "admin" }
+        val usernamesMap = userRepo.getUsernamesMap(userIds)
+        return gg.asDto(emptyList(), usernamesMap)
     }
 
     suspend fun update(user: User, id: String, body: GlobalGlossaryUpdateBody): GlobalGlossaryDto {
@@ -186,12 +206,17 @@ class GlobalGlossaryApi(
             throwBadRequest("名称不能为空")
         }
         val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("无效的ID格式") }
-        return repo.update(
+        val byVal = if (user.role == UserRole.Admin) "admin" else user.id
+        val gg = repo.update(
             id = parsedId,
             name = body.name,
             content = body.content,
             tag = body.tag,
-        ).asDto(emptyList())
+            by = byVal
+        )
+        val userIds = gg.record.map { it.by }.filter { it != "admin" }.distinct()
+        val usernamesMap = userRepo.getUsernamesMap(userIds)
+        return gg.asDto(emptyList(), usernamesMap)
     }
 
     suspend fun delete(user: User, id: String) {

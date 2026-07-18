@@ -44,11 +44,12 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         return collection.find(`in`(GlobalGlossary::id.field(), objectIds)).toList()
     }
 
-    suspend fun create(name: String, content: Map<String, String>, tag: List<String> = emptyList()): GlobalGlossary {
+    suspend fun create(name: String, content: Map<String, String>, tag: List<String> = emptyList(), by: String = "admin"): GlobalGlossary {
         val diff = computeGlossaryDiff(emptyMap(), content)
         val initialRecord = GlobalGlossaryRecord(
             date = Clock.System.now(),
-            diff = diff
+            diff = diff,
+            by = by
         )
         val gg = GlobalGlossary(
             id = ObjectId(),
@@ -65,14 +66,15 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         return gg
     }
 
-    suspend fun update(id: ObjectId, name: String, content: Map<String, String>, tag: List<String>? = null, used: List<ObjectId>? = null): GlobalGlossary {
+    suspend fun update(id: ObjectId, name: String, content: Map<String, String>, tag: List<String>? = null, used: List<ObjectId>? = null, by: String = "admin"): GlobalGlossary {
         val old = getById(id) ?: throw NoSuchElementException("Global glossary not found")
         val isContentChanged = old.content != content
         val newRecord = if (isContentChanged) {
             val diff = computeGlossaryDiff(old.content, content)
             val recordItem = GlobalGlossaryRecord(
                 date = Clock.System.now(),
-                diff = diff
+                diff = diff,
+                by = by
             )
             old.record + recordItem
         } else {

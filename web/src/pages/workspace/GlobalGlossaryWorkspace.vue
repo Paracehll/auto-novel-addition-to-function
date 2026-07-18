@@ -550,7 +550,7 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                           -{{ getDelCount(rec) }}
                         </span>
                         <n-text depth="3">
-                          {{ formatDate(rec.date) }}
+                          {{ formatDate(rec.date) }} by {{ rec.by }}
                         </n-text>
                       </n-space>
                     </template>

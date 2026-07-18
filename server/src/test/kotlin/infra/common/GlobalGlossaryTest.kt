@@ -21,7 +21,8 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 val tag = listOf("abc", "886")
 
                 // 1. Create
-                val created = repo.create(name, content, tag)
+                val userIdStr = "654321098765432109876543"
+                val created = repo.create(name, content, tag, by = userIdStr)
                 val id = created.id
                 created.name shouldBe name
                 created.content shouldBe content
@@ -29,6 +30,7 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 created.version shouldBe 1L
                 created.record.size shouldBe 1
                 val initialRecord = created.record[0]
+                initialRecord.by shouldBe userIdStr
                 initialRecord.diff["りんご"]?.old shouldBe null
                 initialRecord.diff["りんご"]?.new shouldBe "苹果"
                 initialRecord.diff["ばなな"]?.old shouldBe null
@@ -40,15 +42,18 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 fetched!!.name shouldBe name
                 fetched.tag shouldBe tag
                 fetched.version shouldBe 1L
+                fetched.record[0].by shouldBe userIdStr
 
                 // 3. Update (Content and Version/Diff change)
                 val newContent = mapOf("りんご" to "林檎", "めろん" to "哈密瓜")
                 val newTag = listOf("abc", "123")
-                val updated = repo.update(id, name, newContent, newTag)
+                val updated = repo.update(id, name, newContent, newTag, by = "admin")
                 updated.tag shouldBe newTag
                 updated.version shouldBe 2L
                 updated.record.size shouldBe 2
+                updated.record[0].by shouldBe userIdStr
                 val record = updated.record[1]
+                record.by shouldBe "admin"
                 record.diff["りんご"]?.old shouldBe "苹果"
                 record.diff["りんご"]?.new shouldBe "林檎"
                 record.diff["ばなな"]?.old shouldBe "香蕉"
