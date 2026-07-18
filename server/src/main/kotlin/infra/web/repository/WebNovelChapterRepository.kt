@@ -12,6 +12,7 @@ import infra.common.TranslatorId
 import infra.web.WebNovelChapter
 import infra.web.WebNovelChapterTranslationState
 import infra.web.WebNovel
+import infra.web.UsedGlobalGlossary
 import infra.web.datasource.WebNovelHttpDataSource
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
@@ -209,6 +210,7 @@ class WebNovelChapterRepository(
         translatorId: TranslatorId,
         glossary: Glossary?,
         paragraphsZh: List<String>,
+        globalGlossaries: List<UsedGlobalGlossary> = emptyList(),
     ): Long {
         val glossaryUuid = glossary?.id ?: "no glossary"
         val glossaryContent = glossary?.map ?: emptyMap()
@@ -216,26 +218,30 @@ class WebNovelChapterRepository(
             TranslatorId.Baidu -> combine(
                 set(WebNovelChapter::baiduGlossaryUuid.field(), glossaryUuid),
                 set(WebNovelChapter::baiduGlossary.field(), glossaryContent),
-                set(WebNovelChapter::baiduParagraphs.field(), paragraphsZh)
+                set(WebNovelChapter::baiduParagraphs.field(), paragraphsZh),
+                set(WebNovelChapter::baiduGlobalGlossaries.field(), globalGlossaries)
             )
 
             TranslatorId.Youdao -> combine(
                 set(WebNovelChapter::youdaoGlossaryUuid.field(), glossaryUuid),
                 set(WebNovelChapter::youdaoGlossary.field(), glossaryContent),
-                set(WebNovelChapter::youdaoParagraphs.field(), paragraphsZh)
+                set(WebNovelChapter::youdaoParagraphs.field(), paragraphsZh),
+                set(WebNovelChapter::youdaoGlobalGlossaries.field(), globalGlossaries)
             )
 
             TranslatorId.Gpt -> combine(
                 set(WebNovelChapter::gptGlossaryUuid.field(), glossaryUuid),
                 set(WebNovelChapter::gptGlossary.field(), glossaryContent),
-                set(WebNovelChapter::gptParagraphs.field(), paragraphsZh)
+                set(WebNovelChapter::gptParagraphs.field(), paragraphsZh),
+                set(WebNovelChapter::gptGlobalGlossaries.field(), globalGlossaries)
             )
 
             TranslatorId.Sakura -> combine(
                 set(WebNovelChapter::sakuraVersion.field(), "0.9"),
                 set(WebNovelChapter::sakuraGlossaryUuid.field(), glossaryUuid),
                 set(WebNovelChapter::sakuraGlossary.field(), glossaryContent),
-                set(WebNovelChapter::sakuraParagraphs.field(), paragraphsZh)
+                set(WebNovelChapter::sakuraParagraphs.field(), paragraphsZh),
+                set(WebNovelChapter::sakuraGlobalGlossaries.field(), globalGlossaries)
             )
         }
         webNovelChapterCollection

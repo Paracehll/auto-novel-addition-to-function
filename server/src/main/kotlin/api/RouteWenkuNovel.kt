@@ -474,16 +474,15 @@ class WenkuNovelApi(
         if (glossary == novel.glossary && linkedGlossaries == novel.linkedGlossaries)
             throwBadRequest("术语表没有改变")
 
-        val novelUrl = "/wenku/$novelId"
         val oldLinked = novel.linkedGlossaries
         val removed = oldLinked - linkedGlossaries.toSet()
         val added = linkedGlossaries - oldLinked.toSet()
 
-        for (uid in removed) {
-            globalGlossaryRepo.updateUsed(uid, novelUrl, false)
+        for (id in removed) {
+            globalGlossaryRepo.updateUsed(ObjectId(id), novel.id, false)
         }
-        for (uid in added) {
-            globalGlossaryRepo.updateUsed(uid, novelUrl, true)
+        for (id in added) {
+            globalGlossaryRepo.updateUsed(ObjectId(id), novel.id, true)
         }
 
         metadataRepo.updateGlossary(
@@ -506,10 +505,14 @@ class WenkuNovelApi(
     ): Map<String, String> {
         val novel = metadataRepo.get(novelId) ?: throwNovelNotFound()
         val merged = mutableMapOf<String, String>()
-        for (uid in novel.linkedGlossaries) {
-            val gg = globalGlossaryRepo.getByUid(uid)
-            if (gg != null) {
-                merged.putAll(gg.content)
+        if (novel.linkedGlossaries.isNotEmpty()) {
+            val linkedIds = novel.linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }
+            val ggs = globalGlossaryRepo.getByIds(linkedIds).associateBy { it.id.toHexString() }
+            for (id in novel.linkedGlossaries) {
+                val gg = ggs[id]
+                if (gg != null) {
+                    merged.putAll(gg.content)
+                }
             }
         }
         merged.putAll(novel.glossary)
@@ -762,10 +765,14 @@ class WenkuNovelTranslateV2Api(
         linkedGlossaries: List<String>,
     ): Map<String, String> {
         val merged = mutableMapOf<String, String>()
-        for (uid in linkedGlossaries) {
-            val gg = globalGlossaryRepo.getByUid(uid)
-            if (gg != null) {
-                merged.putAll(gg.content)
+        if (linkedGlossaries.isNotEmpty()) {
+            val linkedIds = linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }
+            val ggs = globalGlossaryRepo.getByIds(linkedIds).associateBy { it.id.toHexString() }
+            for (id in linkedGlossaries) {
+                val gg = ggs[id]
+                if (gg != null) {
+                    merged.putAll(gg.content)
+                }
             }
         }
         merged.putAll(localGlossary)

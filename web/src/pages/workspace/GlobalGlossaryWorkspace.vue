@@ -51,18 +51,20 @@ onMounted(() => {
 const showEditModal = ref(false);
 const isEditing = ref(false);
 const formModel = ref({
-  uid: '',
+  id: '',
   name: '',
   content: {} as Glossary,
   tagRaw: '',
 });
 
 const originalFormModel = ref<any>(null);
+const isSaved = ref(false);
 
 const openCreateModal = () => {
   isEditing.value = false;
+  isSaved.value = false;
   formModel.value = {
-    uid: '',
+    id: '',
     name: '',
     content: {},
     tagRaw: '',
@@ -73,10 +75,11 @@ const openCreateModal = () => {
 
 const openEditModal = async (gg: GlobalGlossary) => {
   isEditing.value = true;
+  isSaved.value = false;
   try {
-    const fullGg = await GlobalGlossaryApi.getGlobalGlossary(gg.uid);
+    const fullGg = await GlobalGlossaryApi.getGlobalGlossary(gg.id);
     formModel.value = {
-      uid: fullGg.uid,
+      id: fullGg.id,
       name: fullGg.name,
       content: { ...fullGg.content },
       tagRaw: (fullGg.tag || []).join(', '),
@@ -90,6 +93,10 @@ const openEditModal = async (gg: GlobalGlossary) => {
 
 const handleUpdateShow = async (value: boolean) => {
   if (value === false) {
+    if (isSaved.value) {
+      showEditModal.value = false;
+      return;
+    }
     const hasChanges = !isEqual(
       toRaw(formModel.value),
       originalFormModel.value,
@@ -115,7 +122,7 @@ const saveGlossary = () => {
     .filter(Boolean);
 
   const action = isEditing.value
-    ? GlobalGlossaryApi.updateGlobalGlossary(formModel.value.uid, {
+    ? GlobalGlossaryApi.updateGlobalGlossary(formModel.value.id, {
         name: formModel.value.name,
         content: formModel.value.content,
         tag,
@@ -128,6 +135,7 @@ const saveGlossary = () => {
 
   return doAction(
     action.then(() => {
+      isSaved.value = true;
       showEditModal.value = false;
       loadGlossaries();
     }),
@@ -136,10 +144,10 @@ const saveGlossary = () => {
   );
 };
 
-const deleteGlossary = (uid: string) => {
+const deleteGlossary = (id: string) => {
   if (window.confirm(`确定要删除全域术语表吗？此操作不可恢复。`)) {
     doAction(
-      GlobalGlossaryApi.deleteGlobalGlossary(uid).then(() => {
+      GlobalGlossaryApi.deleteGlobalGlossary(id).then(() => {
         loadGlossaries();
       }),
       '删除全域术语表',
@@ -154,7 +162,7 @@ const selectedGlossary = ref<GlobalGlossary | null>(null);
 
 const viewHistory = async (gg: GlobalGlossary) => {
   try {
-    selectedGlossary.value = await GlobalGlossaryApi.getGlobalGlossary(gg.uid);
+    selectedGlossary.value = await GlobalGlossaryApi.getGlobalGlossary(gg.id);
     showHistoryModal.value = true;
   } catch (e: any) {
     message.error(`获取修改历史失败: ${e.message || e}`);
@@ -198,7 +206,7 @@ const handleRollback = (targetIndex: number) => {
   const rolledBackContent = rollbackToRecord(targetIndex);
 
   doAction(
-    GlobalGlossaryApi.updateGlobalGlossary(selectedGlossary.value.uid, {
+    GlobalGlossaryApi.updateGlobalGlossary(selectedGlossary.value.id, {
       name: selectedGlossary.value.name,
       content: rolledBackContent,
       tag: selectedGlossary.value.tag,
@@ -218,12 +226,12 @@ const deleteHistoryRecord = (targetIndex: number) => {
 
   doAction(
     GlobalGlossaryApi.deleteGlobalGlossaryRecord(
-      selectedGlossary.value.uid,
+      selectedGlossary.value.id,
       targetIndex,
     ).then(async () => {
       if (selectedGlossary.value) {
         const latest = await GlobalGlossaryApi.getGlobalGlossary(
-          selectedGlossary.value.uid,
+          selectedGlossary.value.id,
         );
         selectedGlossary.value = latest;
       }
@@ -245,13 +253,13 @@ interface UsedNovelItem {
 }
 const lazyUsedNovels = ref<UsedNovelItem[]>([]);
 
-const viewUsedNovels = async (uid: string, name: string) => {
+const viewUsedNovels = async (id: string, name: string) => {
   selectedGlossaryName.value = name;
   lazyUsedNovels.value = [];
   showUsedModal.value = true;
   usedLoading.value = true;
   try {
-    const detail = await GlobalGlossaryApi.getGlobalGlossary(uid);
+    const detail = await GlobalGlossaryApi.getGlobalGlossary(id);
     const urls = detail.used || [];
 
     // Fetch titles in parallel
@@ -397,7 +405,7 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                 NButton,
                 {
                   size: 'small',
-                  onClick: () => viewUsedNovels(row.uid, row.name),
+                  onClick: () => viewUsedNovels(row.id, row.name),
                 },
                 () => `查看 (${count})`,
               );
@@ -430,7 +438,7 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                         {
                           type: 'error',
                           ghost: true,
-                          onClick: () => deleteGlossary(row.uid),
+                          onClick: () => deleteGlossary(row.id),
                         },
                         () => '删除',
                       )
@@ -542,7 +550,7 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                           -{{ getDelCount(rec) }}
                         </span>
                         <n-text depth="3">
-                          {{ formatDate(rec.date) }}
+                          {{ formatDate(rec.date) }} &emsp; by {{ rec.by }}
                         </n-text>
                       </n-space>
                     </template>
@@ -669,8 +677,8 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                 v-for="item in lazyUsedNovels"
                 :key="item.url"
                 style="
-                  margin: 8px 0;
-                  padding: 8px 0;
+                  /* margin: 8px 0; */
+                  /* padding: 8px 0; */
                   border-bottom: 1px solid var(--border-color);
                 "
               >

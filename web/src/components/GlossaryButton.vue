@@ -19,10 +19,18 @@ import OrderSort from '@/components/OrderSort.vue';
 import { downloadFile } from '@/util';
 import naive from 'naive-ui';
 
-const props = defineProps<{
-  gnid?: GenericNovelId;
-  value: Glossary;
-}>();
+const props = withDefaults(
+  defineProps<{
+    gnid?: GenericNovelId;
+    value: Glossary;
+    showGlobal?: boolean;
+  }>(),
+  {
+    showGlobal: true,
+  },
+);
+
+const isSaved = ref(false);
 
 const message = useMessage();
 
@@ -56,6 +64,23 @@ const getMatchCount = (gg: GlobalGlossary) => {
 
 const globalGlossariesOptions = computed(() => {
   const sorted = [...allGlobalGlossaries.value];
+  const presentUids = new Set(sorted.map((gg) => gg.id));
+  // 已刪除的全域術語表
+  for (const _id of linkedGlossaries.value) {
+    if (!presentUids.has(_id)) {
+      sorted.push({
+        id: _id,
+        name: '[已删除的术语表]',
+        content: {},
+        termsCount: 0,
+        used: [],
+        update: 0,
+        tag: [],
+        record: [],
+        version: 1,
+      });
+    }
+  }
   sorted.sort((a, b) => {
     let valA = 0;
     let valB = 0;
@@ -72,7 +97,7 @@ const globalGlossariesOptions = computed(() => {
     }
 
     if (valA === valB) {
-      return a.uid.localeCompare(b.uid);
+      return a.id.localeCompare(b.id);
     }
 
     if (sortState.value.desc) {
@@ -88,60 +113,13 @@ const globalGlossariesOptions = computed(() => {
     const matchLabel = matchCount > 0 ? ` (匹配标签: ${matchCount})` : '';
     return {
       label: `${gg.name} [ ${gg.termsCount ?? 0} ] [引用: ${usedCount}次]${matchLabel}`,
-      value: gg.uid,
+      value: gg.id,
     };
   });
 });
 
 const activeGlossariesMap = ref<Record<string, GlobalGlossary>>({});
-
-watch(
-  linkedGlossaries,
-  async (newVal) => {
-    for (const uid of newVal) {
-      if (!activeGlossariesMap.value[uid]) {
-        try {
-          const gg = await GlobalGlossaryApi.getGlobalGlossary(uid);
-          activeGlossariesMap.value = {
-            ...activeGlossariesMap.value,
-            [uid]: gg,
-          };
-        } catch (e: any) {
-          message.error(`加载全域术语表[${uid}]详情失败: ${e.message || e}`);
-        }
-      }
-    }
-  },
-  { immediate: true, deep: true },
-);
-
-const activeGlobalGlossaries = computed(() => {
-  return linkedGlossaries.value
-    .map((uid) => activeGlossariesMap.value[uid])
-    .filter((gg): gg is GlobalGlossary => gg !== undefined);
-});
-
-const moveGlossaryUp = (uid: string) => {
-  const idx = linkedGlossaries.value.indexOf(uid);
-  if (idx > 0) {
-    const arr = [...linkedGlossaries.value];
-    const temp = arr[idx];
-    arr[idx] = arr[idx - 1];
-    arr[idx - 1] = temp;
-    linkedGlossaries.value = arr;
-  }
-};
-
-const moveGlossaryDown = (uid: string) => {
-  const idx = linkedGlossaries.value.indexOf(uid);
-  if (idx !== -1 && idx < linkedGlossaries.value.length - 1) {
-    const arr = [...linkedGlossaries.value];
-    const temp = arr[idx];
-    arr[idx] = arr[idx + 1];
-    arr[idx + 1] = temp;
-    linkedGlossaries.value = arr;
-  }
-};
+const fullyLoadedGlossaryIds = ref<Set<string>>(new Set());
 
 const expandedActiveGlossaries = ref<string[]>([]);
 const handleExpandedNamesChange = (
@@ -153,6 +131,126 @@ const handleExpandedNamesChange = (
     expandedActiveGlossaries.value = [String(names)];
   } else {
     expandedActiveGlossaries.value = [];
+  }
+};
+
+watch(
+  linkedGlossaries,
+  (newVal) => {
+    const nextMap = { ...activeGlossariesMap.value };
+    let updated = false;
+    for (const id of newVal) {
+      if (!nextMap[id]) {
+        const metaGg = allGlobalGlossaries.value.find((gg) => gg.id === id);
+        if (metaGg) {
+          nextMap[id] = {
+            ...metaGg,
+            content: {},
+          };
+          updated = true;
+        } else {
+          nextMap[id] = {
+            id,
+            name: '[已删除的术语表]',
+            content: {},
+            termsCount: 0,
+            used: [],
+            update: 0,
+            tag: [],
+            record: [],
+            version: 1,
+          };
+          updated = true;
+        }
+      }
+    }
+    if (updated) {
+      activeGlossariesMap.value = nextMap;
+    }
+  },
+  { immediate: true, deep: true },
+);
+
+watch(
+  expandedActiveGlossaries,
+  async (newVal) => {
+    for (const id of newVal) {
+      if (!fullyLoadedGlossaryIds.value.has(id)) {
+        try {
+          const fullGg = await GlobalGlossaryApi.getGlobalGlossary(id);
+          activeGlossariesMap.value = {
+            ...activeGlossariesMap.value,
+            [id]: fullGg,
+          };
+          fullyLoadedGlossaryIds.value.add(id);
+        } catch (e: any) {
+          message.error(`获取全域术语表详情失败: ${e.message || e}`);
+        }
+      }
+    }
+  },
+  { deep: true },
+);
+
+const ensureAllActiveGlossariesLoaded = async () => {
+  const promises = linkedGlossaries.value.map(async (id) => {
+    if (!fullyLoadedGlossaryIds.value.has(id)) {
+      try {
+        const fullGg = await GlobalGlossaryApi.getGlobalGlossary(id);
+        activeGlossariesMap.value = {
+          ...activeGlossariesMap.value,
+          [id]: fullGg,
+        };
+        fullyLoadedGlossaryIds.value.add(id);
+      } catch (e) {
+        console.error('Failed to load global glossary content', id, e);
+      }
+    }
+  });
+  await Promise.all(promises);
+};
+
+const activeGlobalGlossaries = computed(() => {
+  return linkedGlossaries.value
+    .map((id) => activeGlossariesMap.value[id])
+    .filter((gg): gg is GlobalGlossary => gg !== undefined);
+});
+
+const totalGlobalTermsCount = computed(() => {
+  let count = 0;
+  for (const gg of activeGlobalGlossaries.value) {
+    if (gg) {
+      count += gg.termsCount ?? Object.keys(gg.content).length;
+    }
+  }
+  return count;
+});
+
+const buttonLabel = computed(() => {
+  const localCount = Object.keys(props.value).length;
+  const globalCount = totalGlobalTermsCount.value;
+  return `术语表[${localCount}]+[${globalCount}]`;
+});
+
+const moveGlossaryUp = (id: string) => {
+  const idx = linkedGlossaries.value.indexOf(id);
+  if (idx > 0) {
+    const arr = [...linkedGlossaries.value];
+    const temp = arr[idx];
+    arr[idx] = arr[idx - 1];
+    arr[idx - 1] = temp;
+    linkedGlossaries.value = arr;
+  }
+};
+
+const moveGlossaryDown = (id: string) => {
+  const idx = linkedGlossaries.value.indexOf(id);
+  if (idx !== -1 && idx < linkedGlossaries.value.length - 1) {
+    const arr = [...linkedGlossaries.value];
+    const temp = arr[idx];
+    arr[idx] = arr[idx + 1];
+    arr[idx + 1] = temp;
+    linkedGlossaries.value = arr;
   }
 };
 
@@ -170,12 +268,20 @@ const fetchData = async () => {
         const novel = await WenkuNovelApi.getNovel(gnid.novelId);
         linkedGlossaries.value = novel.linkedGlossaries || [];
         novelKeywords.value = novel.keywords || [];
+      } else if (gnid.type === 'local') {
+        const store = await useLocalVolumeStore();
+        const volume = await store.getVolume(gnid.volumeId);
+        if (volume) {
+          linkedGlossaries.value = volume.linkedGlossaries || [];
+        }
       }
     }
   } catch (e: any) {
     message.error(`获取全域术语表配置失败: ${e.message || e}`);
   }
 };
+
+onMounted(fetchData);
 
 const skippedKeys = ref<Set<string>>(new Set());
 
@@ -252,6 +358,7 @@ const toggleGlossaryModal = async () => {
     await fetchData();
     originalGlossary.value = { ...glossary.value };
     originalLinkedGlossaries.value = [...linkedGlossaries.value];
+    isSaved.value = false;
     showGlossaryModal.value = true;
   } else {
     await handleUpdateShow(false);
@@ -260,6 +367,10 @@ const toggleGlossaryModal = async () => {
 
 const handleUpdateShow = async (value: boolean) => {
   if (value === false) {
+    if (isSaved.value) {
+      showGlossaryModal.value = false;
+      return;
+    }
     const hasChanges =
       !isEqual(toRaw(glossary.value), toRaw(originalGlossary.value)) ||
       !isEqual(
@@ -289,7 +400,10 @@ const handleSaveConfirm = async () => {
     for (const key in glossary.value) {
       props.value[key] = glossary.value[key];
     }
+    originalGlossary.value = { ...glossary.value };
+    originalLinkedGlossaries.value = [...linkedGlossaries.value];
     message.success('保存成功');
+    isSaved.value = true;
     showGlossaryModal.value = false;
   } catch (e: any) {
     message.error('保存失败:' + e);
@@ -330,7 +444,7 @@ const updateGlossary = async () => {
     });
   } else {
     const repo = await useLocalVolumeStore();
-    await repo.updateGlossary(gnid.volumeId, glossaryValue);
+    await repo.updateGlossary(gnid.volumeId, glossaryValue, linkedList);
   }
 };
 
@@ -344,6 +458,10 @@ const submitGlossary = () =>
       for (const key in glossary.value) {
         props.value[key] = glossary.value[key];
       }
+      originalGlossary.value = { ...glossary.value };
+      originalLinkedGlossaries.value = [...linkedGlossaries.value];
+      isSaved.value = true;
+      showGlossaryModal.value = false;
     }),
     '术语表提交',
     message,
@@ -425,7 +543,8 @@ const applyAllGlobal = () => {
   );
 };
 
-const downloadMergedJson = () => {
+const downloadMergedJson = async () => {
+  await ensureAllActiveGlossariesLoaded();
   const merged: Glossary = {};
   for (const guid of linkedGlossaries.value) {
     const gg = activeGlossariesMap.value[guid];
@@ -444,6 +563,7 @@ const downloadMergedJson = () => {
 };
 
 const exportMerged = async (ev?: MouseEvent) => {
+  await ensureAllActiveGlossariesLoaded();
   const merged: Glossary = {};
   for (const guid of linkedGlossaries.value) {
     const gg = activeGlossariesMap.value[guid];
@@ -464,9 +584,10 @@ const exportMerged = async (ev?: MouseEvent) => {
   }
 };
 
-const importGlobalToLocal = () => {
+const importGlobalToLocal = async () => {
   if (!window.confirm('此操作将解除所有全域术语表连结，是否合併？')) return;
 
+  await ensureAllActiveGlossariesLoaded();
   let count = 0;
   for (const guid of linkedGlossaries.value) {
     const gg = activeGlossariesMap.value[guid];
@@ -484,7 +605,7 @@ const importGlobalToLocal = () => {
 
 <template>
   <c-button
-    :label="`术语表[${Object.keys(value).length}]`"
+    :label="buttonLabel"
     v-bind="$attrs"
     @action="toggleGlossaryModal()"
   />
@@ -512,9 +633,20 @@ const importGlobalToLocal = () => {
         </template>
 
         <!-- Collapsible Global Glossary Configuration and Deduplication section -->
-        <template v-if="gnid && (gnid.type === 'web' || gnid.type === 'wenku')">
+        <template
+          v-if="
+            props.showGlobal &&
+            gnid &&
+            (gnid.type === 'web' ||
+              gnid.type === 'wenku' ||
+              gnid.type === 'local')
+          "
+        >
           <n-collapse style="margin: 4px 0">
-            <n-collapse-item title="全域术语表" name="global-config">
+            <n-collapse-item
+              :title="`全域术语表 [${totalGlobalTermsCount}]`"
+              name="global-config"
+            >
               <n-flex vertical size="medium">
                 <!-- <n-text style="font-size: 12px; font-weight: bold">链接全域术语表</n-text> -->
 
@@ -548,9 +680,9 @@ const importGlobalToLocal = () => {
                   >
                     <n-collapse-item
                       v-for="gg in activeGlobalGlossaries"
-                      :key="gg.uid"
-                      :title="`${gg.name} (共 ${Object.keys(gg.content).length} 个词条)`"
-                      :name="gg.uid"
+                      :key="gg.id"
+                      :title="`${gg.name} (共 ${gg.termsCount ?? Object.keys(gg.content).length} 个词条)`"
+                      :name="gg.id"
                       style="
                         border: 1px solid var(--border-color);
                         border-radius: 4px;
@@ -564,8 +696,8 @@ const importGlobalToLocal = () => {
                             size="tiny"
                             secondary
                             circle
-                            :disabled="linkedGlossaries.indexOf(gg.uid) === 0"
-                            @click.stop="moveGlossaryUp(gg.uid)"
+                            :disabled="linkedGlossaries.indexOf(gg.id) === 0"
+                            @click.stop="moveGlossaryUp(gg.id)"
                           >
                             <template #icon>
                               <n-icon><ArrowUpwardOutlined /></n-icon>
@@ -576,10 +708,10 @@ const importGlobalToLocal = () => {
                             secondary
                             circle
                             :disabled="
-                              linkedGlossaries.indexOf(gg.uid) ===
+                              linkedGlossaries.indexOf(gg.id) ===
                               linkedGlossaries.length - 1
                             "
-                            @click.stop="moveGlossaryDown(gg.uid)"
+                            @click.stop="moveGlossaryDown(gg.id)"
                           >
                             <template #icon>
                               <n-icon><ArrowDownwardOutlined /></n-icon>
@@ -587,9 +719,7 @@ const importGlobalToLocal = () => {
                           </n-button>
                         </n-space>
                       </template>
-                      <template
-                        v-if="expandedActiveGlossaries.includes(gg.uid)"
-                      >
+                      <template v-if="expandedActiveGlossaries.includes(gg.id)">
                         <n-scrollbar
                           v-if="Object.keys(gg.content).length > 0"
                           style="max-height: 150px"

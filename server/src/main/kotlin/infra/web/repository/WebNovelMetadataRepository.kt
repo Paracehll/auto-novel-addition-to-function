@@ -142,6 +142,12 @@ class WebNovelMetadataRepository(
             .firstOrNull()
     }
 
+    suspend fun getById(id: ObjectId): WebNovel? {
+        return webNovelMetadataCollection
+            .find(eq("_id", id))
+            .firstOrNull()
+    }
+
     private suspend fun getRemote(
         providerId: String,
         novelId: String,

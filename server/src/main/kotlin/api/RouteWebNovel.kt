@@ -895,16 +895,15 @@ class WebNovelApi(
         if (novel.glossary == glossary && novel.linkedGlossaries == linkedGlossaries)
             throwBadRequest("修改为空")
 
-        val novelUrl = "/novel/$providerId/$novelId"
         val oldLinked = novel.linkedGlossaries
         val removed = oldLinked - linkedGlossaries.toSet()
         val added = linkedGlossaries - oldLinked.toSet()
 
-        for (uid in removed) {
-            globalGlossaryRepo.updateUsed(uid, novelUrl, false)
+        for (id in removed) {
+            globalGlossaryRepo.updateUsed(ObjectId(id), novel.id, false)
         }
-        for (uid in added) {
-            globalGlossaryRepo.updateUsed(uid, novelUrl, true)
+        for (id in added) {
+            globalGlossaryRepo.updateUsed(ObjectId(id), novel.id, true)
         }
 
         metadataRepo.updateGlossary(
@@ -930,10 +929,14 @@ class WebNovelApi(
     ): Map<String, String> {
         val novel = metadataRepo.get(providerId, novelId) ?: throwNovelNotFound()
         val merged = mutableMapOf<String, String>()
-        for (uid in novel.linkedGlossaries) {
-            val gg = globalGlossaryRepo.getByUid(uid)
-            if (gg != null) {
-                merged.putAll(gg.content)
+        if (novel.linkedGlossaries.isNotEmpty()) {
+            val linkedIds = novel.linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }
+            val ggs = globalGlossaryRepo.getByIds(linkedIds).associateBy { it.id.toHexString() }
+            for (id in novel.linkedGlossaries) {
+                val gg = ggs[id]
+                if (gg != null) {
+                    merged.putAll(gg.content)
+                }
             }
         }
         merged.putAll(novel.glossary)
@@ -1078,6 +1081,28 @@ class WebNovelTranslateV2Api(
             }
         }
 
+        val usedGlobalGlossaries = chapter.run {
+            when (translatorId) {
+                TranslatorId.Baidu -> baiduGlobalGlossaries
+                TranslatorId.Youdao -> youdaoGlobalGlossaries
+                TranslatorId.Gpt -> gptGlobalGlossaries
+                TranslatorId.Sakura -> sakuraGlobalGlossaries
+            }
+        } ?: emptyList()
+
+        val reconstructedOldGlossary = mutableMapOf<String, String>()
+        if (usedGlobalGlossaries.isNotEmpty()) {
+            val ggs = globalGlossaryRepo.getByIds(usedGlobalGlossaries.map { it.id }).associateBy { it.id }
+            for (usedGg in usedGlobalGlossaries) {
+                val gg = ggs[usedGg.id]
+                if (gg != null) {
+                    val ggContentAtVersion = gg.contentAtVersion(usedGg.version)
+                    reconstructedOldGlossary.putAll(ggContentAtVersion)
+                }
+            }
+        }
+        reconstructedOldGlossary.putAll(oldGlossary ?: emptyMap())
+
         val sakuraOutdated =
             (translatorId == TranslatorId.Sakura && chapter.sakuraVersion != "0.9")
         val oldGlossaryId = if (oldTranslation == null) {
@@ -1095,7 +1120,7 @@ class WebNovelTranslateV2Api(
             glossaryId = novel.glossaryUuid ?: "no glossary",
             glossary = mergedGlossary,
             oldGlossaryId = oldGlossaryId,
-            oldGlossary = oldGlossary ?: emptyMap(),
+            oldGlossary = reconstructedOldGlossary,
         )
     }
 
@@ -1162,14 +1187,37 @@ class WebNovelTranslateV2Api(
             throwBadRequest("翻译文本长度不匹配")
         }
 
+        val globalGlossaries = if (novel.linkedGlossaries.isNotEmpty()) {
+            val linkedIds = novel.linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }
+            globalGlossaryRepo.getByIds(linkedIds)
+        } else {
+            emptyList()
+        }
+
+        val usedGlobalGlossaries = globalGlossaries.map {
+            UsedGlobalGlossary(id = it.id, version = it.version)
+        }
+
         val mergedGlossary = getMergedGlossaryMap(novel.glossary, novel.linkedGlossaries)
+
+        val mergedGgContent = mutableMapOf<String, String>()
+        for (gg in globalGlossaries) {
+            mergedGgContent.putAll(gg.content)
+        }
+
+        val optimizedGlossary = mergedGlossary.filter { (key, value) ->
+            val isFromGgAndIdentical = mergedGgContent[key] == value
+            !isFromGgAndIdentical
+        }
+
         val zh = chapterRepo.updateTranslation(
             providerId = providerId,
             novelId = novelId,
             chapterId = chapterId,
             translatorId = translatorId,
-            glossary = novel.glossaryUuid?.let { Glossary(it, mergedGlossary) },
+            glossary = novel.glossaryUuid?.let { Glossary(it, optimizedGlossary) },
             paragraphsZh = paragraphsZh,
+            globalGlossaries = usedGlobalGlossaries,
         )
         return TranslateStateDto(jp = novel.jp, zh = zh)
     }
@@ -1179,10 +1227,14 @@ class WebNovelTranslateV2Api(
         linkedGlossaries: List<String>,
     ): Map<String, String> {
         val merged = mutableMapOf<String, String>()
-        for (uid in linkedGlossaries) {
-            val gg = globalGlossaryRepo.getByUid(uid)
-            if (gg != null) {
-                merged.putAll(gg.content)
+        if (linkedGlossaries.isNotEmpty()) {
+            val linkedIds = linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }
+            val ggs = globalGlossaryRepo.getByIds(linkedIds).associateBy { it.id.toHexString() }
+            for (id in linkedGlossaries) {
+                val gg = ggs[id]
+                if (gg != null) {
+                    merged.putAll(gg.content)
+                }
             }
         }
         merged.putAll(localGlossary)

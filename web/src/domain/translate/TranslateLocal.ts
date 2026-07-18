@@ -10,6 +10,7 @@ import type {
 } from '@/model/Translator';
 import { useLocalVolumeStore } from '@/stores';
 import type { Translator } from './Translator';
+import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 
 export const translateLocal = async (
   { volumeId }: LocalTranslateTaskDesc,
@@ -91,8 +92,30 @@ export const translateLocal = async (
         volumeId,
         chapterId,
       );
+
+      const mergedGlossary = { ...metadata.glossary };
+      if (metadata.linkedGlossaries && metadata.linkedGlossaries.length > 0) {
+        const globalGlossaries = await Promise.all(
+          metadata.linkedGlossaries.map(async (id) => {
+            try {
+              return await GlobalGlossaryApi.getGlobalGlossary(id);
+            } catch {
+              return null;
+            }
+          }),
+        );
+        const resolvedGlobalGlossary: Record<string, string> = {};
+        for (const gg of globalGlossaries) {
+          if (gg) {
+            Object.assign(resolvedGlobalGlossary, gg.content);
+          }
+        }
+        Object.assign(resolvedGlobalGlossary, metadata.glossary);
+        Object.assign(mergedGlossary, resolvedGlobalGlossary);
+      }
+
       const textsZh = await translator.translate(textsJp, {
-        glossary: metadata.glossary,
+        glossary: mergedGlossary,
         oldGlossary: chapter[translator.id]?.glossary,
         oldTextZh: oldTextsZh
           ? oldTextsZh[translator.id]?.paragraphs

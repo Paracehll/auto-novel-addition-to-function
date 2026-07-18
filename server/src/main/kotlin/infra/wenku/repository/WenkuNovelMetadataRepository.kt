@@ -85,6 +85,12 @@ class WenkuNovelMetadataRepository(
             .firstOrNull()
     }
 
+    suspend fun getById(id: ObjectId): WenkuNovel? {
+        return wenkuNovelMetadataCollection
+            .find(eq("_id", id))
+            .firstOrNull()
+    }
+
     suspend fun increaseVisited(
         userIdOrIp: String,
         novelId: String,
