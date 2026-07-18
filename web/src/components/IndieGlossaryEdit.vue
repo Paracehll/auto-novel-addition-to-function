@@ -204,6 +204,13 @@ const handleDragStart = (event: DragEvent, key: string) => {
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', key);
+    const target = event.currentTarget as HTMLElement;
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      event.dataTransfer.setDragImage(target, x, y);
+    }
   }
 };
 
