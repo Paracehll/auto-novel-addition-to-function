@@ -381,6 +381,13 @@ const cleanupDrag = () => {
       >
         {{ lastDeletedTerm }}
       </n-text>
+      <n-text
+        v-if="lastDeletedTerm === undefined"
+        depth="3"
+        style="font-size: 12px"
+      >
+        Tip: 拖动 => 可调整顺序
+      </n-text>
     </n-flex>
 
     <!-- Interactive Terms List Table with Dynamic Loading -->
