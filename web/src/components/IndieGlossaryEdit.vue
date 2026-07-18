@@ -197,6 +197,7 @@ const revokeSkip = (jp: string) => {
 // Drag and drop state for reordering terms
 const draggedKey = ref<string | null>(null);
 const dragOverKey = ref<string | null>(null);
+const dragPosition = ref<'above' | 'below' | null>(null);
 
 const handleDragStart = (event: DragEvent, key: string) => {
   draggedKey.value = key;
@@ -210,12 +211,19 @@ const handleDragOver = (event: DragEvent, key: string) => {
   event.preventDefault();
   if (draggedKey.value && draggedKey.value !== key) {
     dragOverKey.value = key;
+    const currentTarget = event.currentTarget as HTMLElement;
+    if (currentTarget) {
+      const rect = currentTarget.getBoundingClientRect();
+      const relativeY = event.clientY - rect.top;
+      dragPosition.value = relativeY < rect.height / 2 ? 'above' : 'below';
+    }
   }
 };
 
 const handleDragLeave = (key: string) => {
   if (dragOverKey.value === key) {
     dragOverKey.value = null;
+    dragPosition.value = null;
   }
 };
 
@@ -229,19 +237,23 @@ const handleDrop = (event: DragEvent, targetKey: string) => {
 
   const keys = [...jpKeys.value];
   const fromIndex = keys.indexOf(sourceKey);
-  const toIndex = keys.indexOf(targetKey);
-
-  if (fromIndex !== -1 && toIndex !== -1) {
+  if (fromIndex !== -1) {
     keys.splice(fromIndex, 1);
-    keys.splice(toIndex, 0, sourceKey);
+    let toIndex = keys.indexOf(targetKey);
+    if (toIndex !== -1) {
+      if (dragPosition.value === 'below') {
+        toIndex += 1;
+      }
+      keys.splice(toIndex, 0, sourceKey);
 
-    const newGlossary: Glossary = {};
-    const reversedKeys = [...keys].reverse();
-    for (const k of reversedKeys) {
-      newGlossary[k] = glossary.value[k];
+      const newGlossary: Glossary = {};
+      const reversedKeys = [...keys].reverse();
+      for (const k of reversedKeys) {
+        newGlossary[k] = glossary.value[k];
+      }
+      isReordering.value = true;
+      glossary.value = newGlossary;
     }
-    isReordering.value = true;
-    glossary.value = newGlossary;
   }
   cleanupDrag();
 };
@@ -249,6 +261,7 @@ const handleDrop = (event: DragEvent, targetKey: string) => {
 const cleanupDrag = () => {
   draggedKey.value = null;
   dragOverKey.value = null;
+  dragPosition.value = null;
 };
 </script>
 
@@ -364,7 +377,8 @@ const cleanupDrag = () => {
           :key="wordJp"
           :class="{
             'dragged-row': wordJp === draggedKey,
-            'drag-over-row': wordJp === dragOverKey,
+            'drag-over-above': wordJp === dragOverKey && dragPosition === 'above',
+            'drag-over-below': wordJp === dragOverKey && dragPosition === 'below',
           }"
           @dragover="handleDragOver($event, wordJp)"
           @dragleave="handleDragLeave(wordJp)"
@@ -457,8 +471,11 @@ const cleanupDrag = () => {
   opacity: 0.4;
 }
 
-.drag-over-row {
-  background-color: rgba(24, 160, 88, 0.15) !important;
-  outline: 2px dashed var(--primary-color, #ffffff);
+.drag-over-above td {
+  border-top: 2px solid var(--primary-color, #ffffff) !important;
+}
+
+.drag-over-below td {
+  border-bottom: 2px solid var(--primary-color, #ffffff) !important;
 }
 </style>
