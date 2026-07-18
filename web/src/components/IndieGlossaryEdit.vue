@@ -487,16 +487,15 @@ const cleanupDrag = () => {
 }
 
 .drag-over-above td {
-  border-top: 2px solid var(--primary-color, #ffffff) !important;
+  box-shadow: inset 0 2px 0 0 var(--primary-color, #ffffff) !important;
 }
 
 .drag-over-below td {
-  border-bottom: 2px solid var(--primary-color, #ffffff) !important;
+  box-shadow: inset 0 -2px 0 0 var(--primary-color, #ffffff) !important;
 }
 
 .drag-over-on td {
-  border-top: 2px solid var(--primary-color, #ffffff) !important;
-  border-bottom: 2px solid var(--primary-color, #ffffff) !important;
+  box-shadow: inset 0 2px 0 0 var(--primary-color, #ffffff), inset 0 -2px 0 0 var(--primary-color, #ffffff) !important;
   background-color: rgba(24, 160, 88, 0.25) !important;
 }
 </style>
