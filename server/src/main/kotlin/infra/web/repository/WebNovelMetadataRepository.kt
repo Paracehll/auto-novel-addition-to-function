@@ -417,7 +417,7 @@ class WebNovelMetadataRepository(
         providerId: String,
         novelId: String,
         glossary: Map<String, String>,
-        linkedGlossaries: List<String>,
+        linkedGlossaries: List<ObjectId>,
     ) {
         webNovelMetadataCollection
             .updateOne(

@@ -552,7 +552,7 @@ class WebNovelApi(
             introductionJp = novel.introductionJp,
             introductionZh = novel.introductionZh,
             glossary = novel.glossary,
-            linkedGlossaries = novel.linkedGlossaries,
+            linkedGlossaries = novel.linkedGlossaries.map { it.toHexString() },
             toc = novel.toc.map { it.asDto() },
             visited = novel.visited,
             syncAt = novel.syncAt.epochSeconds,
@@ -892,12 +892,12 @@ class WebNovelApi(
         user.requireNovelAccess()
         val novel = metadataRepo.get(providerId, novelId)
             ?: throwNovelNotFound()
+        val oldLinked = novel.linkedGlossaries.map { it.toHexString() }
         if (novel.glossary == glossary &&
             novel.glossary.keys.toList() == glossary.keys.toList() &&
-            novel.linkedGlossaries == linkedGlossaries)
+            oldLinked == linkedGlossaries)
             throwBadRequest("修改为空")
 
-        val oldLinked = novel.linkedGlossaries
         val removed = oldLinked - linkedGlossaries.toSet()
         val added = linkedGlossaries - oldLinked.toSet()
 
@@ -908,11 +908,13 @@ class WebNovelApi(
             globalGlossaryRepo.updateUsed(ObjectId(id), novel.id, true)
         }
 
+        val linkedIds = linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }
+
         metadataRepo.updateGlossary(
             providerId = providerId,
             novelId = novelId,
             glossary = glossary,
-            linkedGlossaries = linkedGlossaries,
+            linkedGlossaries = linkedIds,
         )
         operationHistoryRepo.create(
             operator = ObjectId(user.id),
@@ -932,8 +934,7 @@ class WebNovelApi(
         val novel = metadataRepo.get(providerId, novelId) ?: throwNovelNotFound()
         val merged = mutableMapOf<String, String>()
         if (novel.linkedGlossaries.isNotEmpty()) {
-            val linkedIds = novel.linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }
-            val ggs = globalGlossaryRepo.getByIds(linkedIds).associateBy { it.id.toHexString() }
+            val ggs = globalGlossaryRepo.getByIds(novel.linkedGlossaries).associateBy { it.id }
             for (id in novel.linkedGlossaries) {
                 val gg = ggs[id]
                 if (gg != null) {
@@ -1190,8 +1191,7 @@ class WebNovelTranslateV2Api(
         }
 
         val globalGlossaries = if (novel.linkedGlossaries.isNotEmpty()) {
-            val linkedIds = novel.linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }
-            globalGlossaryRepo.getByIds(linkedIds)
+            globalGlossaryRepo.getByIds(novel.linkedGlossaries)
         } else {
             emptyList()
         }
@@ -1226,12 +1226,11 @@ class WebNovelTranslateV2Api(
 
     private suspend fun getMergedGlossaryMap(
         localGlossary: Map<String, String>,
-        linkedGlossaries: List<String>,
+        linkedGlossaries: List<ObjectId>,
     ): Map<String, String> {
         val merged = mutableMapOf<String, String>()
         if (linkedGlossaries.isNotEmpty()) {
-            val linkedIds = linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }
-            val ggs = globalGlossaryRepo.getByIds(linkedIds).associateBy { it.id.toHexString() }
+            val ggs = globalGlossaryRepo.getByIds(linkedGlossaries).associateBy { it.id }
             for (id in linkedGlossaries) {
                 val gg = ggs[id]
                 if (gg != null) {
