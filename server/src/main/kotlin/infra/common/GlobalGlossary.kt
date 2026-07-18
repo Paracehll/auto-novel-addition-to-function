@@ -16,40 +16,58 @@ import org.bson.codecs.kotlinx.BsonDecoder
 import org.bson.codecs.kotlinx.BsonEncoder
 import org.bson.types.ObjectId
 
-object RecordBySerializer : KSerializer<String> {
+object RecordByListSerializer : KSerializer<List<ObjectId>> {
     override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("RecordBy", PrimitiveKind.STRING)
+        PrimitiveSerialDescriptor("RecordByList", PrimitiveKind.STRING)
 
-    override fun serialize(encoder: Encoder, value: String) {
+    override fun serialize(encoder: Encoder, value: List<ObjectId>) {
         if (encoder is BsonEncoder) {
-            if (value == "admin") {
-                encoder.encodeBsonValue(BsonString("admin"))
-            } else {
-                val objectId = try {
-                    ObjectId(value)
-                } catch (e: Exception) {
-                    null
-                }
-                if (objectId != null) {
-                    encoder.encodeBsonValue(BsonObjectId(objectId))
-                } else {
-                    encoder.encodeBsonValue(BsonString(value))
-                }
-            }
+            val bsonArray = org.bson.BsonArray(value.map { BsonObjectId(it) })
+            encoder.encodeBsonValue(bsonArray)
         } else {
-            encoder.encodeString(value)
+            encoder.encodeString(value.joinToString(",") { it.toHexString() })
         }
     }
 
-    override fun deserialize(decoder: Decoder): String {
+    override fun deserialize(decoder: Decoder): List<ObjectId> {
         return if (decoder is BsonDecoder) {
             when (val bsonValue = decoder.decodeBsonValue()) {
-                is BsonString -> bsonValue.value
-                is BsonObjectId -> bsonValue.value.toHexString()
-                else -> bsonValue.toString()
+                is org.bson.BsonArray -> {
+                    bsonValue.mapNotNull { element ->
+                        when (element) {
+                            is BsonObjectId -> element.value
+                            is BsonString -> {
+                                if (element.value == "admin") {
+                                    ObjectId("000000000000000000000000")
+                                } else {
+                                    try { ObjectId(element.value) } catch (e: Exception) { null }
+                                }
+                            }
+                            else -> null
+                        }
+                    }
+                }
+                is BsonString -> {
+                    if (bsonValue.value == "admin") {
+                        listOf(ObjectId("000000000000000000000000"))
+                    } else {
+                        try {
+                            listOf(ObjectId(bsonValue.value))
+                        } catch (e: Exception) {
+                            emptyList()
+                        }
+                    }
+                }
+                is BsonObjectId -> {
+                    listOf(bsonValue.value)
+                }
+                else -> emptyList()
             }
         } else {
-            decoder.decodeString()
+            val str = decoder.decodeString()
+            str.split(",").mapNotNull {
+                try { ObjectId(it.trim()) } catch (e: Exception) { null }
+            }
         }
     }
 }
@@ -64,7 +82,7 @@ data class GlobalGlossaryDiffItem(
 data class GlobalGlossaryRecord(
     @Contextual val date: Instant,
     val diff: Map<String, GlobalGlossaryDiffItem>,
-    @Serializable(with = RecordBySerializer::class) val by: String = "admin",
+    @Serializable(with = RecordByListSerializer::class) val by: List<@Contextual ObjectId> = emptyList(),
 )
 
 @Serializable
