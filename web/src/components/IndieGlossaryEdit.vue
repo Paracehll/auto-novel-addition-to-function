@@ -206,10 +206,12 @@ const handleDragStart = (event: DragEvent, key: string) => {
     event.dataTransfer.setData('text/plain', key);
     const target = event.currentTarget as HTMLElement;
     if (target) {
-      const rect = target.getBoundingClientRect();
+      const row = target.closest('tr');
+      const dragElement = row || target;
+      const rect = dragElement.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
-      event.dataTransfer.setDragImage(target, x, y);
+      event.dataTransfer.setDragImage(dragElement, x, y);
     }
   }
 };
