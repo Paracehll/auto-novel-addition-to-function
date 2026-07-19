@@ -25,6 +25,9 @@ class GlobalGlossaryRes {
 
     @Resource("/{id}")
     class Id(val parent: GlobalGlossaryRes, val id: String) {
+        @Resource("/terms")
+        class Terms(val parent: Id)
+
         @Resource("/record/{index}")
         class Record(val parent: Id, val index: Int)
     }
@@ -52,13 +55,9 @@ data class GlobalGlossaryRecordDto(
 )
 
 @Serializable
-data class GlobalGlossaryLightDto(
+data class GlobalGlossaryTermsDto(
     val id: String,
-    val name: String,
-    val termsCount: Int,
-    val usedCount: Int,
-    val update: Long,
-    val tag: List<String>,
+    val terms: Map<String, String>,
     val version: Long,
 )
 
@@ -76,13 +75,9 @@ data class GlobalGlossaryFullDto(
     val version: Long,
 )
 
-fun GlobalGlossary.asLightDto() = GlobalGlossaryLightDto(
+fun GlobalGlossary.asTermsDto() = GlobalGlossaryTermsDto(
     id = id.toHexString(),
-    name = name,
-    termsCount = if (termsCount > 0) termsCount else content.size,
-    usedCount = used.size,
-    update = update.epochSeconds,
-    tag = tag,
+    terms = content,
     version = version,
 )
 
@@ -122,6 +117,12 @@ fun Route.routeGlobalGlossary() {
         get<GlobalGlossaryRes.Id> { loc ->
             call.tryRespond {
                 service.get(loc.id)
+            }
+        }
+
+        get<GlobalGlossaryRes.Id.Terms> { loc ->
+            call.tryRespond {
+                service.getTerms(loc.parent.id)
             }
         }
     }
@@ -165,8 +166,14 @@ class GlobalGlossaryApi(
     private val wenkuNovelRepo: WenkuNovelMetadataRepository,
     private val userRepo: UserRepository,
 ) {
-    suspend fun list(): List<GlobalGlossaryLightDto> {
-        return repo.list().map { it.asLightDto() }
+    suspend fun list(): List<GlobalGlossaryFullDto> {
+        return repo.list().map { it.asFullDto(excludeDetails = true) }
+    }
+
+    suspend fun getTerms(id: String): GlobalGlossaryTermsDto {
+        val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
+        val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
+        return gg.asTermsDto()
     }
 
     suspend fun get(id: String): GlobalGlossaryFullDto {

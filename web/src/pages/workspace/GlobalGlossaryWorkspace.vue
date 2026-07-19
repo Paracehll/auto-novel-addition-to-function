@@ -17,7 +17,6 @@ import {
 import OrderSort from '@/components/OrderSort.vue';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 import type {
-  GlobalGlossaryLight,
   GlobalGlossaryFull,
   GlobalGlossaryRecord,
 } from '@/model/GlobalGlossary';
@@ -30,7 +29,7 @@ const message = useMessage();
 const whoamiStore = useWhoamiStore();
 const themeVars = useThemeVars();
 
-const glossaries = ref<GlobalGlossaryLight[]>([]);
+const glossaries = ref<GlobalGlossaryFull[]>([]);
 const loading = ref(false);
 
 const searchQuery = ref('');
@@ -62,7 +61,7 @@ const sortedAndFilteredGlossaries = computed(() => {
         return tokens.some((token) => {
           if (token.endsWith('$')) {
             const tagQuery = token.slice(0, -1).toLowerCase();
-            return (gg.tag || []).some((t) =>
+            return (gg.tag || []).some((t: string) =>
               t.toLowerCase().includes(tagQuery),
             );
           } else {
@@ -131,7 +130,7 @@ const openCreateModal = () => {
   showEditModal.value = true;
 };
 
-const openEditModal = async (gg: GlobalGlossaryLight) => {
+const openEditModal = async (gg: GlobalGlossaryFull) => {
   isEditing.value = true;
   isSaved.value = false;
   try {
@@ -220,7 +219,7 @@ const deleteGlossary = (id: string) => {
 const showHistoryModal = ref(false);
 const selectedGlossary = ref<GlobalGlossaryFull | null>(null);
 
-const viewHistory = async (gg: GlobalGlossaryLight) => {
+const viewHistory = async (gg: GlobalGlossaryFull) => {
   try {
     selectedGlossary.value = await GlobalGlossaryApi.getGlobalGlossary(gg.id);
     showHistoryModal.value = true;

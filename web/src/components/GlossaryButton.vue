@@ -12,7 +12,7 @@ import { WebNovelApi, WenkuNovelApi } from '@/api';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 import { GenericNovelId } from '@/model/Common';
 import { Glossary } from '@/model/Glossary';
-import type { GlobalGlossaryLight, GlobalGlossaryFull } from '@/model/GlobalGlossary';
+import type { GlobalGlossaryFull } from '@/model/GlobalGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import OrderSort from '@/components/OrderSort.vue';
@@ -39,7 +39,7 @@ const { whoami } = storeToRefs(whoamiStore);
 
 const glossary = ref<Glossary>({});
 const linkedGlossaries = ref<string[]>([]);
-const allGlobalGlossaries = ref<GlobalGlossaryLight[]>([]);
+const allGlobalGlossaries = ref<GlobalGlossaryFull[]>([]);
 const novelKeywords = ref<string[]>([]);
 
 const showGlossaryModal = ref(false);
@@ -49,7 +49,7 @@ const sortState = ref({
   desc: true,
 });
 
-const getMatchCount = (gg: GlobalGlossaryLight) => {
+const getMatchCount = (gg: GlobalGlossaryFull) => {
   if (!gg.tag || gg.tag.length === 0 || novelKeywords.value.length === 0)
     return 0;
   const ggTags = new Set(gg.tag);
@@ -71,10 +71,13 @@ const globalGlossariesOptions = computed(() => {
       sorted.push({
         id: _id,
         name: '[已删除的术语表]',
+        terms: {},
         termsCount: 0,
+        used: [],
         usedCount: 0,
         update: 0,
         tag: [],
+        record: [],
         version: 1,
       });
     }
@@ -180,10 +183,14 @@ watch(
     for (const id of newVal) {
       if (!fullyLoadedGlossaryIds.value.has(id)) {
         try {
-          const fullGg = await GlobalGlossaryApi.getGlobalGlossary(id);
+          const termsGg = await GlobalGlossaryApi.getGlobalGlossaryTerms(id);
           activeGlossariesMap.value = {
             ...activeGlossariesMap.value,
-            [id]: fullGg,
+            [id]: {
+              ...activeGlossariesMap.value[id],
+              terms: termsGg.terms,
+              version: termsGg.version,
+            },
           };
           fullyLoadedGlossaryIds.value.add(id);
         } catch (e: any) {
@@ -199,10 +206,14 @@ const ensureAllActiveGlossariesLoaded = async () => {
   const promises = linkedGlossaries.value.map(async (id) => {
     if (!fullyLoadedGlossaryIds.value.has(id)) {
       try {
-        const fullGg = await GlobalGlossaryApi.getGlobalGlossary(id);
+        const termsGg = await GlobalGlossaryApi.getGlobalGlossaryTerms(id);
         activeGlossariesMap.value = {
           ...activeGlossariesMap.value,
-          [id]: fullGg,
+          [id]: {
+            ...activeGlossariesMap.value[id],
+            terms: termsGg.terms,
+            version: termsGg.version,
+          },
         };
         fullyLoadedGlossaryIds.value.add(id);
       } catch (e) {

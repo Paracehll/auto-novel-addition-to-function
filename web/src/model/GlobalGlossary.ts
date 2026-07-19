@@ -11,13 +11,9 @@ export interface GlobalGlossaryRecord {
   by: string;
 }
 
-export interface GlobalGlossaryLight {
+export interface GlobalGlossaryTerms {
   id: string;
-  name: string;
-  termsCount: number;
-  usedCount: number;
-  update: number;
-  tag: string[];
+  terms: Glossary;
   version: number;
 }
 
