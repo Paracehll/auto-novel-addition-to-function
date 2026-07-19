@@ -16,8 +16,8 @@ import type { GlobalGlossary } from '@/model/GlobalGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import OrderSort from '@/components/OrderSort.vue';
-import { downloadFile } from '@/util';
-import naive from 'naive-ui';
+import { checkIsMobile, downloadFile } from '@/util';
+import { type CSSProperties } from 'vue';
 
 const props = withDefaults(
   defineProps<{
@@ -605,6 +605,21 @@ const importGlobalToLocal = async () => {
   linkedGlossaries.value = [];
   message.success(`成功导入全域术语并解除链接 (合并了 ${count} 个词条)`);
 };
+
+const actionBarStyle = computed<CSSProperties>(() => ({
+  display: 'flex',
+  flexWrap: 'nowrap',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '8px',
+  width: '100%',
+  overflowX: 'auto',
+  flexDirection: checkIsMobile() ? 'row-reverse' : 'row',
+}));
+
+const exportMergedLabel = computed(() =>
+  checkIsMobile() ? '合并' : '导出合并',
+);
 </script>
 
 <template>
@@ -858,7 +873,7 @@ const importGlobalToLocal = async () => {
           <template #extra-edit-actions>
             <c-button
               :icon="DownloadOutlined"
-              label="合併全域"
+              label="合併"
               :round="false"
               size="small"
               @action="importGlobalToLocal"
@@ -869,10 +884,10 @@ const importGlobalToLocal = async () => {
     </template>
 
     <template #action>
-      <n-space justify="space-between" style="width: 100%">
-        <n-space>
+      <div :style="actionBarStyle">
+        <n-space :wrap="false" style="flex-shrink: 1; min-width: 0">
           <c-button
-            label="导出合并"
+            :label="exportMergedLabel"
             :icon="ContentCopyOutlined"
             @action="exportMerged"
           />
@@ -882,8 +897,13 @@ const importGlobalToLocal = async () => {
             @action="downloadMergedJson()"
           />
         </n-space>
-        <c-button label="提交" type="primary" @action="submitGlossary()" />
-      </n-space>
+        <c-button
+          label="提交"
+          type="primary"
+          style="flex-shrink: 0"
+          @action="submitGlossary()"
+        />
+      </div>
     </template>
   </c-modal>
 </template>
