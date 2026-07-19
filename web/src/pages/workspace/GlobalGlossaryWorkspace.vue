@@ -16,14 +16,13 @@ import {
 } from '@vicons/material';
 import OrderSort from '@/components/OrderSort.vue';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
-import { WebNovelApi } from '@/api/novel/WebNovelApi';
-import { WenkuNovelApi } from '@/api/novel/WenkuNovelApi';
 import type {
-  GlobalGlossary,
+  GlobalGlossaryLight,
+  GlobalGlossaryFull,
   GlobalGlossaryRecord,
 } from '@/model/GlobalGlossary';
 import { useWhoamiStore } from '@/stores';
-import { doAction, copyToClipBoard } from '../util';
+import { doAction } from '../util';
 import { Glossary } from '@/model/Glossary';
 import { isEqual } from 'lodash-es';
 
@@ -31,7 +30,7 @@ const message = useMessage();
 const whoamiStore = useWhoamiStore();
 const themeVars = useThemeVars();
 
-const glossaries = ref<GlobalGlossary[]>([]);
+const glossaries = ref<GlobalGlossaryLight[]>([]);
 const loading = ref(false);
 
 const searchQuery = ref('');
@@ -83,12 +82,12 @@ const sortedAndFilteredGlossaries = computed(() => {
     } else if (sortState.value.value === 'update') {
       cmp = (a.update || 0) - (b.update || 0);
     } else if (sortState.value.value === 'termsCount') {
-      const countA = a.termsCount ?? Object.keys(a.content || {}).length;
-      const countB = b.termsCount ?? Object.keys(b.content || {}).length;
+      const countA = a.termsCount ?? 0;
+      const countB = b.termsCount ?? 0;
       cmp = countA - countB;
     } else if (sortState.value.value === 'used') {
-      const usedA = (a.used || []).length;
-      const usedB = (b.used || []).length;
+      const usedA = a.usedCount || 0;
+      const usedB = b.usedCount || 0;
       cmp = usedA - usedB;
     }
 
@@ -132,7 +131,7 @@ const openCreateModal = () => {
   showEditModal.value = true;
 };
 
-const openEditModal = async (gg: GlobalGlossary) => {
+const openEditModal = async (gg: GlobalGlossaryLight) => {
   isEditing.value = true;
   isSaved.value = false;
   try {
@@ -140,7 +139,7 @@ const openEditModal = async (gg: GlobalGlossary) => {
     formModel.value = {
       id: fullGg.id,
       name: fullGg.name,
-      content: { ...fullGg.content },
+      content: { ...fullGg.terms },
       tagRaw: (fullGg.tag || []).join(', '),
     };
     originalFormModel.value = JSON.parse(JSON.stringify(formModel.value));
@@ -219,9 +218,9 @@ const deleteGlossary = (id: string) => {
 
 // History modal state
 const showHistoryModal = ref(false);
-const selectedGlossary = ref<GlobalGlossary | null>(null);
+const selectedGlossary = ref<GlobalGlossaryFull | null>(null);
 
-const viewHistory = async (gg: GlobalGlossary) => {
+const viewHistory = async (gg: GlobalGlossaryLight) => {
   try {
     selectedGlossary.value = await GlobalGlossaryApi.getGlobalGlossary(gg.id);
     showHistoryModal.value = true;
@@ -237,7 +236,7 @@ const formatDate = (dateSeconds: number) => {
 // Rollback Logic
 const rollbackToRecord = (targetIndex: number) => {
   if (!selectedGlossary.value) return {};
-  const currentContent = { ...selectedGlossary.value.content };
+  const currentContent = { ...selectedGlossary.value.terms };
   const records = selectedGlossary.value.record;
 
   // We need to apply diffs in reverse order from the last record down to (and including) targetIndex + 1
@@ -308,11 +307,7 @@ const showUsedModal = ref(false);
 const usedLoading = ref(false);
 const selectedGlossaryName = ref('');
 
-interface UsedNovelItem {
-  url: string;
-  title: string;
-}
-const lazyUsedNovels = ref<UsedNovelItem[]>([]);
+const lazyUsedNovels = ref<string[]>([]);
 
 const viewUsedNovels = async (id: string, name: string) => {
   selectedGlossaryName.value = name;
@@ -321,32 +316,7 @@ const viewUsedNovels = async (id: string, name: string) => {
   usedLoading.value = true;
   try {
     const detail = await GlobalGlossaryApi.getGlobalGlossary(id);
-    const urls = detail.used || [];
-
-    // Fetch titles in parallel
-    const fetchedNovels = await Promise.all(
-      urls.map(async (url) => {
-        let title = url;
-        try {
-          if (url.startsWith('/novel/')) {
-            const parts = url.split('/');
-            const providerId = parts[2];
-            const novelId = parts[3];
-            const novel = await WebNovelApi.getNovel(providerId, novelId);
-            title = novel.titleZh || novel.titleJp || url;
-          } else if (url.startsWith('/wenku/')) {
-            const parts = url.split('/');
-            const novelId = parts[2];
-            const novel = await WenkuNovelApi.getNovel(novelId);
-            title = novel.titleZh || novel.title || url;
-          }
-        } catch {
-          // Fallback to url if request fails
-        }
-        return { url, title };
-      }),
-    );
-    lazyUsedNovels.value = fetchedNovels;
+    lazyUsedNovels.value = detail.used || [];
   } catch (e: any) {
     message.error(`获取引用小说列表失败: ${e.message || e}`);
   } finally {
@@ -487,7 +457,7 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
             title: '引用',
             key: 'used',
             render: (row: any) => {
-              const count = row.used ? row.used.length : 0;
+              const count = row.usedCount ?? 0;
               return h(
                 NButton,
                 {
@@ -762,25 +732,15 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
             <div v-if="lazyUsedNovels.length > 0">
               <div
                 v-for="item in lazyUsedNovels"
-                :key="item.url"
+                :key="item"
                 style="
-                  /* margin: 8px 0; */
-                  /* padding: 8px 0; */
+                  padding: 4px 0;
                   border-bottom: 1px solid var(--border-color);
                 "
               >
-                <a
-                  :href="item.url"
-                  target="_blank"
-                  style="
-                    color: var(--n-text-color);
-                    text-decoration: none;
-                    font-size: 14px;
-                    font-weight: 500;
-                  "
-                >
-                  {{ item.title }}
-                </a>
+                <n-text style="font-size: 14px; font-family: monospace">
+                  {{ item }}
+                </n-text>
               </div>
             </div>
             <n-empty

@@ -11,14 +11,28 @@ export interface GlobalGlossaryRecord {
   by: string;
 }
 
-export interface GlobalGlossary {
+export interface GlobalGlossaryLight {
   id: string;
   name: string;
-  content: Glossary;
-  termsCount?: number;
+  termsCount: number;
+  usedCount: number;
+  update: number;
+  tag: string[];
+  version: number;
+}
+
+export interface GlobalGlossaryFull {
+  id: string;
+  name: string;
+  terms: Glossary;
+  termsCount: number;
   used: string[];
+  usedCount: number;
   update: number;
   tag: string[];
   record: GlobalGlossaryRecord[];
   version: number;
 }
+
+// For backward compatibility or general reference
+export type GlobalGlossary = GlobalGlossaryFull;

@@ -52,28 +52,50 @@ data class GlobalGlossaryRecordDto(
 )
 
 @Serializable
-data class GlobalGlossaryDto(
+data class GlobalGlossaryLightDto(
     val id: String,
     val name: String,
-    val content: Map<String, String>,
+    val termsCount: Int,
+    val usedCount: Int,
+    val update: Long,
+    val tag: List<String>,
+    val version: Long,
+)
+
+@Serializable
+data class GlobalGlossaryFullDto(
+    val id: String,
+    val name: String,
+    val terms: Map<String, String>,
     val termsCount: Int,
     val used: List<String>,
+    val usedCount: Int,
     val update: Long,
     val tag: List<String>,
     val record: List<GlobalGlossaryRecordDto>,
     val version: Long,
 )
 
-fun GlobalGlossary.asDto(
-    usedUrls: List<String>,
-    usernamesMap: Map<String, String> = emptyMap(),
-    excludeDetails: Boolean = false
-) = GlobalGlossaryDto(
+fun GlobalGlossary.asLightDto() = GlobalGlossaryLightDto(
     id = id.toHexString(),
     name = name,
-    content = if (excludeDetails) emptyMap() else content,
     termsCount = if (termsCount > 0) termsCount else content.size,
-    used = usedUrls,
+    usedCount = used.size,
+    update = update.epochSeconds,
+    tag = tag,
+    version = version,
+)
+
+fun GlobalGlossary.asFullDto(
+    usernamesMap: Map<String, String> = emptyMap(),
+    excludeDetails: Boolean = false
+) = GlobalGlossaryFullDto(
+    id = id.toHexString(),
+    name = name,
+    terms = if (excludeDetails) emptyMap() else content,
+    termsCount = if (termsCount > 0) termsCount else content.size,
+    used = used.map { it.toHexString() },
+    usedCount = used.size,
     update = update.epochSeconds,
     tag = tag,
     record = if (excludeDetails) emptyList() else record.map { rec ->
@@ -143,25 +165,20 @@ class GlobalGlossaryApi(
     private val wenkuNovelRepo: WenkuNovelMetadataRepository,
     private val userRepo: UserRepository,
 ) {
-    suspend fun list(): List<GlobalGlossaryDto> {
-        return repo.list().map { it.asDto(usedUrls = it.used.map { id -> id.toHexString() }, excludeDetails = true) }
+    suspend fun list(): List<GlobalGlossaryLightDto> {
+        return repo.list().map { it.asLightDto() }
     }
 
-    suspend fun get(id: String): GlobalGlossaryDto {
+    suspend fun get(id: String): GlobalGlossaryFullDto {
         val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
         val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
         val invalidRefs = mutableListOf<ObjectId>()
-        val resolvedUrls = gg.used.mapNotNull { targetId ->
+        for (targetId in gg.used) {
             val webNovel = webNovelRepo.getById(targetId)
-            if (webNovel != null) {
-                "/novel/${webNovel.providerId}/${webNovel.novelId}"
-            } else {
+            if (webNovel == null) {
                 val wenkuNovel = wenkuNovelRepo.getById(targetId)
-                if (wenkuNovel != null) {
-                    "/wenku/${wenkuNovel.id.toHexString()}"
-                } else {
+                if (wenkuNovel == null) {
                     invalidRefs.add(targetId)
-                    null
                 }
             }
         }
@@ -176,10 +193,10 @@ class GlobalGlossaryApi(
         }
         val userIds = gg.record.map { it.by.toHexString() }.distinct()
         val usernamesMap = userRepo.getUsernamesMap(userIds)
-        return gg.asDto(usedUrls = resolvedUrls, usernamesMap = usernamesMap)
+        return gg.asFullDto(usernamesMap = usernamesMap)
     }
 
-    suspend fun create(user: User, body: GlobalGlossaryCreateBody): GlobalGlossaryDto {
+    suspend fun create(user: User, body: GlobalGlossaryCreateBody): GlobalGlossaryFullDto {
         user.requireNovelAccess()
         if (body.name.isBlank()) {
             throwBadRequest("名称不能为空")
@@ -193,10 +210,10 @@ class GlobalGlossaryApi(
         )
         val userIds = listOf(byVal.toHexString())
         val usernamesMap = userRepo.getUsernamesMap(userIds)
-        return gg.asDto(emptyList(), usernamesMap)
+        return gg.asFullDto(usernamesMap = usernamesMap)
     }
 
-    suspend fun update(user: User, id: String, body: GlobalGlossaryUpdateBody): GlobalGlossaryDto {
+    suspend fun update(user: User, id: String, body: GlobalGlossaryUpdateBody): GlobalGlossaryFullDto {
         user.requireNovelAccess()
         if (body.name.isBlank()) {
             throwBadRequest("名称不能为空")
@@ -212,7 +229,7 @@ class GlobalGlossaryApi(
         )
         val userIds = gg.record.map { it.by.toHexString() }.distinct()
         val usernamesMap = userRepo.getUsernamesMap(userIds)
-        return gg.asDto(emptyList(), usernamesMap)
+        return gg.asFullDto(usernamesMap = usernamesMap)
     }
 
     suspend fun delete(user: User, id: String) {

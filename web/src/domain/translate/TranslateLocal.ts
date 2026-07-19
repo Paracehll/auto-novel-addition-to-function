@@ -107,7 +107,7 @@ export const translateLocal = async (
         const resolvedGlobalGlossary: Record<string, string> = {};
         for (const gg of globalGlossaries) {
           if (gg) {
-            Object.assign(resolvedGlobalGlossary, gg.content);
+            Object.assign(resolvedGlobalGlossary, gg.terms);
           }
         }
         Object.assign(resolvedGlobalGlossary, metadata.glossary);
