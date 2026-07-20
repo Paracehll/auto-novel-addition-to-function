@@ -21,12 +21,15 @@ import org.koin.ktor.ext.inject
 @Resource("/global-glossary")
 class GlobalGlossaryRes {
     @Resource("")
-    class List(val parent: GlobalGlossaryRes)
+    class List(val parent: GlobalGlossaryRes, val used: Int? = null)
 
     @Resource("/{id}")
     class Id(val parent: GlobalGlossaryRes, val id: String) {
         @Resource("/terms")
         class Terms(val parent: Id)
+
+        @Resource("/history")
+        class History(val parent: Id)
 
         @Resource("/record/{index}")
         class Record(val parent: Id, val index: Int)
@@ -62,6 +65,27 @@ data class GlobalGlossaryTermsDto(
 )
 
 @Serializable
+data class GlobalGlossaryInfoDto(
+    val id: String,
+    val name: String,
+    val termsCount: Int,
+    val usedCount: Int,
+    val update: Long,
+    val tag: List<String>,
+    val version: Long,
+    val used: List<String>? = null,
+)
+
+@Serializable
+data class GlobalGlossaryHistoryDto(
+    val id: String,
+    val record: List<GlobalGlossaryRecordDto>,
+    val update: Long,
+    val version: Long,
+)
+
+@Serializable
+@Deprecated("Use GlobalGlossaryInfoDto or GlobalGlossaryTermsDto or GlobalGlossaryHistoryDto instead")
 data class GlobalGlossaryFullDto(
     val id: String,
     val name: String,
@@ -77,20 +101,46 @@ data class GlobalGlossaryFullDto(
 
 fun GlobalGlossary.asTermsDto() = GlobalGlossaryTermsDto(
     id = id.toHexString(),
-    terms = content,
+    terms = terms,
     version = version,
 )
 
+fun GlobalGlossary.asInfoDto(includeUsed: Boolean = false) = GlobalGlossaryInfoDto(
+    id = id.toHexString(),
+    name = name,
+    termsCount = if (termsCount > 0) termsCount else terms.size,
+    usedCount = usedCount,
+    update = update.epochSeconds,
+    tag = tag,
+    version = version,
+    used = if (includeUsed) used.map { it.toHexString() } else null,
+)
+
+fun GlobalGlossary.asHistoryDto(usernamesMap: Map<String, String> = emptyMap()) = GlobalGlossaryHistoryDto(
+    id = id.toHexString(),
+    record = record.map { rec ->
+        val resolvedBy = usernamesMap[rec.by.toHexString()] ?: "unknown"
+        GlobalGlossaryRecordDto(
+            date = rec.date.epochSeconds,
+            diff = rec.diff,
+            by = resolvedBy,
+        )
+    },
+    update = update.epochSeconds,
+    version = version,
+)
+
+@Suppress("DEPRECATION")
 fun GlobalGlossary.asFullDto(
     usernamesMap: Map<String, String> = emptyMap(),
     excludeDetails: Boolean = false
 ) = GlobalGlossaryFullDto(
     id = id.toHexString(),
     name = name,
-    terms = if (excludeDetails) emptyMap() else content,
-    termsCount = if (termsCount > 0) termsCount else content.size,
+    terms = if (excludeDetails) emptyMap() else terms,
+    termsCount = if (termsCount > 0) termsCount else terms.size,
     used = used.map { it.toHexString() },
-    usedCount = used.size,
+    usedCount = usedCount,
     update = update.epochSeconds,
     tag = tag,
     record = if (excludeDetails) emptyList() else record.map { rec ->
@@ -108,9 +158,9 @@ fun Route.routeGlobalGlossary() {
     val service by inject<GlobalGlossaryApi>()
 
     authenticateDb(optional = true) {
-        get<GlobalGlossaryRes.List> {
+        get<GlobalGlossaryRes.List> { loc ->
             call.tryRespond {
-                service.list()
+                service.list(includeUsed = loc.used == 1)
             }
         }
 
@@ -123,6 +173,12 @@ fun Route.routeGlobalGlossary() {
         get<GlobalGlossaryRes.Id.Terms> { loc ->
             call.tryRespond {
                 service.getTerms(loc.parent.id)
+            }
+        }
+
+        get<GlobalGlossaryRes.Id.History> { loc ->
+            call.tryRespond {
+                service.getHistory(loc.parent.id)
             }
         }
     }
@@ -166,8 +222,8 @@ class GlobalGlossaryApi(
     private val wenkuNovelRepo: WenkuNovelMetadataRepository,
     private val userRepo: UserRepository,
 ) {
-    suspend fun list(): List<GlobalGlossaryFullDto> {
-        return repo.list().map { it.asFullDto(excludeDetails = true) }
+    suspend fun list(includeUsed: Boolean): List<GlobalGlossaryInfoDto> {
+        return repo.list().map { it.asInfoDto(includeUsed = includeUsed) }
     }
 
     suspend fun getTerms(id: String): GlobalGlossaryTermsDto {
@@ -176,6 +232,15 @@ class GlobalGlossaryApi(
         return gg.asTermsDto()
     }
 
+    suspend fun getHistory(id: String): GlobalGlossaryHistoryDto {
+        val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
+        val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
+        val userIds = gg.record.map { it.by.toHexString() }.distinct()
+        val usernamesMap = userRepo.getUsernamesMap(userIds)
+        return gg.asHistoryDto(usernamesMap = usernamesMap)
+    }
+
+    @Suppress("DEPRECATION")
     suspend fun get(id: String): GlobalGlossaryFullDto {
         val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
         val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
@@ -203,6 +268,7 @@ class GlobalGlossaryApi(
         return gg.asFullDto(usernamesMap = usernamesMap)
     }
 
+    @Suppress("DEPRECATION")
     suspend fun create(user: User, body: GlobalGlossaryCreateBody): GlobalGlossaryFullDto {
         user.requireNovelAccess()
         if (body.name.isBlank()) {
@@ -220,6 +286,7 @@ class GlobalGlossaryApi(
         return gg.asFullDto(usernamesMap = usernamesMap)
     }
 
+    @Suppress("DEPRECATION")
     suspend fun update(user: User, id: String, body: GlobalGlossaryUpdateBody): GlobalGlossaryFullDto {
         user.requireNovelAccess()
         if (body.name.isBlank()) {

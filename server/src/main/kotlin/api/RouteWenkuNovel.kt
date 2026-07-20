@@ -514,7 +514,7 @@ class WenkuNovelApi(
             for (id in novel.linkedGlossaries) {
                 val gg = ggs[id]
                 if (gg != null) {
-                    merged.putAll(gg.content)
+                    merged.putAll(gg.terms)
                 }
             }
         }
@@ -773,7 +773,7 @@ class WenkuNovelTranslateV2Api(
             for (id in linkedGlossaries) {
                 val gg = ggs[id]
                 if (gg != null) {
-                    merged.putAll(gg.content)
+                    merged.putAll(gg.terms)
                 }
             }
         }

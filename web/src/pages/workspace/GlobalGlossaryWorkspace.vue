@@ -17,7 +17,8 @@ import {
 import OrderSort from '@/components/OrderSort.vue';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 import type {
-  GlobalGlossaryFull,
+  GlobalGlossaryInfo,
+  GlobalGlossaryHistory,
   GlobalGlossaryRecord,
 } from '@/model/GlobalGlossary';
 import { useWhoamiStore } from '@/stores';
@@ -29,7 +30,7 @@ const message = useMessage();
 const whoamiStore = useWhoamiStore();
 const themeVars = useThemeVars();
 
-const glossaries = ref<GlobalGlossaryFull[]>([]);
+const glossaries = ref<GlobalGlossaryInfo[]>([]);
 const loading = ref(false);
 
 const searchQuery = ref('');
@@ -41,7 +42,7 @@ const sortState = ref({
 const loadGlossaries = async () => {
   loading.value = true;
   try {
-    glossaries.value = await GlobalGlossaryApi.listGlobalGlossaries();
+    glossaries.value = await GlobalGlossaryApi.listGlobalGlossariesInfo(true);
   } catch (e: any) {
     message.error(`加载全域术语表失败: ${e.message || e}`);
   } finally {
@@ -130,7 +131,7 @@ const openCreateModal = () => {
   showEditModal.value = true;
 };
 
-const openEditModal = async (gg: GlobalGlossaryFull) => {
+const openEditModal = async (gg: GlobalGlossaryInfo) => {
   isEditing.value = true;
   isSaved.value = false;
   try {
@@ -217,11 +218,11 @@ const deleteGlossary = (id: string) => {
 
 // History modal state
 const showHistoryModal = ref(false);
-const selectedGlossary = ref<GlobalGlossaryFull | null>(null);
+const selectedGlossary = ref<GlobalGlossaryHistory | null>(null);
 
-const viewHistory = async (gg: GlobalGlossaryFull) => {
+const viewHistory = async (gg: GlobalGlossaryInfo) => {
   try {
-    selectedGlossary.value = await GlobalGlossaryApi.getGlobalGlossary(gg.id);
+    selectedGlossary.value = await GlobalGlossaryApi.getGlobalGlossaryHistory(gg.id);
     showHistoryModal.value = true;
   } catch (e: any) {
     message.error(`获取修改历史失败: ${e.message || e}`);
@@ -232,28 +233,7 @@ const formatDate = (dateSeconds: number) => {
   return new Date(dateSeconds * 1000).toLocaleString('zh-CN');
 };
 
-// Rollback Logic
-const rollbackToRecord = (targetIndex: number) => {
-  if (!selectedGlossary.value) return {};
-  const currentContent = { ...selectedGlossary.value.terms };
-  const records = selectedGlossary.value.record;
-
-  // We need to apply diffs in reverse order from the last record down to (and including) targetIndex + 1
-  for (let j = records.length - 1; j > targetIndex; j--) {
-    const rec = records[j];
-    for (const key in rec.diff) {
-      const item = rec.diff[key];
-      if (item.old === null || item.old === '') {
-        delete currentContent[key];
-      } else {
-        currentContent[key] = item.old;
-      }
-    }
-  }
-  return currentContent;
-};
-
-const handleRollback = (targetIndex: number) => {
+const handleRollback = async (targetIndex: number) => {
   if (!selectedGlossary.value) return;
   if (
     !window.confirm(
@@ -262,20 +242,38 @@ const handleRollback = (targetIndex: number) => {
   )
     return;
 
-  const rolledBackContent = rollbackToRecord(targetIndex);
+  try {
+    const fullGg = await GlobalGlossaryApi.getGlobalGlossary(selectedGlossary.value.id);
+    const currentContent = { ...fullGg.terms };
+    const records = selectedGlossary.value.record;
 
-  doAction(
-    GlobalGlossaryApi.updateGlobalGlossary(selectedGlossary.value.id, {
-      name: selectedGlossary.value.name,
-      content: rolledBackContent,
-      tag: selectedGlossary.value.tag,
-    }).then(() => {
-      showHistoryModal.value = false;
-      loadGlossaries();
-    }),
-    '回滚全域术语表',
-    message,
-  );
+    for (let j = records.length - 1; j > targetIndex; j--) {
+      const rec = records[j];
+      for (const key in rec.diff) {
+        const item = rec.diff[key];
+        if (item.old === null || item.old === '') {
+          delete currentContent[key];
+        } else {
+          currentContent[key] = item.old;
+        }
+      }
+    }
+
+    doAction(
+      GlobalGlossaryApi.updateGlobalGlossary(selectedGlossary.value.id, {
+        name: fullGg.name,
+        content: currentContent,
+        tag: fullGg.tag,
+      }).then(() => {
+        showHistoryModal.value = false;
+        loadGlossaries();
+      }),
+      '回滚全域术语表',
+      message,
+    );
+  } catch (e: any) {
+    message.error(`回滚全域术语表失败: ${e.message || e}`);
+  }
 };
 
 const deleteHistoryRecord = (targetIndex: number) => {
@@ -289,7 +287,7 @@ const deleteHistoryRecord = (targetIndex: number) => {
       targetIndex,
     ).then(async () => {
       if (selectedGlossary.value) {
-        const latest = await GlobalGlossaryApi.getGlobalGlossary(
+        const latest = await GlobalGlossaryApi.getGlobalGlossaryHistory(
           selectedGlossary.value.id,
         );
         selectedGlossary.value = latest;
@@ -303,24 +301,14 @@ const deleteHistoryRecord = (targetIndex: number) => {
 
 // Used Novels modal state (lazy loaded)
 const showUsedModal = ref(false);
-const usedLoading = ref(false);
 const selectedGlossaryName = ref('');
 
 const lazyUsedNovels = ref<string[]>([]);
 
-const viewUsedNovels = async (id: string, name: string) => {
+const viewUsedNovels = (name: string, usedList?: string[]) => {
   selectedGlossaryName.value = name;
-  lazyUsedNovels.value = [];
+  lazyUsedNovels.value = usedList || [];
   showUsedModal.value = true;
-  usedLoading.value = true;
-  try {
-    const detail = await GlobalGlossaryApi.getGlobalGlossary(id);
-    lazyUsedNovels.value = detail.used || [];
-  } catch (e: any) {
-    message.error(`获取引用小说列表失败: ${e.message || e}`);
-  } finally {
-    usedLoading.value = false;
-  }
 };
 
 const getRecordTimelineType = (rec: GlobalGlossaryRecord) => {
@@ -461,7 +449,7 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                 NButton,
                 {
                   size: 'small',
-                  onClick: () => viewUsedNovels(row.id, row.name),
+                  onClick: () => viewUsedNovels(row.name, row.used),
                 },
                 () => `查看 (${count})`,
               );
@@ -719,7 +707,7 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
         </template>
       </c-modal>
 
-      <!-- Used Novels Modal (Lazy loaded) -->
+      <!-- Used Novels Modal -->
       <c-modal
         title="引用该术语表的小说列表"
         v-model:show="showUsedModal"
@@ -727,26 +715,24 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
         :extra-height="120"
       >
         <n-space vertical size="medium">
-          <n-spin :show="usedLoading">
-            <div v-if="lazyUsedNovels.length > 0">
-              <div
-                v-for="item in lazyUsedNovels"
-                :key="item"
-                style="
-                  padding: 4px 0;
-                  border-bottom: 1px solid var(--border-color);
-                "
-              >
-                <n-text style="font-size: 14px; font-family: monospace">
-                  {{ item }}
-                </n-text>
-              </div>
+          <div v-if="lazyUsedNovels.length > 0">
+            <div
+              v-for="item in lazyUsedNovels"
+              :key="item"
+              style="
+                padding: 4px 0;
+                border-bottom: 1px solid var(--border-color);
+              "
+            >
+              <n-text style="font-size: 14px; font-family: monospace">
+                {{ item }}
+              </n-text>
             </div>
-            <n-empty
-              v-else-if="!usedLoading"
-              description="暂无小说引用该术语表"
-            />
-          </n-spin>
+          </div>
+          <n-empty
+            v-else
+            description="暂无小说引用该术语表"
+          />
         </n-space>
       </c-modal>
     </n-space>

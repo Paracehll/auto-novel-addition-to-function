@@ -25,7 +25,7 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 val created = repo.create(name, content, tag, by = ObjectId(userIdStr))
                 val id = created.id
                 created.name shouldBe name
-                created.content shouldBe content
+                created.terms shouldBe content
                 created.tag shouldBe tag
                 created.version shouldBe 1L
                 created.record.size shouldBe 1
@@ -100,7 +100,7 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 // 验证实际内容依然与传入的重新排序后的内容保持一致 (B在前, A在后)
                 val fetched = repo.getById(id)
                 fetched shouldNotBe null
-                fetched!!.content.keys.toList() shouldBe listOf("B", "A")
+                fetched!!.terms.keys.toList() shouldBe listOf("B", "A")
 
                 // 再次更新内容本身 (修改内容)
                 val modifiedContent = mapOf("B" to "2", "A" to "3")

@@ -938,7 +938,7 @@ class WebNovelApi(
             for (id in novel.linkedGlossaries) {
                 val gg = ggs[id]
                 if (gg != null) {
-                    merged.putAll(gg.content)
+                    merged.putAll(gg.terms)
                 }
             }
         }
@@ -1204,7 +1204,7 @@ class WebNovelTranslateV2Api(
 
         val mergedGgContent = mutableMapOf<String, String>()
         for (gg in globalGlossaries) {
-            mergedGgContent.putAll(gg.content)
+            mergedGgContent.putAll(gg.terms)
         }
 
         val optimizedGlossary = mergedGlossary.filter { (key, value) ->
@@ -1234,7 +1234,7 @@ class WebNovelTranslateV2Api(
             for (id in linkedGlossaries) {
                 val gg = ggs[id]
                 if (gg != null) {
-                    merged.putAll(gg.content)
+                    merged.putAll(gg.terms)
                 }
             }
         }

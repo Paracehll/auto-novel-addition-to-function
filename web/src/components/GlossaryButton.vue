@@ -12,7 +12,7 @@ import { WebNovelApi, WenkuNovelApi } from '@/api';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 import { GenericNovelId } from '@/model/Common';
 import { Glossary } from '@/model/Glossary';
-import type { GlobalGlossaryFull } from '@/model/GlobalGlossary';
+import type { GlobalGlossaryFull, GlobalGlossaryInfo } from '@/model/GlobalGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import OrderSort from '@/components/OrderSort.vue';
@@ -39,7 +39,7 @@ const { whoami } = storeToRefs(whoamiStore);
 
 const glossary = ref<Glossary>({});
 const linkedGlossaries = ref<string[]>([]);
-const allGlobalGlossaries = ref<GlobalGlossaryFull[]>([]);
+const allGlobalGlossaries = ref<GlobalGlossaryInfo[]>([]);
 const novelKeywords = ref<string[]>([]);
 
 const showGlossaryModal = ref(false);
@@ -49,7 +49,7 @@ const sortState = ref({
   desc: true,
 });
 
-const getMatchCount = (gg: GlobalGlossaryFull) => {
+const getMatchCount = (gg: GlobalGlossaryInfo) => {
   if (!gg.tag || gg.tag.length === 0 || novelKeywords.value.length === 0)
     return 0;
   const ggTags = new Set(gg.tag);
@@ -71,13 +71,10 @@ const globalGlossariesOptions = computed(() => {
       sorted.push({
         id: _id,
         name: '[已删除的术语表]',
-        terms: {},
         termsCount: 0,
-        used: [],
         usedCount: 0,
         update: 0,
         tag: [],
-        record: [],
         version: 1,
       });
     }
@@ -224,16 +221,6 @@ const ensureAllActiveGlossariesLoaded = async () => {
   await Promise.all(promises);
 };
 
-watch(
-  expandedGlobalConfig,
-  async (newVal) => {
-    if (newVal.includes('global-config')) {
-      await ensureAllActiveGlossariesLoaded();
-    }
-  },
-  { deep: true },
-);
-
 const activeGlobalGlossaries = computed(() => {
   return linkedGlossaries.value
     .map((id) => activeGlossariesMap.value[id])
@@ -242,9 +229,10 @@ const activeGlobalGlossaries = computed(() => {
 
 const totalGlobalTermsCount = computed(() => {
   let count = 0;
-  for (const gg of activeGlobalGlossaries.value) {
+  for (const id of linkedGlossaries.value) {
+    const gg = allGlobalGlossaries.value.find((g) => g.id === id);
     if (gg) {
-      count += gg.termsCount ?? Object.keys(gg.terms || {}).length;
+      count += gg.termsCount ?? 0;
     }
   }
   return count;
@@ -284,7 +272,7 @@ const isConfigLoaded = ref(false);
 const fetchData = async () => {
   if (isConfigLoaded.value) return;
   try {
-    allGlobalGlossaries.value = await GlobalGlossaryApi.listGlobalGlossaries();
+    allGlobalGlossaries.value = await GlobalGlossaryApi.listGlobalGlossariesInfo();
     const gnid = props.gnid;
     if (gnid !== undefined) {
       if (gnid.type === 'web') {
@@ -397,6 +385,7 @@ const toggleGlossaryModal = async () => {
   if (showGlossaryModal.value === false) {
     glossary.value = { ...props.value };
     loadSkippedKeys();
+    isConfigLoaded.value = false; // Force a fresh config request every time the modal is opened!
     await fetchData();
     originalGlossary.value = { ...glossary.value };
     originalLinkedGlossaries.value = [...linkedGlossaries.value];

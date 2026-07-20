@@ -17,6 +17,24 @@ export interface GlobalGlossaryTerms {
   version: number;
 }
 
+export interface GlobalGlossaryInfo {
+  id: string;
+  name: string;
+  termsCount: number;
+  usedCount: number;
+  update: number;
+  tag: string[];
+  version: number;
+  used?: string[];
+}
+
+export interface GlobalGlossaryHistory {
+  id: string;
+  record: GlobalGlossaryRecord[];
+  update: number;
+  version: number;
+}
+
 export interface GlobalGlossaryFull {
   id: string;
   name: string;

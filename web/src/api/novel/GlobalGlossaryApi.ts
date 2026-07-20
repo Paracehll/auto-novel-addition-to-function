@@ -1,14 +1,20 @@
-import type { GlobalGlossaryFull, GlobalGlossaryTerms } from '@/model/GlobalGlossary';
+import type { GlobalGlossaryFull, GlobalGlossaryInfo, GlobalGlossaryHistory, GlobalGlossaryTerms } from '@/model/GlobalGlossary';
 import { client } from './client';
 
 const listGlobalGlossaries = () =>
   client.get('global-glossary').json<GlobalGlossaryFull[]>();
+
+const listGlobalGlossariesInfo = (used?: boolean) =>
+  client.get('global-glossary', { searchParams: used ? { used: '1' } : undefined }).json<GlobalGlossaryInfo[]>();
 
 const getGlobalGlossary = (id: string) =>
   client.get(`global-glossary/${id}`).json<GlobalGlossaryFull>();
 
 const getGlobalGlossaryTerms = (id: string) =>
   client.get(`global-glossary/${id}/terms`).json<GlobalGlossaryTerms>();
+
+const getGlobalGlossaryHistory = (id: string) =>
+  client.get(`global-glossary/${id}/history`).json<GlobalGlossaryHistory>();
 
 const createGlobalGlossary = (json: {
   name: string;
@@ -33,8 +39,10 @@ const deleteGlobalGlossaryRecord = (id: string, index: number) =>
 
 export const GlobalGlossaryApi = {
   listGlobalGlossaries,
+  listGlobalGlossariesInfo,
   getGlobalGlossary,
   getGlobalGlossaryTerms,
+  getGlobalGlossaryHistory,
   createGlobalGlossary,
   updateGlobalGlossary,
   deleteGlobalGlossary,
