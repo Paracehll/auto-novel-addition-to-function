@@ -71,7 +71,7 @@ data class GlobalGlossaryInfoDto(
     val update: Long,
     val tag: List<String>,
     val version: Long,
-    val used: List<String>? = null,
+    val used: Map<String, Map<String, List<String>>>? = null,
 )
 
 @Serializable
@@ -96,7 +96,7 @@ fun GlobalGlossary.asInfoDto(includeUsed: Boolean = false) = GlobalGlossaryInfoD
     update = update.epochSeconds,
     tag = tag,
     version = version,
-    used = if (includeUsed) used.map { it.toHexString() } else null,
+    used = if (includeUsed) used else null,
 )
 
 fun GlobalGlossary.asHistoryDto(usernamesMap: Map<String, String> = emptyMap()) = GlobalGlossaryHistoryDto(

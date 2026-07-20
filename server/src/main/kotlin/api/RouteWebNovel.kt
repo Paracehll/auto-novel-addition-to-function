@@ -902,10 +902,10 @@ class WebNovelApi(
         val added = linkedGlossaries - oldLinked.toSet()
 
         for (id in removed) {
-            globalGlossaryRepo.updateUsed(ObjectId(id), novel.id, false)
+            globalGlossaryRepo.updateUsed(ObjectId(id), type = "web", provider = providerId, novelIdStr = novelId, add = false)
         }
         for (id in added) {
-            globalGlossaryRepo.updateUsed(ObjectId(id), novel.id, true)
+            globalGlossaryRepo.updateUsed(ObjectId(id), type = "web", provider = providerId, novelIdStr = novelId, add = true)
         }
 
         val linkedIds = linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }

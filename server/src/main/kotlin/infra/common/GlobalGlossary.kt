@@ -74,13 +74,21 @@ data class GlobalGlossary(
     val name: String,
     val terms: Map<String, String> = emptyMap(),
     val termsCount: Int = 0,
-    val used: List<@Contextual ObjectId> = emptyList(),
+    val used: Map<String, Map<String, List<String>>> = emptyMap(),
     val usedCount: Int = 0,
     @Contextual val update: Instant,
     val tag: List<String> = emptyList(),
     val record: List<GlobalGlossaryRecord> = emptyList(),
     val version: Long = 1,
 )
+
+fun Map<String, Map<String, List<String>>>.totalSize(): Int {
+    return this.values.sumOf { providerMap ->
+        providerMap.values.sumOf { idList ->
+            idList.size
+        }
+    }
+}
 
 fun GlobalGlossary.contentAtVersion(targetVersion: Long): Map<String, String> {
     val currentContent = this.terms.toMutableMap()

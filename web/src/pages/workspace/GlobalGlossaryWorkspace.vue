@@ -309,9 +309,21 @@ const selectedGlossaryName = ref('');
 
 const lazyUsedNovels = ref<string[]>([]);
 
-const viewUsedNovels = (name: string, usedList?: string[]) => {
+const viewUsedNovels = (name: string, usedMap?: Record<string, Record<string, string[]>>) => {
   selectedGlossaryName.value = name;
-  lazyUsedNovels.value = usedList || [];
+  const list: string[] = [];
+  if (usedMap) {
+    for (const type of Object.keys(usedMap)) {
+      const providerMap = usedMap[type];
+      for (const provider of Object.keys(providerMap)) {
+        const idList = providerMap[provider];
+        for (const id of idList) {
+          list.push(`[${type}] [${provider}] ${id}`);
+        }
+      }
+    }
+  }
+  lazyUsedNovels.value = list;
   showUsedModal.value = true;
 };
 

@@ -25,7 +25,7 @@ export interface GlobalGlossaryInfo {
   update: number;
   tag: string[];
   version: number;
-  used?: string[];
+  used?: Record<string, Record<string, string[]>>;
 }
 
 export interface GlobalGlossaryHistory {
