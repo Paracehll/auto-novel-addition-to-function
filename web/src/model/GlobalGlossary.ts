@@ -17,6 +17,16 @@ export interface GlobalGlossaryTerms {
   version: number;
 }
 
+export interface GlobalGlossaryUsedNovelOutline {
+  id: string;
+  title: string;
+}
+
+export interface GlobalGlossaryUsedInfo {
+  web?: Record<string, GlobalGlossaryUsedNovelOutline[]>;
+  wenku?: GlobalGlossaryUsedNovelOutline[];
+}
+
 export interface GlobalGlossaryInfo {
   id: string;
   name: string;
@@ -25,7 +35,7 @@ export interface GlobalGlossaryInfo {
   update: number;
   tag: string[];
   version: number;
-  used?: Record<string, Record<string, string[]>>;
+  used?: GlobalGlossaryUsedInfo;
 }
 
 export interface GlobalGlossaryHistory {

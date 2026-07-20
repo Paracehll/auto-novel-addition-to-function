@@ -65,6 +65,18 @@ data class GlobalGlossaryTermsDto(
 )
 
 @Serializable
+data class GlobalGlossaryUsedNovelOutline(
+    val id: String,
+    val title: String,
+)
+
+@Serializable
+data class GlobalGlossaryUsedInfo(
+    val web: Map<String, List<GlobalGlossaryUsedNovelOutline>> = emptyMap(),
+    val wenku: List<GlobalGlossaryUsedNovelOutline> = emptyList(),
+)
+
+@Serializable
 data class GlobalGlossaryInfoDto(
     val id: String,
     val name: String,
@@ -73,7 +85,7 @@ data class GlobalGlossaryInfoDto(
     val update: Long,
     val tag: List<String>,
     val version: Long,
-    val used: Map<String, Map<String, List<String>>>? = null,
+    val used: GlobalGlossaryUsedInfo? = null,
 )
 
 @Serializable
@@ -90,7 +102,7 @@ fun GlobalGlossary.asTermsDto() = GlobalGlossaryTermsDto(
     version = version,
 )
 
-fun GlobalGlossary.asInfoDto(usedMap: Map<String, Map<String, List<String>>>? = null) = GlobalGlossaryInfoDto(
+fun GlobalGlossary.asInfoDto(usedInfo: GlobalGlossaryUsedInfo? = null) = GlobalGlossaryInfoDto(
     id = id.toHexString(),
     name = name,
     termsCount = if (termsCount > 0) termsCount else terms.size,
@@ -98,7 +110,7 @@ fun GlobalGlossary.asInfoDto(usedMap: Map<String, Map<String, List<String>>>? = 
     update = update.epochSeconds,
     tag = tag,
     version = version,
-    used = usedMap,
+    used = usedInfo,
 )
 
 fun GlobalGlossary.asHistoryDto(usernamesMap: Map<String, String> = emptyMap()) = GlobalGlossaryHistoryDto(
@@ -177,27 +189,27 @@ class GlobalGlossaryApi(
     private val wenkuNovelRepo: WenkuNovelMetadataRepository,
     private val userRepo: UserRepository,
 ) {
-    private suspend fun resolveUsedMap(usedList: List<ObjectId>): Pair<Map<String, Map<String, List<String>>>, List<ObjectId>> {
-        val result = mutableMapOf<String, MutableMap<String, MutableList<String>>>()
+    private suspend fun resolveUsedMap(usedList: List<ObjectId>): Pair<GlobalGlossaryUsedInfo, List<ObjectId>> {
+        val webMap = mutableMapOf<String, MutableList<GlobalGlossaryUsedNovelOutline>>()
+        val wenkuList = mutableListOf<GlobalGlossaryUsedNovelOutline>()
         val invalidRefs = mutableListOf<ObjectId>()
         for (targetId in usedList) {
             val webNovel = webNovelRepo.getById(targetId)
             if (webNovel != null) {
-                val providerMap = result.getOrPut("web") { mutableMapOf() }
-                val idList = providerMap.getOrPut(webNovel.providerId) { mutableListOf() }
-                idList.add(webNovel.novelId)
+                val title = webNovel.titleZh ?: webNovel.titleJp
+                val list = webMap.getOrPut(webNovel.providerId) { mutableListOf() }
+                list.add(GlobalGlossaryUsedNovelOutline(id = webNovel.novelId, title = title))
             } else {
                 val wenkuNovel = wenkuNovelRepo.getById(targetId)
                 if (wenkuNovel != null) {
-                    val providerMap = result.getOrPut("wenku") { mutableMapOf() }
-                    val idList = providerMap.getOrPut("wenku") { mutableListOf() }
-                    idList.add(wenkuNovel.id.toHexString())
+                    val title = wenkuNovel.titleZh ?: wenkuNovel.title
+                    wenkuList.add(GlobalGlossaryUsedNovelOutline(id = wenkuNovel.id.toHexString(), title = title))
                 } else {
                     invalidRefs.add(targetId)
                 }
             }
         }
-        return Pair(result, invalidRefs)
+        return Pair(GlobalGlossaryUsedInfo(web = webMap, wenku = wenkuList), invalidRefs)
     }
 
     suspend fun list(includeUsed: Boolean, idsString: String? = null): List<GlobalGlossaryInfoDto> {
@@ -210,12 +222,17 @@ class GlobalGlossaryApi(
             repo.list()
         }
         return repos.map { gg ->
-            val (usedMap, invalidRefs) = resolveUsedMap(gg.used)
-            if (invalidRefs.isNotEmpty()) {
-                val nextUsed = gg.used - invalidRefs.toSet()
-                repo.updateUsedList(gg.id, nextUsed)
+            val usedInfo = if (includeUsed) {
+                val (uInfo, invalidRefs) = resolveUsedMap(gg.used)
+                if (invalidRefs.isNotEmpty()) {
+                    val nextUsed = gg.used - invalidRefs.toSet()
+                    repo.updateUsedList(gg.id, nextUsed)
+                }
+                uInfo
+            } else {
+                null
             }
-            gg.asInfoDto(if (includeUsed) usedMap else null)
+            gg.asInfoDto(usedInfo)
         }
     }
 

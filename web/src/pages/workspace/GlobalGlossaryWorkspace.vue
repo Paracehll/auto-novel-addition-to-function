@@ -307,23 +307,31 @@ const deleteHistoryRecord = (targetIndex: number) => {
 const showUsedModal = ref(false);
 const selectedGlossaryName = ref('');
 
+import type { GlobalGlossaryUsedInfo } from '@/model/GlobalGlossary';
+
 const lazyUsedNovels = ref<{ url: string; label: string }[]>([]);
 
-const viewUsedNovels = (name: string, usedMap?: Record<string, Record<string, string[]>>) => {
+const viewUsedNovels = (name: string, usedInfo?: GlobalGlossaryUsedInfo) => {
   selectedGlossaryName.value = name;
   const list: { url: string; label: string }[] = [];
-  if (usedMap) {
-    for (const type of Object.keys(usedMap)) {
-      const providerMap = usedMap[type];
-      for (const provider of Object.keys(providerMap)) {
-        const idList = providerMap[provider];
-        for (const id of idList) {
-          const url = type === 'web' ? `/novel/${provider}/${id}` : `/wenku/${id}`;
+  if (usedInfo) {
+    if (usedInfo.web) {
+      for (const provider of Object.keys(usedInfo.web)) {
+        const outlines = usedInfo.web[provider];
+        for (const outline of outlines) {
           list.push({
-            url,
-            label: `[${type}] [${provider}] ${id}`,
+            url: `/novel/${provider}/${outline.id}`,
+            label: outline.title || outline.id,
           });
         }
+      }
+    }
+    if (usedInfo.wenku) {
+      for (const outline of usedInfo.wenku) {
+        list.push({
+          url: `/wenku/${outline.id}`,
+          label: outline.title || outline.id,
+        });
       }
     }
   }
@@ -748,7 +756,7 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
                 :href="item.url"
                 target="_blank"
                 style="
-                  color: var(--n-text-color);
+                  color: var(--primary-color);
                   text-decoration: none;
                   font-size: 14px;
                   font-family: monospace;
