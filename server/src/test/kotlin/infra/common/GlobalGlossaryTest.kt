@@ -67,12 +67,12 @@ class GlobalGlossaryTest : DescribeSpec(), KoinTest {
                 updated.contentAtVersion(2L) shouldBe newContent
 
                 // 5. Update Used
-                val dummyNovelIdStr = ObjectId().toHexString()
-                repo.updateUsed(id, type = "web", provider = "syosetu", novelIdStr = dummyNovelIdStr, add = true)
+                val dummyNovelId = ObjectId()
+                repo.updateUsed(id, dummyNovelId, true)
                 val withUsed = repo.getById(id)
-                withUsed!!.used shouldBe mapOf("web" to mapOf("syosetu" to listOf(dummyNovelIdStr)))
+                withUsed!!.used shouldBe listOf(dummyNovelId)
 
-                repo.updateUsed(id, type = "web", provider = "syosetu", novelIdStr = dummyNovelIdStr, add = false)
+                repo.updateUsed(id, dummyNovelId, false)
                 val withoutUsed = repo.getById(id)
                 withoutUsed!!.used.size shouldBe 0
 

@@ -5,6 +5,8 @@ import infra.common.GlobalGlossary
 import infra.common.GlobalGlossaryDiffItem
 import infra.common.GlobalGlossaryRepository
 import infra.user.UserRepository
+import infra.web.repository.WebNovelMetadataRepository
+import infra.wenku.repository.WenkuNovelMetadataRepository
 import io.ktor.http.*
 import org.bson.types.ObjectId
 import io.ktor.resources.*
@@ -88,7 +90,7 @@ fun GlobalGlossary.asTermsDto() = GlobalGlossaryTermsDto(
     version = version,
 )
 
-fun GlobalGlossary.asInfoDto(includeUsed: Boolean = false) = GlobalGlossaryInfoDto(
+fun GlobalGlossary.asInfoDto(usedMap: Map<String, Map<String, List<String>>>? = null) = GlobalGlossaryInfoDto(
     id = id.toHexString(),
     name = name,
     termsCount = if (termsCount > 0) termsCount else terms.size,
@@ -96,7 +98,7 @@ fun GlobalGlossary.asInfoDto(includeUsed: Boolean = false) = GlobalGlossaryInfoD
     update = update.epochSeconds,
     tag = tag,
     version = version,
-    used = if (includeUsed) used else null,
+    used = usedMap,
 )
 
 fun GlobalGlossary.asHistoryDto(usernamesMap: Map<String, String> = emptyMap()) = GlobalGlossaryHistoryDto(
@@ -171,8 +173,33 @@ fun Route.routeGlobalGlossary() {
 
 class GlobalGlossaryApi(
     private val repo: GlobalGlossaryRepository,
+    private val webNovelRepo: WebNovelMetadataRepository,
+    private val wenkuNovelRepo: WenkuNovelMetadataRepository,
     private val userRepo: UserRepository,
 ) {
+    private suspend fun resolveUsedMap(usedList: List<ObjectId>): Pair<Map<String, Map<String, List<String>>>, List<ObjectId>> {
+        val result = mutableMapOf<String, MutableMap<String, MutableList<String>>>()
+        val invalidRefs = mutableListOf<ObjectId>()
+        for (targetId in usedList) {
+            val webNovel = webNovelRepo.getById(targetId)
+            if (webNovel != null) {
+                val providerMap = result.getOrPut("web") { mutableMapOf() }
+                val idList = providerMap.getOrPut(webNovel.providerId) { mutableListOf() }
+                idList.add(webNovel.novelId)
+            } else {
+                val wenkuNovel = wenkuNovelRepo.getById(targetId)
+                if (wenkuNovel != null) {
+                    val providerMap = result.getOrPut("wenku") { mutableMapOf() }
+                    val idList = providerMap.getOrPut("wenku") { mutableListOf() }
+                    idList.add(wenkuNovel.id.toHexString())
+                } else {
+                    invalidRefs.add(targetId)
+                }
+            }
+        }
+        return Pair(result, invalidRefs)
+    }
+
     suspend fun list(includeUsed: Boolean, idsString: String? = null): List<GlobalGlossaryInfoDto> {
         val parsedIds = idsString?.split(",")?.filter { it.isNotBlank() }?.mapNotNull {
             try { ObjectId(it) } catch (e: Exception) { null }
@@ -182,7 +209,14 @@ class GlobalGlossaryApi(
         } else {
             repo.list()
         }
-        return repos.map { it.asInfoDto(includeUsed = includeUsed) }
+        return repos.map { gg ->
+            val (usedMap, invalidRefs) = resolveUsedMap(gg.used)
+            if (invalidRefs.isNotEmpty()) {
+                val nextUsed = gg.used - invalidRefs.toSet()
+                repo.updateUsedList(gg.id, nextUsed)
+            }
+            gg.asInfoDto(if (includeUsed) usedMap else null)
+        }
     }
 
     suspend fun getTerms(id: String): GlobalGlossaryTermsDto {

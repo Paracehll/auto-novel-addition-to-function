@@ -481,10 +481,10 @@ class WenkuNovelApi(
         val added = linkedGlossaries - oldLinked.toSet()
 
         for (id in removed) {
-            globalGlossaryRepo.updateUsed(ObjectId(id), type = "wenku", provider = "wenku", novelIdStr = novelId, add = false)
+            globalGlossaryRepo.updateUsed(ObjectId(id), novel.id, false)
         }
         for (id in added) {
-            globalGlossaryRepo.updateUsed(ObjectId(id), type = "wenku", provider = "wenku", novelIdStr = novelId, add = true)
+            globalGlossaryRepo.updateUsed(ObjectId(id), novel.id, true)
         }
 
         val linkedIds = linkedGlossaries.mapNotNull { try { ObjectId(it) } catch (e: Exception) { null } }

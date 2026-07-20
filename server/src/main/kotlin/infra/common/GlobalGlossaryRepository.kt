@@ -3,6 +3,8 @@ package infra.common
 import com.mongodb.client.model.Filters.`in`
 import com.mongodb.client.model.Filters.eq
 import com.mongodb.client.model.Projections.exclude
+import com.mongodb.client.model.Updates.addToSet
+import com.mongodb.client.model.Updates.pull
 import com.mongodb.client.model.Updates.set
 import com.mongodb.client.model.Updates.combine
 import infra.MongoClient
@@ -45,7 +47,7 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
             name = name,
             terms = content,
             termsCount = content.size,
-            used = emptyMap(),
+            used = emptyList(),
             usedCount = 0,
             update = Clock.System.now(),
             tag = tag,
@@ -56,7 +58,7 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         return gg
     }
 
-    suspend fun update(id: ObjectId, name: String, content: Map<String, String>, tag: List<String>? = null, used: Map<String, Map<String, List<String>>>? = null, by: ObjectId = ObjectId("000000000000000000000000")): GlobalGlossary {
+    suspend fun update(id: ObjectId, name: String, content: Map<String, String>, tag: List<String>? = null, used: List<ObjectId>? = null, by: ObjectId = ObjectId("000000000000000000000000")): GlobalGlossary {
         val old = getById(id) ?: throw NoSuchElementException("Global glossary not found")
         val isContentChanged = old.terms != content
         val newRecord = if (isContentChanged) {
@@ -79,7 +81,7 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
             terms = content,
             termsCount = content.size,
             used = actualUsed,
-            usedCount = actualUsed.totalSize(),
+            usedCount = actualUsed.size,
             update = Clock.System.now(),
             tag = tag ?: old.tag,
             record = newRecord,
@@ -106,47 +108,28 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         )
     }
 
-    suspend fun replaceUsed(id: ObjectId, used: Map<String, Map<String, List<String>>>) {
+    suspend fun updateUsedList(id: ObjectId, usedList: List<ObjectId>) {
         collection.updateOne(
             eq(GlobalGlossary::id.field(), id),
             combine(
-                set(GlobalGlossary::used.field(), used),
-                set(GlobalGlossary::usedCount.field(), used.totalSize())
+                set(GlobalGlossary::used.field(), usedList),
+                set(GlobalGlossary::usedCount.field(), usedList.size)
             )
         )
     }
 
-    suspend fun updateUsed(id: ObjectId, type: String, provider: String, novelIdStr: String, add: Boolean) {
+    suspend fun updateUsed(id: ObjectId, novelId: ObjectId, add: Boolean) {
         val old = getById(id) ?: return
-        val currentUsed = old.used.toMutableMap()
-        val currentProviderMap = (currentUsed[type] ?: emptyMap()).toMutableMap()
-        val currentList = (currentProviderMap[provider] ?: emptyList()).toMutableList()
-
-        if (add) {
-            if (novelIdStr !in currentList) {
-                currentList.add(novelIdStr)
-            }
+        val nextUsed = if (add) {
+            (old.used + novelId).distinct()
         } else {
-            currentList.remove(novelIdStr)
+            old.used - novelId
         }
-
-        if (currentList.isEmpty()) {
-            currentProviderMap.remove(provider)
-        } else {
-            currentProviderMap[provider] = currentList
-        }
-
-        if (currentProviderMap.isEmpty()) {
-            currentUsed.remove(type)
-        } else {
-            currentUsed[type] = currentProviderMap
-        }
-
         collection.updateOne(
             eq(GlobalGlossary::id.field(), id),
             combine(
-                set(GlobalGlossary::used.field(), currentUsed),
-                set(GlobalGlossary::usedCount.field(), currentUsed.totalSize())
+                if (add) addToSet(GlobalGlossary::used.field(), novelId) else pull(GlobalGlossary::used.field(), novelId),
+                set(GlobalGlossary::usedCount.field(), nextUsed.size)
             )
         )
     }
