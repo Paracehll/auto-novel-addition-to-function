@@ -135,12 +135,12 @@ const openEditModal = async (gg: GlobalGlossaryInfo) => {
   isEditing.value = true;
   isSaved.value = false;
   try {
-    const fullGg = await GlobalGlossaryApi.getGlobalGlossary(gg.id);
+    const termsGg = await GlobalGlossaryApi.getGlobalGlossaryTerms(gg.id);
     formModel.value = {
-      id: fullGg.id,
-      name: fullGg.name,
-      content: { ...fullGg.terms },
-      tagRaw: (fullGg.tag || []).join(', '),
+      id: termsGg.id,
+      name: gg.name,
+      content: { ...termsGg.terms },
+      tagRaw: (gg.tag || []).join(', '),
     };
     originalFormModel.value = JSON.parse(JSON.stringify(formModel.value));
     showEditModal.value = true;
