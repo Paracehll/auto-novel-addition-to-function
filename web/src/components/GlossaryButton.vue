@@ -12,7 +12,7 @@ import { WebNovelApi, WenkuNovelApi } from '@/api';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 import { GenericNovelId } from '@/model/Common';
 import { Glossary } from '@/model/Glossary';
-import type { GlobalGlossaryFull, GlobalGlossaryInfo } from '@/model/GlobalGlossary';
+import type { GlobalGlossaryInfo, GlobalGlossaryTerms } from '@/model/GlobalGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import OrderSort from '@/components/OrderSort.vue';
@@ -116,7 +116,7 @@ const globalGlossariesOptions = computed(() => {
   });
 });
 
-const activeGlossariesMap = ref<Record<string, GlobalGlossaryFull>>({});
+const activeGlossariesMap = ref<Record<string, GlobalGlossaryTerms>>({});
 const fullyLoadedGlossaryIds = ref<Set<string>>(new Set());
 
 const expandedActiveGlossaries = ref<string[]>([]);
@@ -134,42 +134,28 @@ const handleExpandedNamesChange = (
 
 const expandedGlobalConfig = ref<string[]>([]);
 
+const syncActiveGlossariesMap = () => {
+  const nextMap = { ...activeGlossariesMap.value };
+  let updated = false;
+  for (const id of linkedGlossaries.value) {
+    if (!nextMap[id]) {
+      nextMap[id] = {
+        id,
+        terms: {},
+        version: 1,
+      };
+      updated = true;
+    }
+  }
+  if (updated) {
+    activeGlossariesMap.value = nextMap;
+  }
+};
+
 watch(
   linkedGlossaries,
-  (newVal) => {
-    const nextMap = { ...activeGlossariesMap.value };
-    let updated = false;
-    for (const id of newVal) {
-      if (!nextMap[id]) {
-        const metaGg = allGlobalGlossaries.value.find((gg) => gg.id === id);
-        if (metaGg) {
-          nextMap[id] = {
-            ...metaGg,
-            terms: {},
-            used: [],
-            record: [],
-          } as GlobalGlossaryFull;
-          updated = true;
-        } else {
-          nextMap[id] = {
-            id,
-            name: '[已删除的术语表]',
-            terms: {},
-            termsCount: 0,
-            used: [],
-            usedCount: 0,
-            update: 0,
-            tag: [],
-            record: [],
-            version: 1,
-          };
-          updated = true;
-        }
-      }
-    }
-    if (updated) {
-      activeGlossariesMap.value = nextMap;
-    }
+  () => {
+    syncActiveGlossariesMap();
   },
   { immediate: true, deep: true },
 );
@@ -183,11 +169,7 @@ watch(
           const termsGg = await GlobalGlossaryApi.getGlobalGlossaryTerms(id);
           activeGlossariesMap.value = {
             ...activeGlossariesMap.value,
-            [id]: {
-              ...activeGlossariesMap.value[id],
-              terms: termsGg.terms,
-              version: termsGg.version,
-            },
+            [id]: termsGg,
           };
           fullyLoadedGlossaryIds.value.add(id);
         } catch (e: any) {
@@ -206,11 +188,7 @@ const ensureAllActiveGlossariesLoaded = async () => {
         const termsGg = await GlobalGlossaryApi.getGlobalGlossaryTerms(id);
         activeGlossariesMap.value = {
           ...activeGlossariesMap.value,
-          [id]: {
-            ...activeGlossariesMap.value[id],
-            terms: termsGg.terms,
-            version: termsGg.version,
-          },
+          [id]: termsGg,
         };
         fullyLoadedGlossaryIds.value.add(id);
       } catch (e) {
@@ -221,10 +199,41 @@ const ensureAllActiveGlossariesLoaded = async () => {
   await Promise.all(promises);
 };
 
+const loadAllGlobalGlossariesList = async () => {
+  try {
+    allGlobalGlossaries.value = await GlobalGlossaryApi.listGlobalGlossariesInfo();
+  } catch (e: any) {
+    message.error(`获取全域术语表列表失败: ${e.message || e}`);
+  }
+};
+
+watch(
+  expandedGlobalConfig,
+  async (newVal) => {
+    if (newVal.includes('global-config')) {
+      await loadAllGlobalGlossariesList();
+      syncActiveGlossariesMap();
+    }
+  },
+  { deep: true },
+);
+
 const activeGlobalGlossaries = computed(() => {
   return linkedGlossaries.value
-    .map((id) => activeGlossariesMap.value[id])
-    .filter((gg): gg is GlobalGlossaryFull => gg !== undefined);
+    .map((id) => {
+      const termsGg = activeGlossariesMap.value[id];
+      const metaGg = allGlobalGlossaries.value.find((gg) => gg.id === id);
+      if (termsGg && metaGg) {
+        return {
+          id,
+          name: metaGg.name,
+          termsCount: metaGg.termsCount,
+          terms: termsGg.terms,
+        };
+      }
+      return undefined;
+    })
+    .filter((gg): gg is { id: string; name: string; termsCount: number; terms: Glossary } => gg !== undefined);
 });
 
 const totalGlobalTermsCount = computed(() => {
@@ -272,7 +281,6 @@ const isConfigLoaded = ref(false);
 const fetchData = async () => {
   if (isConfigLoaded.value) return;
   try {
-    allGlobalGlossaries.value = await GlobalGlossaryApi.listGlobalGlossariesInfo();
     const gnid = props.gnid;
     if (gnid !== undefined) {
       if (gnid.type === 'web') {
@@ -290,6 +298,12 @@ const fetchData = async () => {
           linkedGlossaries.value = volume.linkedGlossaries || [];
         }
       }
+    }
+    // Fetch only linked glossaries metadata initially!
+    if (linkedGlossaries.value.length > 0) {
+      allGlobalGlossaries.value = await GlobalGlossaryApi.listGlobalGlossariesInfo(false, linkedGlossaries.value.join(','));
+    } else {
+      allGlobalGlossaries.value = [];
     }
     isConfigLoaded.value = true;
   } catch (e: any) {
@@ -520,12 +534,13 @@ const duplicates = computed(() => {
     for (let i = linkedGlossaries.value.length - 1; i >= 0; i--) {
       const guid = linkedGlossaries.value[i];
       const gg = activeGlossariesMap.value[guid];
+      const meta = allGlobalGlossaries.value.find((g) => g.id === guid);
       if (gg && gg.terms && gg.terms[k] !== undefined) {
         dupes.push({
           key: k,
           localVal: glossary.value[k],
           globalVal: gg.terms[k],
-          globalName: gg.name,
+          globalName: meta?.name || '[未知全域]',
         });
         break;
       }

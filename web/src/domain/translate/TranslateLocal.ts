@@ -98,7 +98,7 @@ export const translateLocal = async (
         const globalGlossaries = await Promise.all(
           metadata.linkedGlossaries.map(async (id) => {
             try {
-              return await GlobalGlossaryApi.getGlobalGlossary(id);
+              return await GlobalGlossaryApi.getGlobalGlossaryTerms(id);
             } catch {
               return null;
             }

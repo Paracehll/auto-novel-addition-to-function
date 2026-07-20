@@ -243,8 +243,12 @@ const handleRollback = async (targetIndex: number) => {
     return;
 
   try {
-    const fullGg = await GlobalGlossaryApi.getGlobalGlossary(selectedGlossary.value.id);
-    const currentContent = { ...fullGg.terms };
+    const gg = glossaries.value.find((g) => g.id === selectedGlossary.value?.id);
+    const name = gg?.name || '';
+    const tag = gg?.tag || [];
+
+    const termsGg = await GlobalGlossaryApi.getGlobalGlossaryTerms(selectedGlossary.value.id);
+    const currentContent = { ...termsGg.terms };
     const records = selectedGlossary.value.record;
 
     for (let j = records.length - 1; j > targetIndex; j--) {
@@ -261,9 +265,9 @@ const handleRollback = async (targetIndex: number) => {
 
     doAction(
       GlobalGlossaryApi.updateGlobalGlossary(selectedGlossary.value.id, {
-        name: fullGg.name,
+        name: name,
         content: currentContent,
-        tag: fullGg.tag,
+        tag: tag,
       }).then(() => {
         showHistoryModal.value = false;
         loadGlossaries();
