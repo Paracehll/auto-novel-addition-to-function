@@ -16,14 +16,13 @@ import {
 } from '@vicons/material';
 import OrderSort from '@/components/OrderSort.vue';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
-import { WebNovelApi } from '@/api/novel/WebNovelApi';
-import { WenkuNovelApi } from '@/api/novel/WenkuNovelApi';
 import type {
-  GlobalGlossary,
+  GlobalGlossaryInfo,
+  GlobalGlossaryHistory,
   GlobalGlossaryRecord,
 } from '@/model/GlobalGlossary';
 import { useWhoamiStore } from '@/stores';
-import { doAction, copyToClipBoard } from '../util';
+import { doAction } from '../util';
 import { Glossary } from '@/model/Glossary';
 import { isEqual } from 'lodash-es';
 
@@ -31,7 +30,7 @@ const message = useMessage();
 const whoamiStore = useWhoamiStore();
 const themeVars = useThemeVars();
 
-const glossaries = ref<GlobalGlossary[]>([]);
+const glossaries = ref<GlobalGlossaryInfo[]>([]);
 const loading = ref(false);
 
 const searchQuery = ref('');
@@ -43,7 +42,7 @@ const sortState = ref({
 const loadGlossaries = async () => {
   loading.value = true;
   try {
-    glossaries.value = await GlobalGlossaryApi.listGlobalGlossaries();
+    glossaries.value = await GlobalGlossaryApi.listGlobalGlossariesInfo(true);
   } catch (e: any) {
     message.error(`加载全域术语表失败: ${e.message || e}`);
   } finally {
@@ -63,7 +62,7 @@ const sortedAndFilteredGlossaries = computed(() => {
         return tokens.some((token) => {
           if (token.endsWith('$')) {
             const tagQuery = token.slice(0, -1).toLowerCase();
-            return (gg.tag || []).some((t) =>
+            return (gg.tag || []).some((t: string) =>
               t.toLowerCase().includes(tagQuery),
             );
           } else {
@@ -83,12 +82,12 @@ const sortedAndFilteredGlossaries = computed(() => {
     } else if (sortState.value.value === 'update') {
       cmp = (a.update || 0) - (b.update || 0);
     } else if (sortState.value.value === 'termsCount') {
-      const countA = a.termsCount ?? Object.keys(a.content || {}).length;
-      const countB = b.termsCount ?? Object.keys(b.content || {}).length;
+      const countA = a.termsCount ?? 0;
+      const countB = b.termsCount ?? 0;
       cmp = countA - countB;
     } else if (sortState.value.value === 'used') {
-      const usedA = (a.used || []).length;
-      const usedB = (b.used || []).length;
+      const usedA = a.usedCount || 0;
+      const usedB = b.usedCount || 0;
       cmp = usedA - usedB;
     }
 
@@ -132,16 +131,16 @@ const openCreateModal = () => {
   showEditModal.value = true;
 };
 
-const openEditModal = async (gg: GlobalGlossary) => {
+const openEditModal = async (gg: GlobalGlossaryInfo) => {
   isEditing.value = true;
   isSaved.value = false;
   try {
-    const fullGg = await GlobalGlossaryApi.getGlobalGlossary(gg.id);
+    const termsGg = await GlobalGlossaryApi.getGlobalGlossaryTerms(gg.id);
     formModel.value = {
-      id: fullGg.id,
-      name: fullGg.name,
-      content: { ...fullGg.content },
-      tagRaw: (fullGg.tag || []).join(', '),
+      id: termsGg.id,
+      name: gg.name,
+      content: { ...termsGg.terms },
+      tagRaw: (gg.tag || []).join(', '),
     };
     originalFormModel.value = JSON.parse(JSON.stringify(formModel.value));
     showEditModal.value = true;
@@ -219,11 +218,13 @@ const deleteGlossary = (id: string) => {
 
 // History modal state
 const showHistoryModal = ref(false);
-const selectedGlossary = ref<GlobalGlossary | null>(null);
+const selectedGlossary = ref<GlobalGlossaryHistory | null>(null);
 
-const viewHistory = async (gg: GlobalGlossary) => {
+const viewHistory = async (gg: GlobalGlossaryInfo) => {
   try {
-    selectedGlossary.value = await GlobalGlossaryApi.getGlobalGlossary(gg.id);
+    selectedGlossary.value = await GlobalGlossaryApi.getGlobalGlossaryHistory(
+      gg.id,
+    );
     showHistoryModal.value = true;
   } catch (e: any) {
     message.error(`获取修改历史失败: ${e.message || e}`);
@@ -234,28 +235,7 @@ const formatDate = (dateSeconds: number) => {
   return new Date(dateSeconds * 1000).toLocaleString('zh-CN');
 };
 
-// Rollback Logic
-const rollbackToRecord = (targetIndex: number) => {
-  if (!selectedGlossary.value) return {};
-  const currentContent = { ...selectedGlossary.value.content };
-  const records = selectedGlossary.value.record;
-
-  // We need to apply diffs in reverse order from the last record down to (and including) targetIndex + 1
-  for (let j = records.length - 1; j > targetIndex; j--) {
-    const rec = records[j];
-    for (const key in rec.diff) {
-      const item = rec.diff[key];
-      if (item.old === null || item.old === '') {
-        delete currentContent[key];
-      } else {
-        currentContent[key] = item.old;
-      }
-    }
-  }
-  return currentContent;
-};
-
-const handleRollback = (targetIndex: number) => {
+const handleRollback = async (targetIndex: number) => {
   if (!selectedGlossary.value) return;
   if (
     !window.confirm(
@@ -264,20 +244,46 @@ const handleRollback = (targetIndex: number) => {
   )
     return;
 
-  const rolledBackContent = rollbackToRecord(targetIndex);
+  try {
+    const gg = glossaries.value.find(
+      (g) => g.id === selectedGlossary.value?.id,
+    );
+    const name = gg?.name || '';
+    const tag = gg?.tag || [];
 
-  doAction(
-    GlobalGlossaryApi.updateGlobalGlossary(selectedGlossary.value.id, {
-      name: selectedGlossary.value.name,
-      content: rolledBackContent,
-      tag: selectedGlossary.value.tag,
-    }).then(() => {
-      showHistoryModal.value = false;
-      loadGlossaries();
-    }),
-    '回滚全域术语表',
-    message,
-  );
+    const termsGg = await GlobalGlossaryApi.getGlobalGlossaryTerms(
+      selectedGlossary.value.id,
+    );
+    const currentContent = { ...termsGg.terms };
+    const records = selectedGlossary.value.record;
+
+    for (let j = records.length - 1; j > targetIndex; j--) {
+      const rec = records[j];
+      for (const key in rec.diff) {
+        const item = rec.diff[key];
+        if (item.old === null || item.old === '') {
+          delete currentContent[key];
+        } else {
+          currentContent[key] = item.old;
+        }
+      }
+    }
+
+    doAction(
+      GlobalGlossaryApi.updateGlobalGlossary(selectedGlossary.value.id, {
+        name: name,
+        content: currentContent,
+        tag: tag,
+      }).then(() => {
+        showHistoryModal.value = false;
+        loadGlossaries();
+      }),
+      '回滚全域术语表',
+      message,
+    );
+  } catch (e: any) {
+    message.error(`回滚全域术语表失败: ${e.message || e}`);
+  }
 };
 
 const deleteHistoryRecord = (targetIndex: number) => {
@@ -291,7 +297,7 @@ const deleteHistoryRecord = (targetIndex: number) => {
       targetIndex,
     ).then(async () => {
       if (selectedGlossary.value) {
-        const latest = await GlobalGlossaryApi.getGlobalGlossary(
+        const latest = await GlobalGlossaryApi.getGlobalGlossaryHistory(
           selectedGlossary.value.id,
         );
         selectedGlossary.value = latest;
@@ -305,53 +311,38 @@ const deleteHistoryRecord = (targetIndex: number) => {
 
 // Used Novels modal state (lazy loaded)
 const showUsedModal = ref(false);
-const usedLoading = ref(false);
 const selectedGlossaryName = ref('');
 
-interface UsedNovelItem {
-  url: string;
-  title: string;
-}
-const lazyUsedNovels = ref<UsedNovelItem[]>([]);
+import type { GlobalGlossaryUsedInfo } from '@/model/GlobalGlossary';
 
-const viewUsedNovels = async (id: string, name: string) => {
+const lazyUsedNovels = ref<{ url: string; label: string }[]>([]);
+
+const viewUsedNovels = (name: string, usedInfo?: GlobalGlossaryUsedInfo) => {
   selectedGlossaryName.value = name;
-  lazyUsedNovels.value = [];
-  showUsedModal.value = true;
-  usedLoading.value = true;
-  try {
-    const detail = await GlobalGlossaryApi.getGlobalGlossary(id);
-    const urls = detail.used || [];
-
-    // Fetch titles in parallel
-    const fetchedNovels = await Promise.all(
-      urls.map(async (url) => {
-        let title = url;
-        try {
-          if (url.startsWith('/novel/')) {
-            const parts = url.split('/');
-            const providerId = parts[2];
-            const novelId = parts[3];
-            const novel = await WebNovelApi.getNovel(providerId, novelId);
-            title = novel.titleZh || novel.titleJp || url;
-          } else if (url.startsWith('/wenku/')) {
-            const parts = url.split('/');
-            const novelId = parts[2];
-            const novel = await WenkuNovelApi.getNovel(novelId);
-            title = novel.titleZh || novel.title || url;
-          }
-        } catch {
-          // Fallback to url if request fails
+  const list: { url: string; label: string }[] = [];
+  if (usedInfo) {
+    if (usedInfo.web) {
+      for (const provider of Object.keys(usedInfo.web)) {
+        const outlines = usedInfo.web[provider];
+        for (const outline of outlines) {
+          list.push({
+            url: `/novel/${provider}/${outline.id}`,
+            label: outline.title || outline.id,
+          });
         }
-        return { url, title };
-      }),
-    );
-    lazyUsedNovels.value = fetchedNovels;
-  } catch (e: any) {
-    message.error(`获取引用小说列表失败: ${e.message || e}`);
-  } finally {
-    usedLoading.value = false;
+      }
+    }
+    if (usedInfo.wenku) {
+      for (const outline of usedInfo.wenku) {
+        list.push({
+          url: `/wenku/${outline.id}`,
+          label: outline.title || outline.id,
+        });
+      }
+    }
   }
+  lazyUsedNovels.value = list;
+  showUsedModal.value = true;
 };
 
 const getRecordTimelineType = (rec: GlobalGlossaryRecord) => {
@@ -487,12 +478,12 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
             title: '引用',
             key: 'used',
             render: (row: any) => {
-              const count = row.used ? row.used.length : 0;
+              const count = row.usedCount ?? 0;
               return h(
                 NButton,
                 {
                   size: 'small',
-                  onClick: () => viewUsedNovels(row.id, row.name),
+                  onClick: () => viewUsedNovels(row.name, row.used),
                 },
                 () => `查看 (${count})`,
               );
@@ -750,7 +741,7 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
         </template>
       </c-modal>
 
-      <!-- Used Novels Modal (Lazy loaded) -->
+      <!-- Used Novels Modal -->
       <c-modal
         title="引用该术语表的小说列表"
         v-model:show="showUsedModal"
@@ -758,36 +749,22 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
         :extra-height="120"
       >
         <n-space vertical size="medium">
-          <n-spin :show="usedLoading">
-            <div v-if="lazyUsedNovels.length > 0">
-              <div
-                v-for="item in lazyUsedNovels"
-                :key="item.url"
-                style="
-                  /* margin: 8px 0; */
-                  /* padding: 8px 0; */
-                  border-bottom: 1px solid var(--border-color);
-                "
+          <div v-if="lazyUsedNovels.length > 0">
+            <div
+              v-for="item in lazyUsedNovels"
+              :key="item.url"
+              style="border-bottom: 1px solid var(--border-color)"
+            >
+              <a
+                :href="item.url"
+                target="_blank"
+                style="color: var(--n-color-target)"
               >
-                <a
-                  :href="item.url"
-                  target="_blank"
-                  style="
-                    color: var(--n-text-color);
-                    text-decoration: none;
-                    font-size: 14px;
-                    font-weight: 500;
-                  "
-                >
-                  {{ item.title }}
-                </a>
-              </div>
+                {{ item.label }}
+              </a>
             </div>
-            <n-empty
-              v-else-if="!usedLoading"
-              description="暂无小说引用该术语表"
-            />
-          </n-spin>
+          </div>
+          <n-empty v-else description="暂无小说引用该术语表" />
         </n-space>
       </c-modal>
     </n-space>

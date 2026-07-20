@@ -11,14 +11,41 @@ export interface GlobalGlossaryRecord {
   by: string;
 }
 
-export interface GlobalGlossary {
+export interface GlobalGlossaryTerms {
+  id: string;
+  terms: Glossary;
+  version: number;
+}
+
+export interface GlobalGlossaryVersion {
+  id: string;
+  version: number;
+}
+
+export interface GlobalGlossaryUsedNovelOutline {
+  id: string;
+  title: string;
+}
+
+export interface GlobalGlossaryUsedInfo {
+  web?: Record<string, GlobalGlossaryUsedNovelOutline[]>;
+  wenku?: GlobalGlossaryUsedNovelOutline[];
+}
+
+export interface GlobalGlossaryInfo {
   id: string;
   name: string;
-  content: Glossary;
-  termsCount?: number;
-  used: string[];
+  termsCount: number;
+  usedCount: number;
   update: number;
   tag: string[];
+  version: number;
+  used?: GlobalGlossaryUsedInfo;
+}
+
+export interface GlobalGlossaryHistory {
+  id: string;
   record: GlobalGlossaryRecord[];
+  update: number;
   version: number;
 }

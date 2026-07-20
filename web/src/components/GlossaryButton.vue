@@ -12,7 +12,10 @@ import { WebNovelApi, WenkuNovelApi } from '@/api';
 import { GlobalGlossaryApi } from '@/api/novel/GlobalGlossaryApi';
 import { GenericNovelId } from '@/model/Common';
 import { Glossary } from '@/model/Glossary';
-import type { GlobalGlossary } from '@/model/GlobalGlossary';
+import type {
+  GlobalGlossaryInfo,
+  GlobalGlossaryTerms,
+} from '@/model/GlobalGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import OrderSort from '@/components/OrderSort.vue';
@@ -39,7 +42,7 @@ const { whoami } = storeToRefs(whoamiStore);
 
 const glossary = ref<Glossary>({});
 const linkedGlossaries = ref<string[]>([]);
-const allGlobalGlossaries = ref<GlobalGlossary[]>([]);
+const allGlobalGlossaries = ref<GlobalGlossaryInfo[]>([]);
 const novelKeywords = ref<string[]>([]);
 
 const showGlossaryModal = ref(false);
@@ -49,7 +52,7 @@ const sortState = ref({
   desc: true,
 });
 
-const getMatchCount = (gg: GlobalGlossary) => {
+const getMatchCount = (gg: GlobalGlossaryInfo) => {
   if (!gg.tag || gg.tag.length === 0 || novelKeywords.value.length === 0)
     return 0;
   const ggTags = new Set(gg.tag);
@@ -71,12 +74,10 @@ const globalGlossariesOptions = computed(() => {
       sorted.push({
         id: _id,
         name: '[已删除的术语表]',
-        content: {},
         termsCount: 0,
-        used: [],
+        usedCount: 0,
         update: 0,
         tag: [],
-        record: [],
         version: 1,
       });
     }
@@ -89,8 +90,8 @@ const globalGlossariesOptions = computed(() => {
       valA = getMatchCount(a);
       valB = getMatchCount(b);
     } else if (sortState.value.value === 'used') {
-      valA = (a.used || []).length;
-      valB = (b.used || []).length;
+      valA = a.usedCount || 0;
+      valB = b.usedCount || 0;
     } else if (sortState.value.value === 'update') {
       valA = new Date(a.update).getTime();
       valB = new Date(b.update).getTime();
@@ -109,7 +110,7 @@ const globalGlossariesOptions = computed(() => {
 
   return sorted.map((gg) => {
     const matchCount = getMatchCount(gg);
-    const usedCount = (gg.used || []).length;
+    const usedCount = gg.usedCount || 0;
     const matchLabel = matchCount > 0 ? ` (匹配标签: ${matchCount})` : '';
     return {
       label: `${gg.name} [ ${gg.termsCount ?? 0} ] [引用: ${usedCount}次]${matchLabel}`,
@@ -118,7 +119,7 @@ const globalGlossariesOptions = computed(() => {
   });
 });
 
-const activeGlossariesMap = ref<Record<string, GlobalGlossary>>({});
+const activeGlossariesMap = ref<Record<string, GlobalGlossaryTerms>>({});
 const fullyLoadedGlossaryIds = ref<Set<string>>(new Set());
 
 const expandedActiveGlossaries = ref<string[]>([]);
@@ -134,39 +135,30 @@ const handleExpandedNamesChange = (
   }
 };
 
+const expandedGlobalConfig = ref<string[]>([]);
+
+const syncActiveGlossariesMap = () => {
+  const nextMap = { ...activeGlossariesMap.value };
+  let updated = false;
+  for (const id of linkedGlossaries.value) {
+    if (!nextMap[id]) {
+      nextMap[id] = {
+        id,
+        terms: {},
+        version: 1,
+      };
+      updated = true;
+    }
+  }
+  if (updated) {
+    activeGlossariesMap.value = nextMap;
+  }
+};
+
 watch(
   linkedGlossaries,
-  (newVal) => {
-    const nextMap = { ...activeGlossariesMap.value };
-    let updated = false;
-    for (const id of newVal) {
-      if (!nextMap[id]) {
-        const metaGg = allGlobalGlossaries.value.find((gg) => gg.id === id);
-        if (metaGg) {
-          nextMap[id] = {
-            ...metaGg,
-            content: {},
-          };
-          updated = true;
-        } else {
-          nextMap[id] = {
-            id,
-            name: '[已删除的术语表]',
-            content: {},
-            termsCount: 0,
-            used: [],
-            update: 0,
-            tag: [],
-            record: [],
-            version: 1,
-          };
-          updated = true;
-        }
-      }
-    }
-    if (updated) {
-      activeGlossariesMap.value = nextMap;
-    }
+  () => {
+    syncActiveGlossariesMap();
   },
   { immediate: true, deep: true },
 );
@@ -177,10 +169,10 @@ watch(
     for (const id of newVal) {
       if (!fullyLoadedGlossaryIds.value.has(id)) {
         try {
-          const fullGg = await GlobalGlossaryApi.getGlobalGlossary(id);
+          const termsGg = await GlobalGlossaryApi.getGlobalGlossaryTerms(id);
           activeGlossariesMap.value = {
             ...activeGlossariesMap.value,
-            [id]: fullGg,
+            [id]: termsGg,
           };
           fullyLoadedGlossaryIds.value.add(id);
         } catch (e: any) {
@@ -196,10 +188,10 @@ const ensureAllActiveGlossariesLoaded = async () => {
   const promises = linkedGlossaries.value.map(async (id) => {
     if (!fullyLoadedGlossaryIds.value.has(id)) {
       try {
-        const fullGg = await GlobalGlossaryApi.getGlobalGlossary(id);
+        const termsGg = await GlobalGlossaryApi.getGlobalGlossaryTerms(id);
         activeGlossariesMap.value = {
           ...activeGlossariesMap.value,
-          [id]: fullGg,
+          [id]: termsGg,
         };
         fullyLoadedGlossaryIds.value.add(id);
       } catch (e) {
@@ -210,17 +202,59 @@ const ensureAllActiveGlossariesLoaded = async () => {
   await Promise.all(promises);
 };
 
+const loadAllGlobalGlossariesList = async () => {
+  try {
+    allGlobalGlossaries.value =
+      await GlobalGlossaryApi.listGlobalGlossariesInfo();
+  } catch (e: any) {
+    message.error(`获取全域术语表列表失败: ${e.message || e}`);
+  }
+};
+
+watch(
+  expandedGlobalConfig,
+  async (newVal) => {
+    if (newVal.includes('global-config')) {
+      await loadAllGlobalGlossariesList();
+      syncActiveGlossariesMap();
+    }
+  },
+  { deep: true },
+);
+
 const activeGlobalGlossaries = computed(() => {
   return linkedGlossaries.value
-    .map((id) => activeGlossariesMap.value[id])
-    .filter((gg): gg is GlobalGlossary => gg !== undefined);
+    .map((id) => {
+      const termsGg = activeGlossariesMap.value[id];
+      const metaGg = allGlobalGlossaries.value.find((gg) => gg.id === id);
+      if (termsGg && metaGg) {
+        return {
+          id,
+          name: metaGg.name,
+          termsCount: metaGg.termsCount,
+          terms: termsGg.terms,
+        };
+      }
+      return undefined;
+    })
+    .filter(
+      (
+        gg,
+      ): gg is {
+        id: string;
+        name: string;
+        termsCount: number;
+        terms: Glossary;
+      } => gg !== undefined,
+    );
 });
 
 const totalGlobalTermsCount = computed(() => {
   let count = 0;
-  for (const gg of activeGlobalGlossaries.value) {
+  for (const id of linkedGlossaries.value) {
+    const gg = allGlobalGlossaries.value.find((g) => g.id === id);
     if (gg) {
-      count += gg.termsCount ?? Object.keys(gg.content).length;
+      count += gg.termsCount ?? 0;
     }
   }
   return count;
@@ -254,10 +288,12 @@ const moveGlossaryDown = (id: string) => {
   }
 };
 
+const isConfigLoaded = ref(false);
+
 // Fetch global glossaries and linked glossaries
 const fetchData = async () => {
+  if (isConfigLoaded.value) return;
   try {
-    allGlobalGlossaries.value = await GlobalGlossaryApi.listGlobalGlossaries();
     const gnid = props.gnid;
     if (gnid !== undefined) {
       if (gnid.type === 'web') {
@@ -276,12 +312,37 @@ const fetchData = async () => {
         }
       }
     }
+    // Fetch only linked glossaries metadata initially!
+    if (linkedGlossaries.value.length > 0) {
+      allGlobalGlossaries.value =
+        await GlobalGlossaryApi.listGlobalGlossariesInfo(
+          false,
+          linkedGlossaries.value.join(','),
+        );
+    } else {
+      allGlobalGlossaries.value = [];
+    }
+    isConfigLoaded.value = true;
   } catch (e: any) {
     message.error(`获取全域术语表配置失败: ${e.message || e}`);
   }
 };
 
 onMounted(fetchData);
+
+watch(
+  () => props.gnid,
+  () => {
+    isConfigLoaded.value = false;
+    allGlobalGlossaries.value = [];
+    linkedGlossaries.value = [];
+    activeGlossariesMap.value = {};
+    fullyLoadedGlossaryIds.value.clear();
+    expandedGlobalConfig.value = [];
+    fetchData();
+  },
+  { deep: true },
+);
 
 const skippedKeys = ref<Set<string>>(new Set());
 
@@ -355,6 +416,7 @@ const toggleGlossaryModal = async () => {
   if (showGlossaryModal.value === false) {
     glossary.value = { ...props.value };
     loadSkippedKeys();
+    isConfigLoaded.value = false; // Force a fresh config request every time the modal is opened!
     await fetchData();
     originalGlossary.value = { ...glossary.value };
     originalLinkedGlossaries.value = [...linkedGlossaries.value];
@@ -489,12 +551,13 @@ const duplicates = computed(() => {
     for (let i = linkedGlossaries.value.length - 1; i >= 0; i--) {
       const guid = linkedGlossaries.value[i];
       const gg = activeGlossariesMap.value[guid];
-      if (gg && gg.content[k] !== undefined) {
+      const meta = allGlobalGlossaries.value.find((g) => g.id === guid);
+      if (gg && gg.terms && gg.terms[k] !== undefined) {
         dupes.push({
           key: k,
           localVal: glossary.value[k],
-          globalVal: gg.content[k],
-          globalName: gg.name,
+          globalVal: gg.terms[k],
+          globalName: meta?.name || '[未知全域]',
         });
         break;
       }
@@ -552,8 +615,8 @@ const downloadMergedJson = async () => {
   const merged: Glossary = {};
   for (const guid of linkedGlossaries.value) {
     const gg = activeGlossariesMap.value[guid];
-    if (gg) {
-      Object.assign(merged, gg.content);
+    if (gg && gg.terms) {
+      Object.assign(merged, gg.terms);
     }
   }
   Object.assign(merged, glossary.value);
@@ -571,8 +634,8 @@ const exportMerged = async (ev?: MouseEvent) => {
   const merged: Glossary = {};
   for (const guid of linkedGlossaries.value) {
     const gg = activeGlossariesMap.value[guid];
-    if (gg) {
-      Object.assign(merged, gg.content);
+    if (gg && gg.terms) {
+      Object.assign(merged, gg.terms);
     }
   }
   Object.assign(merged, glossary.value);
@@ -595,9 +658,9 @@ const importGlobalToLocal = async () => {
   let count = 0;
   for (const guid of linkedGlossaries.value) {
     const gg = activeGlossariesMap.value[guid];
-    if (gg) {
-      for (const jp in gg.content) {
-        glossary.value[jp] = gg.content[jp];
+    if (gg && gg.terms) {
+      for (const jp in gg.terms) {
+        glossary.value[jp] = gg.terms[jp];
         count++;
       }
     }
@@ -661,14 +724,15 @@ const exportMergedLabel = computed(() =>
               gnid.type === 'local')
           "
         >
-          <n-collapse style="margin: 4px 0">
+          <n-collapse
+            v-model:expanded-names="expandedGlobalConfig"
+            style="margin: 4px 0"
+          >
             <n-collapse-item
               :title="`全域术语表 [${totalGlobalTermsCount}]`"
               name="global-config"
             >
               <n-flex vertical size="medium">
-                <!-- <n-text style="font-size: 12px; font-weight: bold">链接全域术语表</n-text> -->
-
                 <!-- Sorting Controls using OrderSort component -->
                 <n-space style="margin-bottom: 4px" align="center">
                   <n-text style="font-size: 11px" depth="3">排序方式：</n-text>
@@ -700,7 +764,7 @@ const exportMergedLabel = computed(() =>
                     <n-collapse-item
                       v-for="gg in activeGlobalGlossaries"
                       :key="gg.id"
-                      :title="`${gg.name} (共 ${gg.termsCount ?? Object.keys(gg.content).length} 个词条)`"
+                      :title="`${gg.name} (共 ${gg.termsCount ?? Object.keys(gg.terms || {}).length} 个词条)`"
                       :name="gg.id"
                       style="
                         border: 1px solid var(--border-color);
@@ -740,7 +804,7 @@ const exportMergedLabel = computed(() =>
                       </template>
                       <template v-if="expandedActiveGlossaries.includes(gg.id)">
                         <n-scrollbar
-                          v-if="Object.keys(gg.content).length > 0"
+                          v-if="Object.keys(gg.terms || {}).length > 0"
                           style="max-height: 150px"
                         >
                           <n-table size="small" striped style="font-size: 12px">
@@ -751,7 +815,7 @@ const exportMergedLabel = computed(() =>
                               </tr>
                             </thead>
                             <tbody>
-                              <tr v-for="(zh, jp) in gg.content" :key="jp">
+                              <tr v-for="(zh, jp) in gg.terms" :key="jp">
                                 <td style="font-weight: bold">{{ jp }}</td>
                                 <td>{{ zh }}</td>
                               </tr>
@@ -830,10 +894,6 @@ const exportMergedLabel = computed(() =>
                           <td>{{ dup.localVal }}</td>
                           <td>
                             {{ dup.globalVal }}
-                            <!-- <br />
-                            <span style="font-size: 10px; color: gray">
-                              ({{ dup.globalName }})
-                            </span> -->
                           </td>
                           <td>
                             <n-space size="small">

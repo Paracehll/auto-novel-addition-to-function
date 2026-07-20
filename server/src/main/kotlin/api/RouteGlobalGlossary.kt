@@ -21,10 +21,19 @@ import org.koin.ktor.ext.inject
 @Resource("/global-glossary")
 class GlobalGlossaryRes {
     @Resource("")
-    class List(val parent: GlobalGlossaryRes)
+    class List(val parent: GlobalGlossaryRes, val used: Int? = null, val ids: String? = null)
 
     @Resource("/{id}")
     class Id(val parent: GlobalGlossaryRes, val id: String) {
+        @Resource("/terms")
+        class Terms(val parent: Id)
+
+        @Resource("/version")
+        class Version(val parent: Id)
+
+        @Resource("/history")
+        class History(val parent: Id)
+
         @Resource("/record/{index}")
         class Record(val parent: Id, val index: Int)
     }
@@ -52,31 +61,75 @@ data class GlobalGlossaryRecordDto(
 )
 
 @Serializable
-data class GlobalGlossaryDto(
+data class GlobalGlossaryTermsDto(
     val id: String,
-    val name: String,
-    val content: Map<String, String>,
-    val termsCount: Int,
-    val used: List<String>,
-    val update: Long,
-    val tag: List<String>,
-    val record: List<GlobalGlossaryRecordDto>,
+    val terms: Map<String, String>,
     val version: Long,
 )
 
-fun GlobalGlossary.asDto(
-    usedUrls: List<String>,
-    usernamesMap: Map<String, String> = emptyMap(),
-    excludeDetails: Boolean = false
-) = GlobalGlossaryDto(
+@Serializable
+data class GlobalGlossaryVersionDto(
+    val id: String,
+    val version: Long,
+)
+
+@Serializable
+data class GlobalGlossaryUsedNovelOutline(
+    val id: String,
+    val title: String,
+)
+
+@Serializable
+data class GlobalGlossaryUsedInfo(
+    val web: Map<String, List<GlobalGlossaryUsedNovelOutline>> = emptyMap(),
+    val wenku: List<GlobalGlossaryUsedNovelOutline> = emptyList(),
+)
+
+@Serializable
+data class GlobalGlossaryInfoDto(
+    val id: String,
+    val name: String,
+    val termsCount: Int,
+    val usedCount: Int,
+    val update: Long,
+    val tag: List<String>,
+    val version: Long,
+    val used: GlobalGlossaryUsedInfo? = null,
+)
+
+@Serializable
+data class GlobalGlossaryHistoryDto(
+    val id: String,
+    val record: List<GlobalGlossaryRecordDto>,
+    val update: Long,
+    val version: Long,
+)
+
+fun GlobalGlossary.asTermsDto() = GlobalGlossaryTermsDto(
+    id = id.toHexString(),
+    terms = terms,
+    version = version,
+)
+
+fun GlobalGlossary.asVersionDto() = GlobalGlossaryVersionDto(
+    id = id.toHexString(),
+    version = version,
+)
+
+fun GlobalGlossary.asInfoDto(usedInfo: GlobalGlossaryUsedInfo? = null) = GlobalGlossaryInfoDto(
     id = id.toHexString(),
     name = name,
-    content = if (excludeDetails) emptyMap() else content,
-    termsCount = if (termsCount > 0) termsCount else content.size,
-    used = usedUrls,
+    termsCount = if (termsCount > 0) termsCount else terms.size,
+    usedCount = usedCount,
     update = update.epochSeconds,
     tag = tag,
-    record = if (excludeDetails) emptyList() else record.map { rec ->
+    version = version,
+    used = usedInfo,
+)
+
+fun GlobalGlossary.asHistoryDto(usernamesMap: Map<String, String> = emptyMap()) = GlobalGlossaryHistoryDto(
+    id = id.toHexString(),
+    record = record.map { rec ->
         val resolvedBy = usernamesMap[rec.by.toHexString()] ?: "unknown"
         GlobalGlossaryRecordDto(
             date = rec.date.epochSeconds,
@@ -84,6 +137,7 @@ fun GlobalGlossary.asDto(
             by = resolvedBy,
         )
     },
+    update = update.epochSeconds,
     version = version,
 )
 
@@ -91,15 +145,27 @@ fun Route.routeGlobalGlossary() {
     val service by inject<GlobalGlossaryApi>()
 
     authenticateDb(optional = true) {
-        get<GlobalGlossaryRes.List> {
+        get<GlobalGlossaryRes.List> { loc ->
             call.tryRespond {
-                service.list()
+                service.list(includeUsed = loc.used == 1, idsString = loc.ids)
             }
         }
 
-        get<GlobalGlossaryRes.Id> { loc ->
+        get<GlobalGlossaryRes.Id.Terms> { loc ->
             call.tryRespond {
-                service.get(loc.id)
+                service.getTerms(loc.parent.id)
+            }
+        }
+
+        get<GlobalGlossaryRes.Id.Version> { loc ->
+            call.tryRespond {
+                service.getVersion(loc.parent.id)
+            }
+        }
+
+        get<GlobalGlossaryRes.Id.History> { loc ->
+            call.tryRespond {
+                service.getHistory(loc.parent.id)
             }
         }
     }
@@ -143,43 +209,74 @@ class GlobalGlossaryApi(
     private val wenkuNovelRepo: WenkuNovelMetadataRepository,
     private val userRepo: UserRepository,
 ) {
-    suspend fun list(): List<GlobalGlossaryDto> {
-        return repo.list().map { it.asDto(usedUrls = it.used.map { id -> id.toHexString() }, excludeDetails = true) }
-    }
-
-    suspend fun get(id: String): GlobalGlossaryDto {
-        val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
-        val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
+    private suspend fun resolveUsedMap(usedList: List<ObjectId>): Pair<GlobalGlossaryUsedInfo, List<ObjectId>> {
+        val webMap = mutableMapOf<String, MutableList<GlobalGlossaryUsedNovelOutline>>()
+        val wenkuList = mutableListOf<GlobalGlossaryUsedNovelOutline>()
         val invalidRefs = mutableListOf<ObjectId>()
-        val resolvedUrls = gg.used.mapNotNull { targetId ->
+        for (targetId in usedList) {
             val webNovel = webNovelRepo.getById(targetId)
             if (webNovel != null) {
-                "/novel/${webNovel.providerId}/${webNovel.novelId}"
+                val title = webNovel.titleZh ?: webNovel.titleJp
+                val list = webMap.getOrPut(webNovel.providerId) { mutableListOf() }
+                list.add(GlobalGlossaryUsedNovelOutline(id = webNovel.novelId, title = title))
             } else {
                 val wenkuNovel = wenkuNovelRepo.getById(targetId)
                 if (wenkuNovel != null) {
-                    "/wenku/${wenkuNovel.id.toHexString()}"
+                    val title = wenkuNovel.titleZh ?: wenkuNovel.title
+                    wenkuList.add(GlobalGlossaryUsedNovelOutline(id = wenkuNovel.id.toHexString(), title = title))
                 } else {
                     invalidRefs.add(targetId)
-                    null
                 }
             }
         }
-        if (invalidRefs.isNotEmpty()) {
-            for (invalidRef in invalidRefs) {
-                try {
-                    repo.updateUsed(parsedId, invalidRef, add = false)
-                } catch (e: Exception) {
-                    // Log or handle error if cleanup fails
-                }
-            }
-        }
-        val userIds = gg.record.map { it.by.toHexString() }.distinct()
-        val usernamesMap = userRepo.getUsernamesMap(userIds)
-        return gg.asDto(usedUrls = resolvedUrls, usernamesMap = usernamesMap)
+        return Pair(GlobalGlossaryUsedInfo(web = webMap, wenku = wenkuList), invalidRefs)
     }
 
-    suspend fun create(user: User, body: GlobalGlossaryCreateBody): GlobalGlossaryDto {
+    suspend fun list(includeUsed: Boolean, idsString: String? = null): List<GlobalGlossaryInfoDto> {
+        val parsedIds = idsString?.split(",")?.filter { it.isNotBlank() }?.mapNotNull {
+            try { ObjectId(it) } catch (e: Exception) { null }
+        }
+        val repos = if (parsedIds != null) {
+            repo.getByIds(parsedIds)
+        } else {
+            repo.list()
+        }
+        return repos.map { gg ->
+            val usedInfo = if (includeUsed) {
+                val (uInfo, invalidRefs) = resolveUsedMap(gg.used)
+                if (invalidRefs.isNotEmpty()) {
+                    val nextUsed = gg.used - invalidRefs.toSet()
+                    repo.updateUsedList(gg.id, nextUsed)
+                }
+                uInfo
+            } else {
+                null
+            }
+            gg.asInfoDto(usedInfo)
+        }
+    }
+
+    suspend fun getTerms(id: String): GlobalGlossaryTermsDto {
+        val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
+        val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
+        return gg.asTermsDto()
+    }
+
+    suspend fun getVersion(id: String): GlobalGlossaryVersionDto {
+        val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
+        val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
+        return gg.asVersionDto()
+    }
+
+    suspend fun getHistory(id: String): GlobalGlossaryHistoryDto {
+        val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
+        val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
+        val userIds = gg.record.map { it.by.toHexString() }.distinct()
+        val usernamesMap = userRepo.getUsernamesMap(userIds)
+        return gg.asHistoryDto(usernamesMap = usernamesMap)
+    }
+
+    suspend fun create(user: User, body: GlobalGlossaryCreateBody): GlobalGlossaryInfoDto {
         user.requireNovelAccess()
         if (body.name.isBlank()) {
             throwBadRequest("名称不能为空")
@@ -191,12 +288,10 @@ class GlobalGlossaryApi(
             tag = body.tag,
             by = byVal
         )
-        val userIds = listOf(byVal.toHexString())
-        val usernamesMap = userRepo.getUsernamesMap(userIds)
-        return gg.asDto(emptyList(), usernamesMap)
+        return gg.asInfoDto()
     }
 
-    suspend fun update(user: User, id: String, body: GlobalGlossaryUpdateBody): GlobalGlossaryDto {
+    suspend fun update(user: User, id: String, body: GlobalGlossaryUpdateBody): GlobalGlossaryInfoDto {
         user.requireNovelAccess()
         if (body.name.isBlank()) {
             throwBadRequest("名称不能为空")
@@ -210,9 +305,7 @@ class GlobalGlossaryApi(
             tag = body.tag,
             by = byVal
         )
-        val userIds = gg.record.map { it.by.toHexString() }.distinct()
-        val usernamesMap = userRepo.getUsernamesMap(userIds)
-        return gg.asDto(emptyList(), usernamesMap)
+        return gg.asInfoDto()
     }
 
     suspend fun delete(user: User, id: String) {

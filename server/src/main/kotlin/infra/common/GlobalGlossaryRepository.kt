@@ -22,7 +22,7 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
 
     suspend fun list(): List<GlobalGlossary> {
         return collection.find()
-            .projection(exclude(GlobalGlossary::record.field(), GlobalGlossary::content.field()))
+            .projection(exclude(GlobalGlossary::record.field(), GlobalGlossary::terms.field()))
             .toList()
     }
 
@@ -45,9 +45,10 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         val gg = GlobalGlossary(
             id = ObjectId(),
             name = name,
-            content = content,
+            terms = content,
             termsCount = content.size,
             used = emptyList(),
+            usedCount = 0,
             update = Clock.System.now(),
             tag = tag,
             record = listOf(initialRecord),
@@ -59,10 +60,9 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
 
     suspend fun update(id: ObjectId, name: String, content: Map<String, String>, tag: List<String>? = null, used: List<ObjectId>? = null, by: ObjectId = ObjectId("000000000000000000000000")): GlobalGlossary {
         val old = getById(id) ?: throw NoSuchElementException("Global glossary not found")
-        val isContentChanged = old.content != content
-        // val isOrderChanged = old.content == content && old.content.keys.toList() != content.keys.toList()
+        val isContentChanged = old.terms != content
         val newRecord = if (isContentChanged) {
-            val diff = computeGlossaryDiff(old.content, content)
+            val diff = computeGlossaryDiff(old.terms, content)
             val recordItem = GlobalGlossaryRecord(
                 date = Clock.System.now(),
                 diff = diff,
@@ -73,13 +73,15 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
             old.record
         }
         val newVersion = if (isContentChanged) old.version + 1 else old.version
+        val actualUsed = used ?: old.used
 
         val updated = GlobalGlossary(
             id = old.id,
             name = name,
-            content = content,
+            terms = content,
             termsCount = content.size,
-            used = used ?: old.used,
+            used = actualUsed,
+            usedCount = actualUsed.size,
             update = Clock.System.now(),
             tag = tag ?: old.tag,
             record = newRecord,
@@ -106,15 +108,29 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         )
     }
 
+    suspend fun updateUsedList(id: ObjectId, usedList: List<ObjectId>) {
+        collection.updateOne(
+            eq(GlobalGlossary::id.field(), id),
+            combine(
+                set(GlobalGlossary::used.field(), usedList),
+                set(GlobalGlossary::usedCount.field(), usedList.size)
+            )
+        )
+    }
+
     suspend fun updateUsed(id: ObjectId, novelId: ObjectId, add: Boolean) {
-        val update = if (add) {
-            addToSet(GlobalGlossary::used.field(), novelId)
+        val old = getById(id) ?: return
+        val nextUsed = if (add) {
+            (old.used + novelId).distinct()
         } else {
-            pull(GlobalGlossary::used.field(), novelId)
+            old.used - novelId
         }
         collection.updateOne(
             eq(GlobalGlossary::id.field(), id),
-            update
+            combine(
+                if (add) addToSet(GlobalGlossary::used.field(), novelId) else pull(GlobalGlossary::used.field(), novelId),
+                set(GlobalGlossary::usedCount.field(), nextUsed.size)
+            )
         )
     }
 
