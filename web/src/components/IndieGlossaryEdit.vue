@@ -297,7 +297,7 @@ const createBoundaryOverlay = () => {
     height: ${THRESHOLD}px;
     pointer-events: none;
     z-index: 9998;
-    background: linear-gradient(to bottom, #63e2b7, transparent);
+    background: linear-gradient(to bottom, var(--n-color-target), transparent);
     opacity: 0.15;
     transition: opacity 0.1s ease;
   `;
@@ -308,7 +308,7 @@ const createBoundaryOverlay = () => {
     height: ${THRESHOLD}px;
     pointer-events: none;
     z-index: 9998;
-    background: linear-gradient(to top, #63e2b7, transparent);
+    background: linear-gradient(to top, var(--n-color-target), transparent);
     opacity: 0.15;
     transition: opacity 0.1s ease;
   `;

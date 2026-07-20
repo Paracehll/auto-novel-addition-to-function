@@ -222,7 +222,9 @@ const selectedGlossary = ref<GlobalGlossaryHistory | null>(null);
 
 const viewHistory = async (gg: GlobalGlossaryInfo) => {
   try {
-    selectedGlossary.value = await GlobalGlossaryApi.getGlobalGlossaryHistory(gg.id);
+    selectedGlossary.value = await GlobalGlossaryApi.getGlobalGlossaryHistory(
+      gg.id,
+    );
     showHistoryModal.value = true;
   } catch (e: any) {
     message.error(`获取修改历史失败: ${e.message || e}`);
@@ -243,11 +245,15 @@ const handleRollback = async (targetIndex: number) => {
     return;
 
   try {
-    const gg = glossaries.value.find((g) => g.id === selectedGlossary.value?.id);
+    const gg = glossaries.value.find(
+      (g) => g.id === selectedGlossary.value?.id,
+    );
     const name = gg?.name || '';
     const tag = gg?.tag || [];
 
-    const termsGg = await GlobalGlossaryApi.getGlobalGlossaryTerms(selectedGlossary.value.id);
+    const termsGg = await GlobalGlossaryApi.getGlobalGlossaryTerms(
+      selectedGlossary.value.id,
+    );
     const currentContent = { ...termsGg.terms };
     const records = selectedGlossary.value.record;
 
@@ -755,22 +761,13 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
               <a
                 :href="item.url"
                 target="_blank"
-                style="
-                  color: var(--primary-color);
-                  text-decoration: none;
-                  font-size: 14px;
-                  font-family: monospace;
-                  font-weight: 500;
-                "
+                style="color: var(--n-color-target)"
               >
                 {{ item.label }}
               </a>
             </div>
           </div>
-          <n-empty
-            v-else
-            description="暂无小说引用该术语表"
-          />
+          <n-empty v-else description="暂无小说引用该术语表" />
         </n-space>
       </c-modal>
     </n-space>
