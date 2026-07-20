@@ -17,6 +17,11 @@ export interface GlobalGlossaryTerms {
   version: number;
 }
 
+export interface GlobalGlossaryVersion {
+  id: string;
+  version: number;
+}
+
 export interface GlobalGlossaryUsedNovelOutline {
   id: string;
   title: string;

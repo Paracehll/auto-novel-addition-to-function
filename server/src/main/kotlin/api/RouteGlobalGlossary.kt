@@ -28,6 +28,9 @@ class GlobalGlossaryRes {
         @Resource("/terms")
         class Terms(val parent: Id)
 
+        @Resource("/version")
+        class Version(val parent: Id)
+
         @Resource("/history")
         class History(val parent: Id)
 
@@ -61,6 +64,12 @@ data class GlobalGlossaryRecordDto(
 data class GlobalGlossaryTermsDto(
     val id: String,
     val terms: Map<String, String>,
+    val version: Long,
+)
+
+@Serializable
+data class GlobalGlossaryVersionDto(
+    val id: String,
     val version: Long,
 )
 
@@ -102,6 +111,11 @@ fun GlobalGlossary.asTermsDto() = GlobalGlossaryTermsDto(
     version = version,
 )
 
+fun GlobalGlossary.asVersionDto() = GlobalGlossaryVersionDto(
+    id = id.toHexString(),
+    version = version,
+)
+
 fun GlobalGlossary.asInfoDto(usedInfo: GlobalGlossaryUsedInfo? = null) = GlobalGlossaryInfoDto(
     id = id.toHexString(),
     name = name,
@@ -140,6 +154,12 @@ fun Route.routeGlobalGlossary() {
         get<GlobalGlossaryRes.Id.Terms> { loc ->
             call.tryRespond {
                 service.getTerms(loc.parent.id)
+            }
+        }
+
+        get<GlobalGlossaryRes.Id.Version> { loc ->
+            call.tryRespond {
+                service.getVersion(loc.parent.id)
             }
         }
 
@@ -240,6 +260,12 @@ class GlobalGlossaryApi(
         val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
         val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
         return gg.asTermsDto()
+    }
+
+    suspend fun getVersion(id: String): GlobalGlossaryVersionDto {
+        val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
+        val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
+        return gg.asVersionDto()
     }
 
     suspend fun getHistory(id: String): GlobalGlossaryHistoryDto {
