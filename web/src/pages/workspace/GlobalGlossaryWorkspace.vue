@@ -307,18 +307,22 @@ const deleteHistoryRecord = (targetIndex: number) => {
 const showUsedModal = ref(false);
 const selectedGlossaryName = ref('');
 
-const lazyUsedNovels = ref<string[]>([]);
+const lazyUsedNovels = ref<{ url: string; label: string }[]>([]);
 
 const viewUsedNovels = (name: string, usedMap?: Record<string, Record<string, string[]>>) => {
   selectedGlossaryName.value = name;
-  const list: string[] = [];
+  const list: { url: string; label: string }[] = [];
   if (usedMap) {
     for (const type of Object.keys(usedMap)) {
       const providerMap = usedMap[type];
       for (const provider of Object.keys(providerMap)) {
         const idList = providerMap[provider];
         for (const id of idList) {
-          list.push(`[${type}] [${provider}] ${id}`);
+          const url = type === 'web' ? `/novel/${provider}/${id}` : `/wenku/${id}`;
+          list.push({
+            url,
+            label: `[${type}] [${provider}] ${id}`,
+          });
         }
       }
     }
@@ -734,15 +738,25 @@ const getDelCount = (rec: GlobalGlossaryRecord) => {
           <div v-if="lazyUsedNovels.length > 0">
             <div
               v-for="item in lazyUsedNovels"
-              :key="item"
+              :key="item.url"
               style="
-                padding: 4px 0;
+                padding: 8px 0;
                 border-bottom: 1px solid var(--border-color);
               "
             >
-              <n-text style="font-size: 14px; font-family: monospace">
-                {{ item }}
-              </n-text>
+              <a
+                :href="item.url"
+                target="_blank"
+                style="
+                  color: var(--n-text-color);
+                  text-decoration: none;
+                  font-size: 14px;
+                  font-family: monospace;
+                  font-weight: 500;
+                "
+              >
+                {{ item.label }}
+              </a>
             </div>
           </div>
           <n-empty
