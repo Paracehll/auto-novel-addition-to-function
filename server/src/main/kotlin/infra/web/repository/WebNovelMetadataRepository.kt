@@ -2,6 +2,7 @@ package infra.web.repository
 
 import com.mongodb.client.model.Filters.*
 import com.mongodb.client.model.FindOneAndUpdateOptions
+import com.mongodb.client.model.Projections.exclude
 import com.mongodb.client.model.ReturnDocument
 import com.mongodb.client.model.Updates.*
 import com.mongodb.client.result.UpdateResult
@@ -65,6 +66,7 @@ class WebNovelMetadataRepository(
                 rank.map { remote ->
                     val local = webNovelMetadataCollection
                         .find(byId(providerId, remote.novelId))
+                        .projection(exclude(WebNovel::toc.field(), WebNovel::glossary.field()))
                         .firstOrNull()
                     remote.toOutline(providerId, local)
                 }
@@ -95,6 +97,7 @@ class WebNovelMetadataRepository(
         val items = itemsEs.map { (providerId, novelId) ->
             webNovelMetadataCollection
                 .find(byId(providerId, novelId))
+                .projection(exclude(WebNovel::toc.field(), WebNovel::glossary.field()))
                 .firstOrNull()!!
         }
         val ids = items.map { it.id }

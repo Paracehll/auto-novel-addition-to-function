@@ -1,6 +1,7 @@
 package infra.user
 
 import com.mongodb.client.model.Filters.eq
+import com.mongodb.client.model.Projections.include
 import com.mongodb.client.model.Updates.set
 import infra.MongoClient
 import infra.MongoCollectionNames
@@ -22,6 +23,7 @@ class UserFavoredRepository(
         return userCollection
             .withDocumentClass<UserFavoredList>()
             .find(eq(UserDbModel::id.field(), ObjectId(id)))
+            .projection(include(UserDbModel::favoredWeb.field(), UserDbModel::favoredWenku.field()))
             .firstOrNull()
     }
 

@@ -1,8 +1,10 @@
 package infra.web.repository
 
+import com.mongodb.client.model.Projections.exclude
 import infra.MongoClient
 import infra.MongoCollectionNames
 import infra.TempFileClient
+import infra.field
 import infra.TempFileType
 import infra.common.NovelFileMode
 import infra.common.NovelFileTranslationsMode
@@ -36,6 +38,7 @@ class WebNovelFileRepository(
     ): String? {
         val novel = webNovelMetadataCollection
             .find(WebNovel.byId(providerId, novelId))
+            .projection(exclude(WebNovel::glossary.field()))
             .firstOrNull()
             ?: return null
 

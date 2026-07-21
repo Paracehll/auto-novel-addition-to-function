@@ -22,6 +22,7 @@ class UserRepository(
     suspend fun getId(username: String): String {
         val user = userCollection
             .find(eq(UserDbModel::username.field(), username))
+            .projection(include(UserDbModel::id.field(), UserDbModel::username.field()))
             .firstOrNull()
         if (user != null) {
             return user.id.toHexString()

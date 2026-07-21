@@ -258,19 +258,19 @@ class GlobalGlossaryApi(
 
     suspend fun getTerms(id: String): GlobalGlossaryTermsDto {
         val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
-        val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
+        val gg = repo.getTermsOnly(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
         return gg.asTermsDto()
     }
 
     suspend fun getVersion(id: String): GlobalGlossaryVersionDto {
         val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
-        val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
+        val gg = repo.getVersionOnly(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
         return gg.asVersionDto()
     }
 
     suspend fun getHistory(id: String): GlobalGlossaryHistoryDto {
         val parsedId = try { ObjectId(id) } catch (e: Exception) { throwBadRequest("全域术语表ID格式无效: $id") }
-        val gg = repo.getById(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
+        val gg = repo.getHistoryOnly(parsedId) ?: throwNotFound("无法找到ID为 $id 的全域术语表")
         val userIds = gg.record.map { it.by.toHexString() }.distinct()
         val usernamesMap = userRepo.getUsernamesMap(userIds)
         return gg.asHistoryDto(usernamesMap = usernamesMap)

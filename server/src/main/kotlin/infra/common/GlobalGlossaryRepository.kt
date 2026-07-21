@@ -3,6 +3,7 @@ package infra.common
 import com.mongodb.client.model.Filters.`in`
 import com.mongodb.client.model.Filters.eq
 import com.mongodb.client.model.Projections.exclude
+import com.mongodb.client.model.Projections.include
 import com.mongodb.client.model.Updates.addToSet
 import com.mongodb.client.model.Updates.pull
 import com.mongodb.client.model.Updates.set
@@ -30,9 +31,29 @@ class GlobalGlossaryRepository(mongo: MongoClient) {
         return collection.find(eq(GlobalGlossary::id.field(), id)).firstOrNull()
     }
 
+    suspend fun getTermsOnly(id: ObjectId): GlobalGlossary? {
+        return collection.find(eq(GlobalGlossary::id.field(), id))
+            .projection(include(GlobalGlossary::id.field(), GlobalGlossary::terms.field(), GlobalGlossary::version.field()))
+            .firstOrNull()
+    }
+
+    suspend fun getVersionOnly(id: ObjectId): GlobalGlossary? {
+        return collection.find(eq(GlobalGlossary::id.field(), id))
+            .projection(include(GlobalGlossary::id.field(), GlobalGlossary::version.field()))
+            .firstOrNull()
+    }
+
+    suspend fun getHistoryOnly(id: ObjectId): GlobalGlossary? {
+        return collection.find(eq(GlobalGlossary::id.field(), id))
+            .projection(include(GlobalGlossary::id.field(), GlobalGlossary::record.field(), GlobalGlossary::update.field(), GlobalGlossary::version.field()))
+            .firstOrNull()
+    }
+
     suspend fun getByIds(ids: List<ObjectId>): List<GlobalGlossary> {
         if (ids.isEmpty()) return emptyList()
-        return collection.find(`in`(GlobalGlossary::id.field(), ids)).toList()
+        return collection.find(`in`(GlobalGlossary::id.field(), ids))
+            .projection(exclude(GlobalGlossary::record.field()))
+            .toList()
     }
 
     suspend fun create(name: String, content: Map<String, String>, tag: List<String> = emptyList(), by: ObjectId = ObjectId("000000000000000000000000")): GlobalGlossary {
