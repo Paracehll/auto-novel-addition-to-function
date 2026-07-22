@@ -27,5 +27,7 @@ export const GlobalGlossaryCacheRepo = {
     createDb().then((db) => db.get('terms-cache', id)),
   set: (terms: GlobalGlossaryTerms): Promise<string> =>
     createDb().then((db) => db.put('terms-cache', terms)),
+  delete: (id: string): Promise<void> =>
+    createDb().then((db) => db.delete('terms-cache', id)),
   clear: (): Promise<void> => createDb().then((db) => db.clear('terms-cache')),
 };

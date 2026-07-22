@@ -29,6 +29,8 @@ const getGlobalGlossaryTerms = async (
       const { version: serverVersion } = await getGlobalGlossaryVersion(id);
       if (serverVersion === cached.version) {
         return cached;
+      } else {
+        await GlobalGlossaryCacheRepo.delete(id);
       }
     }
   } catch (e) {
