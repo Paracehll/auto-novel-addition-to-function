@@ -7,6 +7,7 @@ import infra.comment.Comment
 import infra.common.Page
 import infra.user.UserOutline
 import io.ktor.resources.*
+import org.bson.types.ObjectId
 import io.ktor.server.plugins.ratelimit.*
 import io.ktor.server.request.*
 import io.ktor.server.resources.*
@@ -143,29 +144,33 @@ class CommentApi(
 
         val ignoreHidden = user != null && user.role atLeast UserRole.Admin
 
-        return commentRepo
-            .listComment(
+        val commentsPage = commentRepo.listComment(
+            site = postId,
+            parent = parentId,
+            page = page,
+            pageSize = pageSize,
+            reverse = reverse,
+        )
+
+        val repliesMap = if (parentId == null) {
+            val parentIds = commentsPage.items
+                .filter { it.numReplies > 0 }
+                .map { ObjectId(it.id) }
+            commentRepo.getBatchReplies(
                 site = postId,
-                parent = parentId,
-                page = page,
-                pageSize = pageSize,
-                reverse = reverse,
+                parentIds = parentIds,
+                replyLimit = replyPageSize,
             )
-            .map {
-                val replies = if (parentId == null && it.numReplies > 0) {
-                    commentRepo.listComment(
-                        site = postId,
-                        parent = it.id,
-                        page = 0,
-                        pageSize = replyPageSize,
-                    ).items.map {
-                        it.asDto(emptyList(), ignoreHidden)
-                    }
-                } else {
-                    emptyList()
-                }
-                it.asDto(replies, ignoreHidden)
-            }
+        } else {
+            emptyMap()
+        }
+
+        return commentsPage.map {
+            val replies = repliesMap[it.id]?.map { reply ->
+                reply.asDto(emptyList(), ignoreHidden)
+            } ?: emptyList()
+            it.asDto(replies, ignoreHidden)
+        }
     }
 
     suspend fun deleteComment(

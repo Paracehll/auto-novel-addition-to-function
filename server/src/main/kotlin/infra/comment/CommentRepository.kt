@@ -15,8 +15,11 @@ import infra.common.emptyPage
 import infra.user.UserDbModel
 import infra.user.UserOutline
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.toList
 import kotlinx.datetime.Clock
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import org.bson.Document
 import org.bson.types.ObjectId
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
@@ -28,6 +31,64 @@ class CommentRepository(
         mongo.database.getCollection<CommentDbModel>(
             MongoCollectionNames.COMMENT,
         )
+
+    suspend fun getBatchReplies(
+        site: String,
+        parentIds: List<ObjectId>,
+        replyLimit: Int,
+    ): Map<String, List<Comment>> {
+        if (parentIds.isEmpty()) return emptyMap()
+
+        @Serializable
+        data class ParentReplies(
+            @SerialName("_id") val parentId: String,
+            val replies: List<Comment>,
+        )
+
+        val pipeline = listOf(
+            match(
+                and(
+                    eq(CommentDbModel::site.field(), site),
+                    `in`(CommentDbModel::parent.field(), parentIds),
+                )
+            ),
+            sort(ascending(CommentDbModel::id.field())),
+            lookup(
+                /* from = */ MongoCollectionNames.USER,
+                /* localField = */ CommentDbModel::user.field(),
+                /* foreignField = */ UserDbModel::id.field(),
+                /* as = */ "userOutline",
+            ),
+            unwind("\$userOutline"),
+            project(
+                fields(
+                    computed(Comment::id.field(), toString(CommentDbModel::id.field())),
+                    computed("parent", toString(CommentDbModel::parent.field())),
+                    include(
+                        Comment::site.field(),
+                        Comment::content.field(),
+                        Comment::hidden.field(),
+                        Comment::numReplies.field(),
+                        Comment::createAt.field(),
+                    ),
+                    computed(Comment::user.field() + "." + UserOutline::username.field(), "\$userOutline.username")
+                )
+            ),
+            Document(
+                "\$group",
+                Document("_id", "\$parent")
+                    .append("replies", Document("\$push", "\$\$ROOT"))
+            ),
+            project(
+                fields(
+                    computed("replies", Document("\$slice", listOf("\$replies", replyLimit)))
+                )
+            )
+        )
+
+        val list = commentCollection.aggregate<ParentReplies>(pipeline).toList()
+        return list.associate { it.parentId to it.replies }
+    }
 
     suspend fun listComment(
         site: String,
