@@ -71,12 +71,12 @@ data class GlobalGlossaryRecord(
 @Serializable
 data class GlobalGlossary(
     @Contextual @SerialName("_id") val id: ObjectId,
-    val name: String,
+    val name: String = "",
     val terms: Map<String, String> = emptyMap(),
     val termsCount: Int = 0,
     val used: List<@Contextual ObjectId> = emptyList(),
     val usedCount: Int = 0,
-    @Contextual val update: Instant,
+    @Contextual val update: Instant = Instant.fromEpochSeconds(0),
     val tag: List<String> = emptyList(),
     val record: List<GlobalGlossaryRecord> = emptyList(),
     val version: Long = 1,
