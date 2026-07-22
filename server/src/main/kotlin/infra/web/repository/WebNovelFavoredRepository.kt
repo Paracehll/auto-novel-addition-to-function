@@ -198,6 +198,11 @@ class WebNovelFavoredRepository(
                         "items",
                         skip(page * pageSize),
                         limit(pageSize),
+                        project(
+                            fields(
+                                exclude("novel.${WebNovel::toc.field()}", "novel.${WebNovel::glossary.field()}")
+                            )
+                        )
                     )
                 ),
                 project(

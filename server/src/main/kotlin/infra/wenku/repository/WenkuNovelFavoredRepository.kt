@@ -89,6 +89,11 @@ class WenkuNovelFavoredRepository(
                         skip(page * pageSize),
                         limit(pageSize),
                         replaceRoot("\$novel"),
+                        project(
+                            fields(
+                                exclude(WenkuNovel::volumes.field(), WenkuNovel::glossary.field())
+                            )
+                        )
                     )
                 ),
                 project(
