@@ -66,7 +66,7 @@ class WebNovelMetadataRepository(
                 rank.map { remote ->
                     val local = webNovelMetadataCollection
                         .find(byId(providerId, remote.novelId))
-                        .projection(exclude(WebNovel::toc.field(), WebNovel::glossary.field()))
+                        .projection(exclude(WebNovel::glossary.field()))
                         .firstOrNull()
                     remote.toOutline(providerId, local)
                 }
@@ -97,7 +97,7 @@ class WebNovelMetadataRepository(
         val items = itemsEs.map { (providerId, novelId) ->
             webNovelMetadataCollection
                 .find(byId(providerId, novelId))
-                .projection(exclude(WebNovel::toc.field(), WebNovel::glossary.field()))
+                .projection(exclude(WebNovel::glossary.field()))
                 .firstOrNull()!!
         }
         val ids = items.map { it.id }

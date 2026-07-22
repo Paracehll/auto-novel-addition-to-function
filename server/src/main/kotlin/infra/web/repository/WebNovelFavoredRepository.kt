@@ -200,7 +200,7 @@ class WebNovelFavoredRepository(
                         limit(pageSize),
                         project(
                             fields(
-                                exclude("novel.${WebNovel::toc.field()}", "novel.${WebNovel::glossary.field()}")
+                                exclude("novel.${WebNovel::glossary.field()}")
                             )
                         )
                     )

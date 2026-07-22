@@ -17,6 +17,8 @@ import infra.wenku.WenkuNovelListItem
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.bson.types.ObjectId
 
@@ -52,9 +54,17 @@ class WenkuNovelFavoredRepository(
         sort: FavoredNovelListSort,
     ): Page<WenkuNovelListItem> {
         @Serializable
+        data class WenkuNovelOutlineDbModel(
+            @Contextual @SerialName("_id") val id: ObjectId,
+            val title: String,
+            val titleZh: String,
+            val cover: String? = null,
+        )
+
+        @Serializable
         data class PageModel(
             val total: Int = 0,
-            val items: List<WenkuNovel>,
+            val items: List<WenkuNovelOutlineDbModel>,
         )
 
         val filterBson = if (favoredId == null) {
