@@ -4,19 +4,24 @@ import { useEventListener } from '@vueuse/core';
 import { useDraftStore } from '@/stores';
 import { useIsWideScreen } from '@/pages/util';
 
-const props = defineProps<{
-  mode: 'article' | 'comment';
-  draftId?: string;
-  autosize?:
-    | boolean
-    | {
-        minRows?: number;
-        maxRows?: number;
-      };
-}>();
+const props = withDefaults(
+  defineProps<{
+    mode: 'article' | 'comment';
+    draftId?: string;
+    autosize?:
+      | boolean
+      | {
+          minRows?: number;
+          maxRows?: number;
+        };
+    sticky?: boolean;
+  }>(),
+  {
+    sticky: false,
+  },
+);
 
 const value = defineModel<string>('value', { required: true });
-const activeTab = defineModel<number>('activeTab', { default: 0 });
 
 useEventListener(window, 'beforeunload', (e) => {
   if (value.value.trim()) {
@@ -27,7 +32,10 @@ useEventListener(window, 'beforeunload', (e) => {
 
 const isWideScreen = useIsWideScreen(620);
 
-const showEditorToolbar = computed(() => activeTab.value === 0);
+const showEditorToolbar = ref(true);
+const onTabUpdate = (val: number) => {
+  showEditorToolbar.value = val === 0;
+};
 
 // ==============================
 // 草稿
@@ -35,7 +43,6 @@ const showEditorToolbar = computed(() => activeTab.value === 0);
 
 const createdAt = Date.now();
 const draftStore = useDraftStore();
-const hasBeenModified = ref(false);
 
 const getDrafts = () => {
   if (props.draftId === undefined) return [];
@@ -57,22 +64,16 @@ const clearDraft = () => {
 };
 
 const elEditor = useTemplateRef('editor');
-
-defineExpose({
-  elTextarea: computed(() => elEditor.value?.textareaElRef ?? undefined),
-  drafts,
-  clearDraft,
-});
 </script>
 
 <template>
-  <n-el tag="div" class="markdown-input">
+  <n-el tag="div" class="markdown-input" :class="{ 'is-sticky': sticky }">
     <n-tabs
       ref="tab"
-      v-model:value="activeTab"
       class="tabs"
       type="card"
       size="small"
+      @update:value="onTabUpdate"
     >
       <template v-if="showEditorToolbar && isWideScreen" #suffix>
         <MarkdownToolbar
@@ -84,9 +85,9 @@ defineExpose({
       <n-tab-pane tab="编辑" :name="0" display-directive="show">
         <n-flex
           v-if="!isWideScreen"
+          class="mobile-toolbar"
           :size="0"
           align="center"
-          style="margin-left: 8px; margin-bottom: 8px"
         >
           <MarkdownToolbar
             :el-textarea="elEditor?.textareaElRef ?? undefined"
@@ -103,12 +104,7 @@ defineExpose({
             type="textarea"
             show-count
             :input-props="{ spellcheck: false }"
-            @input="
-              (text: string) => {
-                hasBeenModified = true;
-                saveDraft(text);
-              }
-            "
+            @input="saveDraft"
             :autosize="autosize || { minRows: 8 }"
           />
         </div>
@@ -148,5 +144,38 @@ defineExpose({
 .markdown-input .tabs .n-tabs-tab--active {
   background-color: var(--body-color) !important;
   border-bottom-color: var(--body-color) !important;
+}
+
+/* Ensure Naive UI layouts containing sticky editor do not block sticky positioning */
+.n-layout:has(.is-sticky),
+.n-layout-content:has(.is-sticky),
+.n-layout-scroll-container:has(.is-sticky) {
+  overflow: visible !important;
+}
+
+/* Sticky Toolbar Styling */
+.markdown-input.is-sticky {
+  overflow: visible !important;
+}
+
+.markdown-input.is-sticky .tabs .n-tabs-nav {
+  position: sticky;
+  top: 50px; /* Under the 50px fixed layout header */
+  z-index: 10;
+  background-color: var(--tab-color);
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.markdown-input.is-sticky .mobile-toolbar {
+  position: sticky;
+  top: 86px; /* 50px header + 36px tabs navigation height */
+  z-index: 1;
+  background-color: var(--body-color);
+  padding: 4px 8px;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  border-bottom: 1px solid var(--border-color);
 }
 </style>

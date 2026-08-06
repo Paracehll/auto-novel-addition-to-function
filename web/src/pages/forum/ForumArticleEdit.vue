@@ -6,18 +6,11 @@ import { ArticleRepo } from '@/repos';
 import type { ArticleCategory } from '@/model/Article';
 import { doAction, useIsWideScreen } from '@/pages/util';
 import { useDraftStore, useWhoamiStore } from '@/stores';
-import MarkdownEditorStickyTab from '@/components/markdown/MarkdownEditorStickyTab.vue';
 
-const props = withDefaults(
-  defineProps<{
-    articleId?: string;
-    category?: ArticleCategory;
-  }>(),
-  {
-    articleId: undefined,
-    category: undefined,
-  },
-);
+const { articleId, category } = defineProps<{
+  articleId: string | undefined;
+  category: ArticleCategory | undefined;
+}>();
 
 const router = useRouter();
 const isWideScreen = useIsWideScreen();
@@ -26,11 +19,8 @@ const message = useMessage();
 const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
 
-const activeTab = ref(0);
-const elEditor = useTemplateRef('editor');
-
 const draftStore = useDraftStore();
-const draftId = computed(() => `article-${props.articleId ?? 'new'}`);
+const draftId = `article-${articleId ?? 'new'}`;
 
 const articleCategoryOptions = whoami.value.asAdmin
   ? [
@@ -43,12 +33,12 @@ const articleCategoryOptions = whoami.value.asAdmin
       { value: 'Support', label: '反馈与建议' },
     ];
 
-const allowSubmit = ref(props.articleId === undefined);
+const allowSubmit = ref(articleId === undefined);
 const formRef = useTemplateRef<FormInst>('form');
 const formValue = ref({
   title: '',
   content: '',
-  category: props.category ?? 'General',
+  category: category ?? 'General',
 });
 const formRules: FormRules = {
   title: [
@@ -81,14 +71,14 @@ const formRules: FormRules = {
     {
       validator: (_rule: FormItemRule, value: string | undefined) =>
         value !== undefined,
-      message: '未选择要发表的版塊',
+      message: '未选择要发表的版块',
       trigger: 'input',
     },
   ],
 };
 
-if (props.articleId !== undefined) {
-  ArticleRepo.useArticle(props.articleId, true)
+if (articleId !== undefined) {
+  ArticleRepo.useArticle(articleId, true)
     .refresh()
     .then(({ data, error }) => {
       if (data) {
@@ -116,10 +106,10 @@ const submit = async () => {
     return;
   }
 
-  if (props.articleId === undefined) {
+  if (articleId === undefined) {
     await doAction(
       ArticleRepo.createArticle(formValue.value).then((id) => {
-        draftStore.removeDraft(draftId.value);
+        draftStore.removeDraft(draftId);
         router.push({ path: `/forum/${id}` });
       }),
       '发布',
@@ -127,9 +117,9 @@ const submit = async () => {
     );
   } else {
     await doAction(
-      ArticleRepo.updateArticle(props.articleId, formValue.value).then(() => {
-        draftStore.removeDraft(draftId.value);
-        router.push({ path: `/forum/${props.articleId}` });
+      ArticleRepo.updateArticle(articleId, formValue.value).then(() => {
+        draftStore.removeDraft(draftId);
+        router.push({ path: `/forum/${articleId}` });
       }),
       '更新',
       message,
@@ -140,7 +130,7 @@ const submit = async () => {
 
 <template>
   <div class="layout-content">
-    <n-h1>{{ props.articleId === undefined ? '发布' : '编辑' }}文章</n-h1>
+    <n-h1>{{ articleId === undefined ? '发布' : '编辑' }}文章</n-h1>
     <n-form
       ref="form"
       :model="formValue"
@@ -165,45 +155,26 @@ const submit = async () => {
       </n-form-item-row>
       <n-form-item-row path="content" label="正文">
         <MarkdownEditor
-          ref="editor"
           mode="article"
           :draft-id="draftId"
           v-model:value="formValue.content"
-          v-model:active-tab="activeTab"
           placeholder="请输入正文"
           :autosize="{ minRows: 8 }"
           maxlength="20000"
           style="width: 100%"
+          sticky
         />
       </n-form-item-row>
     </n-form>
 
-    <MarkdownEditorStickyTab
-      v-model:active-tab="activeTab"
-      :el-editor="elEditor ?? undefined"
-    >
-      <template #right-actions>
-        <c-button
-          label="提交"
-          :icon="UploadOutlined"
-          require-login
-          size="large"
-          type="primary"
-          @action="submit"
-        />
-      </template>
-    </MarkdownEditorStickyTab>
+    <c-button
+      label="提交"
+      :icon="UploadOutlined"
+      require-login
+      size="large"
+      type="primary"
+      class="float"
+      @action="submit"
+    />
   </div>
 </template>
-
-<style scoped>
-.layout-content {
-  padding-bottom: 60px;
-}
-
-@media only screen and (max-width: 540px) {
-  .layout-content {
-    padding-bottom: 120px;
-  }
-}
-</style>
