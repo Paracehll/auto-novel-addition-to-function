@@ -162,17 +162,16 @@ const elEditor = useTemplateRef('editor');
   position: sticky;
   top: 50px; /* Under the 50px fixed layout header */
   z-index: 10;
-  background-color: var(--tab-color);
+  background-color: var(--tab-color) !important;
   border-top-left-radius: 4px;
   border-top-right-radius: 4px;
-  border-bottom: 1px solid var(--border-color);
 }
 
 .markdown-input.is-sticky .mobile-toolbar {
   position: sticky;
   top: 86px; /* 50px header + 36px tabs navigation height */
   z-index: 1;
-  background-color: var(--body-color);
+  background-color: var(--body-color) !important;
   padding: 4px 8px;
   margin-left: 0 !important;
   margin-right: 0 !important;
