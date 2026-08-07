@@ -90,7 +90,7 @@ const elEditor = useTemplateRef('editor');
         <n-flex :size="8" align="center" style="padding: 0 8px; width: 100%" :wrap="false">
           <!-- Scroll buttons on the left of suffix (right next to tabs) -->
           <template v-if="showScrollButtons">
-            <n-tooltip trigger="hover" placement="top">
+            <n-tooltip trigger="hover" :placement="sticky ? 'bottom' : 'top'">
               <template #trigger>
                 <n-button size="small" quaternary @click="scrollToTop" style="padding: 0 8px">
                   <template #icon>
@@ -100,7 +100,7 @@ const elEditor = useTemplateRef('editor');
               </template>
               回到頁首
             </n-tooltip>
-            <n-tooltip trigger="hover" placement="top">
+            <n-tooltip trigger="hover" :placement="sticky ? 'bottom' : 'top'">
               <template #trigger>
                 <n-button size="small" quaternary @click="scrollToBottom" style="padding: 0 8px">
                   <template #icon>
@@ -120,6 +120,7 @@ const elEditor = useTemplateRef('editor');
             v-if="showEditorToolbar && isWideScreen"
             :el-textarea="elEditor?.textareaElRef ?? undefined"
             :drafts="drafts"
+            :tooltip-placement="sticky ? 'bottom' : 'top'"
             @clear-draft="clearDraft"
           />
         </n-flex>
