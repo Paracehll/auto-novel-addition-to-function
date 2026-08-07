@@ -126,12 +126,14 @@ const elEditor = useTemplateRef('editor');
   border: 1px solid var(--border-color);
   border-radius: 4px;
   overflow: hidden;
+  background-color: var(--body-color);
 }
 
 .markdown-input .tabs .n-tabs-nav {
   --n-tab-gap: 0;
-  background-color: var(--tab-color);
+  background-color: var(--card-color);
   margin: -1px 0 0 -1px;
+  border-top: 1px solid var(--border-color);
 }
 
 .markdown-input .tabs .n-tabs-tab:not(.n-tabs-tab--active) {
@@ -162,9 +164,14 @@ const elEditor = useTemplateRef('editor');
   position: sticky;
   top: 50px; /* Under the 50px fixed layout header */
   z-index: 10;
-  background-color: var(--tab-color) !important;
+  background-color: var(--card-color) !important;
+  border-top: 1px solid var(--border-color);
+  border-left: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
   border-top-left-radius: 4px;
   border-top-right-radius: 4px;
+  margin-left: -1px;
+  margin-right: -1px;
 }
 
 .markdown-input.is-sticky .mobile-toolbar {
