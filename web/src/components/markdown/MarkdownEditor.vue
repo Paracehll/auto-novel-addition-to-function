@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useEventListener } from '@vueuse/core';
+import { ArrowDownwardOutlined, ArrowUpwardOutlined } from '@vicons/material';
 
 import { useDraftStore } from '@/stores';
 import { useIsWideScreen } from '@/pages/util';
@@ -15,11 +16,21 @@ const props = withDefaults(
           maxRows?: number;
         };
     sticky?: boolean;
+    showScrollButtons?: boolean;
   }>(),
   {
     sticky: false,
+    showScrollButtons: false,
   },
 );
+
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+const scrollToBottom = () => {
+  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+};
 
 const value = defineModel<string>('value', { required: true });
 
@@ -75,12 +86,31 @@ const elEditor = useTemplateRef('editor');
       size="small"
       @update:value="onTabUpdate"
     >
-      <template v-if="showEditorToolbar && isWideScreen" #suffix>
-        <MarkdownToolbar
-          :el-textarea="elEditor?.textareaElRef ?? undefined"
-          :drafts="drafts"
-          @clear-draft="clearDraft"
-        />
+      <template #suffix>
+        <n-flex :size="8" align="center" style="padding: 0 8px" :wrap="false">
+          <template v-if="showScrollButtons">
+            <n-button size="small" quaternary @click="scrollToTop">
+              <template #icon>
+                <n-icon :component="ArrowUpwardOutlined" />
+              </template>
+              回到頁首
+            </n-button>
+            <n-button size="small" quaternary @click="scrollToBottom">
+              <template #icon>
+                <n-icon :component="ArrowDownwardOutlined" />
+              </template>
+              回到頁尾
+            </n-button>
+            <n-divider vertical v-if="showEditorToolbar && isWideScreen" />
+          </template>
+
+          <MarkdownToolbar
+            v-if="showEditorToolbar && isWideScreen"
+            :el-textarea="elEditor?.textareaElRef ?? undefined"
+            :drafts="drafts"
+            @clear-draft="clearDraft"
+          />
+        </n-flex>
       </template>
       <n-tab-pane tab="编辑" :name="0" display-directive="show">
         <n-flex
