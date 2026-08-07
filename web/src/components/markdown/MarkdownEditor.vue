@@ -132,8 +132,10 @@ const elEditor = useTemplateRef('editor');
 .markdown-input .tabs .n-tabs-nav {
   --n-tab-gap: 0;
   background-color: var(--card-color);
-  margin: -1px 0 0 -1px;
+  margin: -1px 0 0 0;
   border-top: 1px solid var(--border-color);
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
 }
 
 .markdown-input .tabs .n-tabs-tab:not(.n-tabs-tab--active) {
@@ -166,12 +168,8 @@ const elEditor = useTemplateRef('editor');
   z-index: 10;
   background-color: var(--card-color) !important;
   border-top: 1px solid var(--border-color);
-  border-left: 1px solid var(--border-color);
-  border-right: 1px solid var(--border-color);
-  border-top-left-radius: 4px;
-  border-top-right-radius: 4px;
-  margin-left: -1px;
-  margin-right: -1px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
 }
 
 .markdown-input.is-sticky .mobile-toolbar {
