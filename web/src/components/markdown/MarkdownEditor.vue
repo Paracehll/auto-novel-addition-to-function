@@ -24,12 +24,29 @@ const props = withDefaults(
   },
 );
 
-const scrollToTop = () => {
+const showTopTooltip = ref<boolean | undefined>(undefined);
+const showBottomTooltip = ref<boolean | undefined>(undefined);
+
+const scrollToTop = (event: MouseEvent) => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  showTopTooltip.value = false;
+  if (event.currentTarget) {
+    (event.currentTarget as HTMLButtonElement).blur();
+  }
+  setTimeout(() => {
+    showTopTooltip.value = undefined;
+  }, 500);
 };
 
-const scrollToBottom = () => {
+const scrollToBottom = (event: MouseEvent) => {
   window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+  showBottomTooltip.value = false;
+  if (event.currentTarget) {
+    (event.currentTarget as HTMLButtonElement).blur();
+  }
+  setTimeout(() => {
+    showBottomTooltip.value = undefined;
+  }, 500);
 };
 
 const value = defineModel<string>('value', { required: true });
@@ -90,7 +107,7 @@ const elEditor = useTemplateRef('editor');
         <n-flex :size="8" align="center" style="padding: 0 8px; width: 100%" :wrap="false">
           <!-- Scroll buttons on the left of suffix (right next to tabs) -->
           <template v-if="showScrollButtons">
-            <n-tooltip trigger="hover" :placement="sticky ? 'bottom' : 'top'">
+            <n-tooltip trigger="hover" :placement="sticky ? 'bottom' : 'top'" :show="showTopTooltip">
               <template #trigger>
                 <n-button size="small" quaternary @click="scrollToTop" style="padding: 0 8px">
                   <template #icon>
@@ -100,7 +117,7 @@ const elEditor = useTemplateRef('editor');
               </template>
               回到頁首
             </n-tooltip>
-            <n-tooltip trigger="hover" :placement="sticky ? 'bottom' : 'top'">
+            <n-tooltip trigger="hover" :placement="sticky ? 'bottom' : 'top'" :show="showBottomTooltip">
               <template #trigger>
                 <n-button size="small" quaternary @click="scrollToBottom" style="padding: 0 8px">
                   <template #icon>
