@@ -87,23 +87,35 @@ const elEditor = useTemplateRef('editor');
       @update:value="onTabUpdate"
     >
       <template #suffix>
-        <n-flex :size="8" align="center" style="padding: 0 8px" :wrap="false">
+        <n-flex :size="8" align="center" style="padding: 0 8px; width: 100%" :wrap="false">
+          <!-- Scroll buttons on the left of suffix (right next to tabs) -->
           <template v-if="showScrollButtons">
-            <n-button size="small" quaternary @click="scrollToTop">
-              <template #icon>
-                <n-icon :component="ArrowUpwardOutlined" />
+            <n-tooltip trigger="hover" placement="top">
+              <template #trigger>
+                <n-button size="small" quaternary @click="scrollToTop" style="padding: 0 8px">
+                  <template #icon>
+                    <n-icon :component="ArrowUpwardOutlined" />
+                  </template>
+                </n-button>
               </template>
               回到頁首
-            </n-button>
-            <n-button size="small" quaternary @click="scrollToBottom">
-              <template #icon>
-                <n-icon :component="ArrowDownwardOutlined" />
+            </n-tooltip>
+            <n-tooltip trigger="hover" placement="top">
+              <template #trigger>
+                <n-button size="small" quaternary @click="scrollToBottom" style="padding: 0 8px">
+                  <template #icon>
+                    <n-icon :component="ArrowDownwardOutlined" />
+                  </template>
+                </n-button>
               </template>
               回到頁尾
-            </n-button>
-            <n-divider vertical v-if="showEditorToolbar && isWideScreen" />
+            </n-tooltip>
+            <n-divider vertical style="margin: 0 4px" v-if="showEditorToolbar && isWideScreen" />
           </template>
 
+          <div style="flex: 1" />
+
+          <!-- Toolbar on the far right -->
           <MarkdownToolbar
             v-if="showEditorToolbar && isWideScreen"
             :el-textarea="elEditor?.textareaElRef ?? undefined"
@@ -166,6 +178,14 @@ const elEditor = useTemplateRef('editor');
   border-top: 1px solid var(--border-color);
   border-top-left-radius: 3px;
   border-top-right-radius: 3px;
+}
+
+.markdown-input .tabs .n-tabs-nav-scroll-wrapper {
+  flex: 0 0 auto !important;
+}
+
+.markdown-input .tabs .n-tabs-nav__suffix {
+  flex: 1 !important;
 }
 
 .markdown-input .tabs .n-tabs-tab:not(.n-tabs-tab--active) {
