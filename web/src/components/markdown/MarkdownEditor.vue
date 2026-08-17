@@ -2,7 +2,7 @@
 import { useEventListener } from '@vueuse/core';
 import { ArrowDownwardOutlined, ArrowUpwardOutlined } from '@vicons/material';
 
-import { useDraftStore } from '@/stores';
+import { useDraftStore, useSettingStore } from '@/stores';
 import { useIsWideScreen } from '@/pages/util';
 
 const props = withDefaults(
@@ -59,6 +59,8 @@ useEventListener(window, 'beforeunload', (e) => {
 });
 
 const isWideScreen = useIsWideScreen(620);
+const settingStore = useSettingStore();
+const isSticky = computed(() => props.sticky && settingStore.setting.stickyToolbar);
 
 const showEditorToolbar = ref(true);
 const onTabUpdate = (val: number) => {
@@ -95,7 +97,7 @@ const elEditor = useTemplateRef('editor');
 </script>
 
 <template>
-  <n-el tag="div" class="markdown-input" :class="{ 'is-sticky': sticky }">
+  <n-el tag="div" class="markdown-input" :class="{ 'is-sticky': isSticky }">
     <n-tabs
       ref="tab"
       class="tabs"
@@ -107,7 +109,7 @@ const elEditor = useTemplateRef('editor');
         <n-flex :size="8" align="center" style="padding: 0 8px; width: 100%" :wrap="false">
           <!-- Scroll buttons on the left of suffix (right next to tabs) -->
           <template v-if="showScrollButtons">
-            <n-tooltip trigger="hover" :placement="sticky ? 'bottom' : 'top'" :show="showTopTooltip">
+            <n-tooltip trigger="hover" :placement="isSticky ? 'bottom' : 'top'" :show="showTopTooltip">
               <template #trigger>
                 <n-button size="small" quaternary @click="scrollToTop" style="padding: 0 8px">
                   <template #icon>
@@ -117,7 +119,7 @@ const elEditor = useTemplateRef('editor');
               </template>
               回到頁首
             </n-tooltip>
-            <n-tooltip trigger="hover" :placement="sticky ? 'bottom' : 'top'" :show="showBottomTooltip">
+            <n-tooltip trigger="hover" :placement="isSticky ? 'bottom' : 'top'" :show="showBottomTooltip">
               <template #trigger>
                 <n-button size="small" quaternary @click="scrollToBottom" style="padding: 0 8px">
                   <template #icon>
@@ -137,7 +139,7 @@ const elEditor = useTemplateRef('editor');
             v-if="showEditorToolbar && isWideScreen"
             :el-textarea="elEditor?.textareaElRef ?? undefined"
             :drafts="drafts"
-            :tooltip-placement="sticky ? 'bottom' : 'top'"
+            :tooltip-placement="isSticky ? 'bottom' : 'top'"
             @clear-draft="clearDraft"
           />
         </n-flex>
@@ -243,7 +245,7 @@ const elEditor = useTemplateRef('editor');
 .markdown-input.is-sticky .mobile-toolbar {
   position: sticky;
   top: 86px; /* 50px header + 36px tabs navigation height */
-  z-index: 1;
+  z-index: 9;
   background-color: var(--body-color) !important;
   padding: 4px 8px;
   margin-left: 0 !important;
