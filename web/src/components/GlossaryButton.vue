@@ -1,5 +1,8 @@
 <script lang="ts" setup>
+import { ref, computed } from 'vue';
+import type { ScrollbarInst } from 'naive-ui';
 import { DeleteOutlineOutlined } from '@vicons/material';
+import { useGlossaryDrag } from './useGlossaryDrag';
 
 import { WebNovelApi, WenkuNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
@@ -36,8 +39,12 @@ const isGlossaryChanged = () => {
   const cur = glossary.value;
   const orig = originalGlossary.value;
   const curKeys = Object.keys(cur);
-  if (curKeys.length !== Object.keys(orig).length) return true;
-  return curKeys.some((key) => cur[key] !== orig[key]);
+  const origKeys = Object.keys(orig);
+  if (curKeys.length !== origKeys.length) return true;
+  for (let i = 0; i < curKeys.length; i++)
+    if (curKeys[i] !== origKeys[i] || cur[curKeys[i]] !== orig[curKeys[i]])
+      return true;
+  return false;
 };
 
 const gnidHint = computed(() => {
@@ -108,27 +115,38 @@ const handleConfirmCancel = () => {
 const importGlossaryRaw = ref('');
 const termsToAdd = ref<[string, string]>(['', '']);
 
-const deletedTerms = ref<[string, string][]>([]);
+type UndoAction =
+  | { type: 'delete'; item: [string, string] }
+  | { type: 'reorder'; previousGlossary: Glossary };
 
-const lastDeletedTerm = computed(() => {
-  const last = deletedTerms.value[deletedTerms.value.length - 1];
-  if (last === undefined) return undefined;
-  return `${last[0]} => ${last[1]}`;
+const undoStack = ref<UndoAction[]>([]);
+
+const lastUndoHint = computed(() => {
+  const last = undoStack.value[undoStack.value.length - 1];
+  if (last === undefined) return 'Tip: 按住 => 可以拖放';
+  else if (last.type === 'delete') return `${last.item[0]} => ${last.item[1]}`;
+  return '变更排序';
 });
 
 const clearTerm = () => {
   glossary.value = {};
+  undoStack.value = [];
 };
 
-const undoDeleteTerm = () => {
-  if (deletedTerms.value.length === 0) return;
-  const [jp, zh] = deletedTerms.value.pop()!;
-  glossary.value[jp] = zh;
+const undoLastAction = () => {
+  if (undoStack.value.length === 0) return;
+  const action = undoStack.value.pop()!;
+  if (action.type === 'delete') {
+    const [jp, zh] = action.item;
+    glossary.value[jp] = zh;
+  } else if (action.type === 'reorder') {
+    glossary.value = action.previousGlossary;
+  }
 };
 
 const deleteTerm = (jp: string) => {
   if (jp in glossary.value) {
-    deletedTerms.value.push([jp, glossary.value[jp]]);
+    undoStack.value.push({ type: 'delete', item: [jp, glossary.value[jp]] });
     delete glossary.value[jp];
   }
 };
@@ -174,6 +192,46 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
     }),
   );
 };
+
+// --- 拖放邏輯 ---
+const scrollbarInstRef = ref<ScrollbarInst | null>(null);
+const scrollContainerRef = ref<HTMLDivElement | null>(null);
+const jpKeys = computed(() => Object.keys(glossary.value).reverse());
+
+const { draggedKey, dragOverKey, dragPosition, handleDragStart } =
+  useGlossaryDrag({
+    scrollContainerRef,
+    scrollbarInstRef,
+    jpKeys,
+    onReorder: (sourceKey, targetKey, position) => {
+      const keys = [...jpKeys.value];
+      const fromIndex = keys.indexOf(sourceKey);
+      let toIndex = keys.indexOf(targetKey);
+
+      if (fromIndex !== -1 && toIndex !== -1) {
+        if (position === 'on') {
+          [keys[fromIndex], keys[toIndex]] = [keys[toIndex], keys[fromIndex]];
+        } else {
+          keys.splice(fromIndex, 1);
+          toIndex = keys.indexOf(targetKey);
+          if (toIndex !== -1) {
+            if (position === 'below') toIndex++;
+            keys.splice(toIndex, 0, sourceKey);
+          }
+        }
+
+        undoStack.value.push({
+          type: 'reorder',
+          previousGlossary: { ...glossary.value },
+        });
+
+        const newGlossary: Glossary = {};
+        for (const k of keys.reverse()) newGlossary[k] = glossary.value[k];
+
+        glossary.value = newGlossary;
+      }
+    },
+  });
 </script>
 
 <template>
@@ -262,54 +320,97 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
         </n-flex>
         <n-flex align="center" :wrap="false">
           <c-button
-            :disabled="deletedTerms.length === 0"
-            label="撤销删除"
+            :disabled="undoStack.length === 0"
+            label="撤销"
             :round="false"
             size="small"
-            @action="undoDeleteTerm"
+            @action="undoLastAction"
           />
           <n-text
-            v-if="lastDeletedTerm !== undefined"
+            v-if="lastUndoHint !== undefined"
             depth="3"
             style="font-size: 12px"
           >
-            {{ lastDeletedTerm }}
+            {{ lastUndoHint }}
           </n-text>
         </n-flex>
       </n-flex>
     </template>
 
-    <n-table
-      v-if="Object.keys(glossary).length !== 0"
-      striped
-      size="small"
-      style="font-size: 12px; max-width: 400px"
-    >
-      <tr v-for="wordJp in Object.keys(glossary).reverse()" :key="wordJp">
-        <td>
-          <c-button
-            :icon="DeleteOutlineOutlined"
-            text
-            type="error"
-            size="small"
-            @action="deleteTerm(wordJp)"
-          />
-        </td>
-        <td>{{ wordJp }}</td>
-        <td nowrap="nowrap">=></td>
-        <td style="padding-right: 16px">
-          <n-input
-            v-model:value="glossary[wordJp]"
-            size="tiny"
-            placeholder="请输入中文翻译"
-            :theme-overrides="{
-              border: '0',
-              color: 'transprent',
-            }"
-          />
-        </td>
-      </tr>
-    </n-table>
+    <div ref="scrollContainerRef" style="position: relative; max-width: 400px">
+      <n-scrollbar
+        ref="scrollbarInstRef"
+        style="
+          max-height: 250px;
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          padding: 4px;
+        "
+      >
+        <n-table
+          v-if="jpKeys.length !== 0"
+          striped
+          size="small"
+          style="font-size: 12px"
+          :class="{ 'is-dragging': draggedKey !== null }"
+        >
+          <tbody>
+            <tr
+              v-for="wordJp in jpKeys"
+              :key="wordJp"
+              :data-key="wordJp"
+              v-memo="[
+                wordJp === draggedKey,
+                wordJp === dragOverKey ? dragPosition : null,
+                glossary[wordJp],
+              ]"
+              :class="{
+                'dragged-row': wordJp === draggedKey,
+                'drag-over-above':
+                  wordJp === dragOverKey && dragPosition === 'above',
+                'drag-over-below':
+                  wordJp === dragOverKey && dragPosition === 'below',
+                'drag-over-on': wordJp === dragOverKey && dragPosition === 'on',
+              }"
+            >
+              <td>
+                <c-button
+                  :icon="DeleteOutlineOutlined"
+                  text
+                  type="error"
+                  size="small"
+                  @action="deleteTerm(wordJp)"
+                />
+              </td>
+              <td>{{ wordJp }}</td>
+              <td
+                nowrap="nowrap"
+                class="drag-handle"
+                @pointerdown="handleDragStart($event, wordJp)"
+              >
+                =&gt;
+              </td>
+              <td style="padding-right: 16px">
+                <n-input
+                  v-model:value="glossary[wordJp]"
+                  size="tiny"
+                  placeholder="请输入中文翻译"
+                  :theme-overrides="{
+                    border: '0',
+                    color: 'transparent',
+                  }"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </n-table>
+        <n-empty
+          v-else
+          description="暂无术语词条，请添加"
+          style="padding: 16px"
+        />
+      </n-scrollbar>
+    </div>
 
     <template #action>
       <c-button label="提交" type="primary" @action="submitGlossary()" />
@@ -350,3 +451,59 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
     </template>
   </n-modal>
 </template>
+
+<style scoped>
+.drag-handle {
+  cursor: grab;
+  user-select: none;
+  font-weight: bold;
+  padding: 0 8px;
+  text-align: center;
+  touch-action: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.dragged-row {
+  opacity: 0.4;
+}
+
+.drag-over-above td {
+  box-shadow: inset 0 2px 0 0 var(--primary-color, #ffffff) !important;
+}
+
+.drag-over-below td {
+  box-shadow: inset 0 -2px 0 0 var(--primary-color, #ffffff) !important;
+}
+
+.drag-over-on td {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.is-dragging :deep(.n-input),
+.is-dragging :deep(.n-input *) {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+:global(.drag-preview-container) {
+  position: fixed;
+  pointer-events: none;
+  z-index: 99999;
+  opacity: 0.75;
+  left: 0;
+  top: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+:global(.drag-preview-table) {
+  width: 100%;
+  background: var(--card-color, #18181c);
+  border-collapse: collapse;
+  font-size: 12px;
+}
+</style>

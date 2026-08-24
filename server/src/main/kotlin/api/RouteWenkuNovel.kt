@@ -457,7 +457,7 @@ class WenkuNovelApi(
         user.requireNovelAccess()
         val novel = metadataRepo.get(novelId)
             ?: throwNovelNotFound()
-        if (glossary == novel.glossary)
+        if (glossary.toList() == novel.glossary.toList())
             throwBadRequest("术语表没有改变")
         metadataRepo.updateGlossary(
             novelId = novelId,

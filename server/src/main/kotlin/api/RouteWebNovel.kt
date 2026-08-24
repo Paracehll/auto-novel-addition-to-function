@@ -866,7 +866,7 @@ class WebNovelApi(
         user.requireNovelAccess()
         val novel = metadataRepo.get(providerId, novelId)
             ?: throwNovelNotFound()
-        if (novel.glossary == glossary)
+        if (novel.glossary.toList() == glossary.toList())
             throwBadRequest("修改为空")
         metadataRepo.updateGlossary(
             providerId = providerId,
