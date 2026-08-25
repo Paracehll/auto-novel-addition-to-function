@@ -281,8 +281,8 @@ defineExpose({
       </n-table>
     </n-scrollbar>
 
-    <div>
+    <n-flex justify="end" style="max-width: 500px">
       <c-button label="提交" type="primary" @action="submitGlossary()" />
-    </div>
+    </n-flex>
   </div>
 </template>
