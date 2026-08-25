@@ -220,14 +220,7 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
           style="margin-top: 16px"
         />
         <n-flex style="margin-top: 16px">
-          <n-button-group>
-            <GlossaryButton
-              :gnid="GenericNovelId.wenku(novelId)"
-              :value="novel.glossary"
-              :round="false"
-            />
-            <DownloadOptionsButton :round="false" />
-          </n-button-group>
+          <DownloadOptionsButton :round="false" />
         </n-flex>
         <n-divider style="margin: 16px 0 0" />
 
