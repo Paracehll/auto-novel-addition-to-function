@@ -2,12 +2,13 @@
 import { EditNoteOutlined, LanguageOutlined } from '@vicons/material';
 import { createReusableTemplate } from '@vueuse/core';
 
-import { WenkuNovelRepo } from '@/repos';
 import coverPlaceholder from '@/image/cover_placeholder.png';
 import { GenericNovelId } from '@/model/Common';
-import { doAction, useIsWideScreen } from '@/pages/util';
-import { useSettingStore, useWhoamiStore } from '@/stores';
 import type { VolumeJpDto } from '@/model/WenkuNovel';
+import NovelBottomTabs from '@/pages/novel/components/NovelBottomTabs.vue';
+import { doAction, useIsWideScreen } from '@/pages/util';
+import { WenkuNovelRepo } from '@/repos';
+import { useSettingStore, useWhoamiStore } from '@/stores';
 
 const { novelId } = defineProps<{ novelId: string }>();
 
@@ -286,9 +287,11 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
       </template>
       <n-p v-else>游客无法查看内容，请先登录。</n-p>
 
-      <comment-list
-        v-if="!setting.hideCommmentWenkuNovel"
+      <NovelBottomTabs
+        :gnid="GenericNovelId.wenku(novelId)"
+        :glossary="novel.glossary"
         :site="`wenku-${novelId}`"
+        :hide-comment="setting.hideCommmentWenkuNovel"
         :locked="false"
       />
     </template>
