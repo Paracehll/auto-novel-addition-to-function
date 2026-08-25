@@ -11,7 +11,11 @@ const props = defineProps<{
   locked?: boolean;
 }>();
 
-const activeTab = ref(props.hideComment ? 'glossary' : 'comment');
+const slots = useSlots();
+
+const activeTab = ref(
+  slots.toc ? 'toc' : props.hideComment ? 'glossary' : 'comment',
+);
 
 watch(
   () => props.hideComment,
@@ -29,6 +33,15 @@ const glossaryCount = computed(() => Object.keys(props.glossary).length);
   <div class="novel-bottom-tabs" style="margin-top: 24px">
     <n-tabs v-model:value="activeTab" type="line" animated>
       <n-tab-pane
+        v-if="$slots.toc"
+        name="toc"
+        tab="目录"
+        style="min-height: 400px"
+      >
+        <slot name="toc" />
+      </n-tab-pane>
+
+      <n-tab-pane
         v-if="!hideComment"
         name="comment"
         tab="评论区"
@@ -42,7 +55,6 @@ const glossaryCount = computed(() => Object.keys(props.glossary).length);
         :tab="`术语表${glossaryCount > 0 ? ` [${glossaryCount}]` : ''}`"
         style="min-height: 400px"
       >
-        <section-header title="术语表" style="margin-bottom: 24px" />
         <NovelGlossaryEditor :gnid="gnid" :value="glossary" />
       </n-tab-pane>
     </n-tabs>
