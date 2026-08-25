@@ -230,6 +230,7 @@ defineExpose({
           @action="clearTerm"
         />
       </n-flex>
+
       <n-flex align="center" :wrap="false">
         <c-button
           :disabled="deletedTerms.length === 0"
@@ -248,37 +249,37 @@ defineExpose({
       </n-flex>
     </n-flex>
 
-    <n-table
+    <n-scrollbar
       v-if="Object.keys(glossary).length !== 0"
-      striped
-      size="small"
-      style="font-size: 12px; max-width: 500px; margin-bottom: 16px"
+      style="max-height: 400px; max-width: 500px; margin-bottom: 16px"
     >
-      <tr v-for="wordJp in Object.keys(glossary).reverse()" :key="wordJp">
-        <td>
-          <c-button
-            :icon="DeleteOutlineOutlined"
-            text
-            type="error"
-            size="small"
-            @action="deleteTerm(wordJp)"
-          />
-        </td>
-        <td>{{ wordJp }}</td>
-        <td nowrap="nowrap">=></td>
-        <td style="padding-right: 16px">
-          <n-input
-            v-model:value="glossary[wordJp]"
-            size="tiny"
-            placeholder="请输入中文翻译"
-            :theme-overrides="{
-              border: '0',
-              color: 'transparent',
-            }"
-          />
-        </td>
-      </tr>
-    </n-table>
+      <n-table striped size="small" style="font-size: 12px; width: 100%">
+        <tr v-for="wordJp in Object.keys(glossary).reverse()" :key="wordJp">
+          <td>
+            <c-button
+              :icon="DeleteOutlineOutlined"
+              text
+              type="error"
+              size="small"
+              @action="deleteTerm(wordJp)"
+            />
+          </td>
+          <td>{{ wordJp }}</td>
+          <td nowrap="nowrap">=></td>
+          <td style="padding-right: 16px">
+            <n-input
+              v-model:value="glossary[wordJp]"
+              size="tiny"
+              placeholder="请输入中文翻译"
+              :theme-overrides="{
+                border: '0',
+                color: 'transparent',
+              }"
+            />
+          </td>
+        </tr>
+      </n-table>
+    </n-scrollbar>
 
     <div>
       <c-button label="提交" type="primary" @action="submitGlossary()" />

@@ -28,13 +28,19 @@ const glossaryCount = computed(() => Object.keys(props.glossary).length);
 <template>
   <div class="novel-bottom-tabs" style="margin-top: 24px">
     <n-tabs v-model:value="activeTab" type="line" animated>
-      <n-tab-pane v-if="!hideComment" name="comment" tab="评论区">
+      <n-tab-pane
+        v-if="!hideComment"
+        name="comment"
+        tab="评论区"
+        style="min-height: 400px"
+      >
         <comment-list :site="site" :locked="locked ?? false" />
       </n-tab-pane>
 
       <n-tab-pane
         name="glossary"
         :tab="`术语表${glossaryCount > 0 ? ` [${glossaryCount}]` : ''}`"
+        style="min-height: 400px"
       >
         <section-header title="术语表" style="margin-bottom: 24px" />
         <NovelGlossaryEditor :gnid="gnid" :value="glossary" />
