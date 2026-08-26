@@ -14,7 +14,7 @@ const props = defineProps<{
 const slots = useSlots();
 
 const activeTab = ref(
-  slots.wenkuToc ? 'wenku-toc' : props.hideComment ? 'glossary' : 'comment',
+  slots.wenkuToc ? 'wenkuToc' : props.hideComment ? 'glossary' : 'comment',
 );
 
 watch(
