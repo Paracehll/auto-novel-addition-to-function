@@ -170,6 +170,7 @@ defineExpose({
 <template>
   <div class="novel-glossary-editor">
     <n-flex vertical size="large" style="max-width: 500px; margin-bottom: 16px">
+      <n-h3 prefix="bar">编辑术语表</n-h3>
       <template v-if="gnidHint">
         <n-text style="font-size: 12px">{{ gnidHint }}</n-text>
 

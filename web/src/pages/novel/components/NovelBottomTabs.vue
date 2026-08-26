@@ -14,7 +14,7 @@ const props = defineProps<{
 const slots = useSlots();
 
 const activeTab = ref(
-  slots.toc ? 'toc' : props.hideComment ? 'glossary' : 'comment',
+  slots.wenkuToc ? 'wenku-toc' : props.hideComment ? 'glossary' : 'comment',
 );
 
 watch(
@@ -33,12 +33,12 @@ const glossaryCount = computed(() => Object.keys(props.glossary).length);
   <div class="novel-bottom-tabs" style="margin-top: 24px">
     <n-tabs v-model:value="activeTab" type="line" animated>
       <n-tab-pane
-        v-if="$slots.toc"
-        name="toc"
+        v-if="$slots.wenkuToc"
+        name="wenkuToc"
         tab="目录"
         style="min-height: 400px"
       >
-        <slot name="toc" />
+        <slot name="wenkuToc" />
       </n-tab-pane>
 
       <n-tab-pane

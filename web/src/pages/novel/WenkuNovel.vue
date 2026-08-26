@@ -217,8 +217,9 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
         :hide-comment="setting.hideCommmentWenkuNovel"
         :locked="false"
       >
-        <template #toc>
+        <template #wenkuToc>
           <template v-if="whoami.isSignedIn">
+            <br />
             <upload-button :allow-zh="whoami.isAdmin" :novel-id="novelId" />
 
             <TranslateOptions
