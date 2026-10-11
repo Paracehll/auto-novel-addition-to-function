@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import { useKeyModifier } from '@vueuse/core';
 import ky from 'ky';
 
 import { WebNovelApi } from '@/api';
@@ -11,6 +10,7 @@ import {
   useWhoamiStore,
   useWorkspaceStore,
 } from '@/stores';
+import { useShouldTopJob } from '@/util';
 
 const props = defineProps<{
   providerId: string;
@@ -91,7 +91,7 @@ const files = computed(() => {
   };
 });
 
-const pressControl = useKeyModifier('Control');
+const shouldTopJob = useShouldTopJob();
 const submitJob = (id: 'gpt' | 'sakura') => {
   const { startIndex, endIndex, level, forceMetadata, useBrowserCrawler } =
     translateOptions.value!.getTranslateTaskParams();
@@ -140,7 +140,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
     };
     const success = workspace.addJob(job);
     if (success) {
-      if (setting.value.autoTopJobWhenAddTask || pressControl.value) {
+      if (setting.value.autoTopJobWhenAddTask || shouldTopJob.value) {
         workspace.topJob(job);
       }
     }
@@ -202,14 +202,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
     v-if="whoami.isSignedIn && setting.enabledTranslator.length > 0"
     style="margin-top: 16px"
   >
-    <n-button-group>
-      <GlossaryButton
-        :gnid="GenericNovelId.web(providerId, novelId)"
-        :value="glossary"
-        :round="false"
-      />
-      <c-button label="导入工作区" :round="false" @action="importToWorkspace" />
-    </n-button-group>
+    <c-button label="导入工作区" :round="false" @action="importToWorkspace" />
 
     <n-button-group>
       <c-button

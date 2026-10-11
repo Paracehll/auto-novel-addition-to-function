@@ -67,6 +67,12 @@ fun Application.authentication(secret: String) = install(Authentication) {
             }
         }
         challenge { _, _ ->
+            val challenge = if (call.request.headers[HttpHeaders.Authorization].isNullOrBlank()) {
+                "Bearer"
+            } else {
+                "Bearer error=\"invalid_token\""
+            }
+            call.response.header(HttpHeaders.WWWAuthenticate, challenge)
             call.respond(HttpStatusCode.Unauthorized, "Token不合法或者过期")
         }
     }
@@ -98,12 +104,6 @@ fun User?.requireNsfwAccess() {
         throwUnauthorized("游客没有权限执行此操作")
     } else if (!createAtLeast(30)) {
         throwUnauthorized("你还太年轻了")
-    }
-}
-
-fun User.requireForumAccess() {
-    if (!atLeast(UserRole.Member)) {
-        throwUnauthorized("当前账户没有权限执行此操作")
     }
 }
 
